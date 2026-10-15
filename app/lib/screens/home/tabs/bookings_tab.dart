@@ -44,8 +44,23 @@ class _BookingsTabState extends State<BookingsTab> {
 
   Future<void> _setStatus(Booking booking, String status) async {
     try {
-      await _api.patch('/api/bookings/${booking.id}/status', body: {'status': status});
+      final data = await _api.patch('/api/bookings/${booking.id}/status', body: {'status': status});
       await _load();
+      if (!mounted) return;
+      if (status == 'confirmed') {
+        final sms = (data as Map<String, dynamic>)['sms'] as Map<String, dynamic>?;
+        final smsStatus = sms?['status'];
+        final message = smsStatus == 'sent'
+            ? 'Booking confirmed — text sent to ${booking.customerName}'
+            : smsStatus == 'queued'
+                ? 'Booking confirmed — text queued (dev mode)'
+                : 'Booking confirmed';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Booking ${status == 'cancelled' ? 'cancelled' : 'updated'}')),
+        );
+      }
     } on ApiException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));

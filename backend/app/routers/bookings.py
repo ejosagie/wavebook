@@ -4,6 +4,7 @@ from ..database import get_connection, row_to_dict, rows_to_dicts
 from ..deps import get_current_business, require_owner
 from ..routers.notifications import add_notification
 from ..schemas import BookingCreate, BookingStatusUpdate
+from ..services.notifier import send_booking_confirmation_sms
 from ..services.slots import get_availability_row, get_available_time_slots, is_date_blocked
 
 router = APIRouter(prefix="/api/bookings", tags=["bookings"])
@@ -174,7 +175,13 @@ def update_booking_status(
         booking = row_to_dict(conn.execute("SELECT * FROM bookings WHERE id = ?", (booking_id,)).fetchone())
     finally:
         conn.close()
-    return booking
+
+    # Text the customer when their booking is confirmed
+    sms = None
+    if data.status == "confirmed" and booking.get("customer_phone"):
+        sms = send_booking_confirmation_sms(booking, business)
+
+    return {**booking, "sms": sms}
 
 
 @router.delete("/{booking_id}")

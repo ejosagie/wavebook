@@ -331,6 +331,14 @@ async def tenant_booking_submit(
     finally:
         conn.close()
 
+    # Notify the owner by text message
+    if business.get("contact_phone"):
+        send_sms(
+            business["contact_phone"],
+            f"New booking: {name.strip()} booked {service['name']} on {date} at {time} "
+            f"({business['name']}). Ref: {booking_id}",
+        )
+
     return templates.TemplateResponse(
         request,
         "tenant/booking_success.html",
