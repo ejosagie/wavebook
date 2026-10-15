@@ -42,7 +42,7 @@ class ApiClient {
     await prefs.remove(_tokenKey);
   }
 
-  Map<String, String> _headers({bool auth = true}) async {
+  Future<Map<String, String>> _headers({bool auth = true}) async {
     final headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',

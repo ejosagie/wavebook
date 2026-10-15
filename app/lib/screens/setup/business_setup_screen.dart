@@ -29,6 +29,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    final auth = context.read<AuthState>();
     setState(() {
       _loading = true;
       _error = null;
@@ -40,7 +41,6 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
         'slug': _slug.text.trim().toLowerCase(),
       });
       final business = Business.fromJson(data as Map<String, dynamic>);
-      final auth = context.read<AuthState>();
       auth.refreshUser(User(
         id: auth.user!.id,
         email: auth.user!.email,

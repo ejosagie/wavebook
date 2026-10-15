@@ -337,6 +337,37 @@ async def tenant_booking_submit(
         {
             "business": business,
             "booking": booking,
+            "deposit_amount": min(float(business["deposit_amount"] or 0), float(service["price"] or 0)),
+            "stripe_publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
+            "format_price": _format_price,
+        },
+    )
+
+
+@router.get("/t/{slug}/booking/{booking_id}/paid")
+def tenant_booking_paid(request: Request, slug: str, booking_id: int):
+    """Landing page after a successful Stripe deposit payment."""
+    business = _get_business_by_slug(slug)
+    if not business:
+        raise HTTPException(status_code=404, detail="Business not found")
+    conn = get_connection()
+    try:
+        booking = conn.execute(
+            "SELECT * FROM bookings WHERE id = ? AND business_id = ?",
+            (booking_id, business["id"]),
+        ).fetchone()
+    finally:
+        conn.close()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    return templates.TemplateResponse(
+        request,
+        "tenant/booking_success.html",
+        {
+            "business": business,
+            "booking": row_to_dict(booking),
+            "deposit_amount": 0.0,
+            "stripe_publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
             "format_price": _format_price,
         },
     )

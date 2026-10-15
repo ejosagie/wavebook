@@ -212,7 +212,7 @@ class Availability {
   final Map<String, DayConfig> workingDays;
   final List<String> blockedDates;
   final Map<String, List<String>> blockedSlots;
-  final int slotInterval;
+  int slotInterval;
 
   Availability({
     required this.workingDays,

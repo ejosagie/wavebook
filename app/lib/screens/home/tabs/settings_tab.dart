@@ -203,9 +203,9 @@ class _SettingsTabState extends State<SettingsTab> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(10),
                         child: Image.network(
-                          '${kApiBaseUrl}${b.logoPath}',
+                          '$kApiBaseUrl${b.logoPath}',
                           height: 56,
-                          errorBuilder: (_, __, ___) => const Icon(Icons.image, size: 56),
+                          errorBuilder: (_, _, _) => const Icon(Icons.image, size: 56),
                         ),
                       )
                     else
@@ -234,9 +234,9 @@ class _SettingsTabState extends State<SettingsTab> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(10),
                         child: Image.network(
-                          '${kApiBaseUrl}${b.aboutImage}',
+                          '$kApiBaseUrl${b.aboutImage}',
                           height: 56,
-                          errorBuilder: (_, __, ___) => const Icon(Icons.image, size: 56),
+                          errorBuilder: (_, _, _) => const Icon(Icons.image, size: 56),
                         ),
                       )
                     else

@@ -87,6 +87,17 @@ class BookingStatusUpdate(BaseModel):
     status: str = Field(pattern=r"^(pending|confirmed|cancelled)$")
 
 
+# ---- Payments ----
+class PaymentIntentCreate(BaseModel):
+    booking_id: int
+
+
+# ---- Text notifications ----
+class SendTextRequest(BaseModel):
+    phone: str = Field(min_length=5)
+    message: str = Field(min_length=1, max_length=1600)
+
+
 # ---- Staff ----
 class StaffInvite(BaseModel):
     email: EmailStr

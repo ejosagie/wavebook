@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -138,9 +136,9 @@ class _GalleryTabState extends State<GalleryTab> {
             children: [
               if (item.path.isNotEmpty)
                 Image.network(
-                  '${kApiBaseUrl}${item.path}',
+                  '$kApiBaseUrl${item.path}',
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const _EmptySlot(),
+                  errorBuilder: (_, _, _) => const _EmptySlot(),
                 )
               else
                 const _EmptySlot(),

@@ -79,6 +79,69 @@ class _BookingsTabState extends State<BookingsTab> {
     }
   }
 
+  Future<void> _sendSms(Booking booking) async {
+    final controller = TextEditingController(
+      text: 'Hi ${booking.customerName}, your booking with us is '
+          '${booking.serviceName} on ${booking.date} at ${booking.time}. '
+          'See you soon!',
+    );
+    final message = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Text ${booking.customerName}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: controller,
+              maxLines: 4,
+              decoration: const InputDecoration(labelText: 'Message'),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'To: ${booking.customerPhone.isEmpty ? 'no phone on file' : booking.customerPhone}',
+                style: const TextStyle(color: WaveBookColors.muted, fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Send Text'),
+          ),
+        ],
+      ),
+    );
+    if (message == null || message.trim().isEmpty) return;
+    if (booking.customerPhone.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('This customer has no phone number on file')),
+        );
+      }
+      return;
+    }
+    try {
+      await _api.post('/api/notifications/send-text', body: {
+        'phone': booking.customerPhone,
+        'message': message.trim(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Text message sent')),
+        );
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
   List<Booking> get _filtered {
     if (_filter == 'all') return _bookings;
     return _bookings.where((b) => b.status == _filter).toList();
@@ -142,6 +205,7 @@ class _BookingsTabState extends State<BookingsTab> {
           onConfirm: () => _setStatus(bookings[i], 'confirmed'),
           onCancel: () => _setStatus(bookings[i], 'cancelled'),
           onDelete: () => _delete(bookings[i]),
+          onSendSms: () => _sendSms(bookings[i]),
         ),
       ),
     );
@@ -153,12 +217,14 @@ class _BookingCard extends StatelessWidget {
   final VoidCallback onConfirm;
   final VoidCallback onCancel;
   final VoidCallback onDelete;
+  final VoidCallback onSendSms;
 
   const _BookingCard({
     required this.booking,
     required this.onConfirm,
     required this.onCancel,
     required this.onDelete,
+    required this.onSendSms,
   });
 
   @override
@@ -236,6 +302,11 @@ class _BookingCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                 ],
+                IconButton(
+                  icon: const Icon(Icons.sms_outlined, color: WaveBookColors.pink),
+                  onPressed: onSendSms,
+                  tooltip: 'Send text message',
+                ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline, color: WaveBookColors.danger),
                   onPressed: onDelete,

@@ -42,8 +42,8 @@ def create_checkout_session(
             line_items=[{"price": settings.STRIPE_PRICE_ID_MONTHLY, "quantity": 1}],
             client_reference_id=str(business["id"]),
             metadata={"business_id": str(business["id"])},
-            success_url=f"{settings.BASE_URL}/subscribe/success?session_id={{CHECKOUT_SESSION_ID}}",
-            cancel_url=f"{settings.BASE_URL}/subscribe/cancel",
+            success_url=f"{settings.API_PUBLIC_URL}/subscribe/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{settings.API_PUBLIC_URL}/subscribe/cancel",
         )
     except Exception as exc:  # pragma: no cover
         raise HTTPException(status_code=400, detail=f"Could not create checkout session: {exc}") from exc

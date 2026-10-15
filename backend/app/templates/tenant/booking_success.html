@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Booking Submitted — {{ business.name }}</title>
   <link rel="stylesheet" href="/static/css/style.css">
+  {% if deposit_amount > 0 and booking.payment_status != 'paid' %}
+  <script src="https://js.stripe.com/v3/"></script>
+  {% endif %}
 </head>
 <body class="tenant-theme">
   <div class="navbar tenant-nav">
@@ -27,38 +30,64 @@
 
   <section class="section">
     <div class="container" style="max-width: 640px;">
+      {% if booking.payment_status == 'paid' %}
+      <div class="info-card" style="border-color: var(--success); text-align:center;">
+        <div style="font-size:3rem;">✅</div>
+        <h3 style="color: var(--success);">Payment Received — Booking Confirmed!</h3>
+        <p>Your booking reference is: <strong style="color: var(--pink-dark);">{{ booking.id }}</strong></p>
+        <p style="margin-top: 8px;">
+          {{ booking.service_name }} on {{ booking.date }} at {{ booking.time }}.
+          You will receive a text message confirming your appointment.
+        </p>
+      </div>
+      {% else %}
       <div class="info-card" style="border-color: var(--success);">
         <h3 style="color: var(--success);">Booking Submitted!</h3>
-        <p>Your booking reference is: <strong style="color: var(--primary-dark);">{{ booking.id }}</strong></p>
-        <p style="margin-top: 8px;">Please confirm your booking slot by making the minimum deposit payment below.</p>
+        <p>Your booking reference is: <strong style="color: var(--pink-dark);">{{ booking.id }}</strong></p>
+        <p style="margin-top: 8px;">Please confirm your booking slot by paying the minimum deposit below.</p>
+      </div>
+
+      {% if deposit_amount > 0 %}
+      <div class="info-card">
+        <h3>Confirm Your Booking — Pay Online</h3>
+        <p style="color: var(--pink-dark); font-weight:700; font-size:1.2rem; margin-bottom: 12px;">
+          Deposit Due Now: {{ format_price(deposit_amount, business.currency) }}
+        </p>
+        <div id="payment-element" style="margin-bottom: 16px;">
+          <p style="color: var(--muted);">Loading secure payment…</p>
+        </div>
+        <button id="pay-button" class="btn" style="width:100%;">Pay Deposit &amp; Confirm Booking</button>
+        <p id="payment-error" style="display:none; color: var(--danger); margin-top: 10px; font-size: 0.9rem;"></p>
+        <p style="margin-top: 12px; font-size: 0.85rem; color: var(--muted); text-align:center;">
+          🔒 Secure payment powered by Stripe. Cards, Apple Pay and Google Pay accepted.
+        </p>
       </div>
 
       <div class="info-card">
-        <h3>Confirm Your Booking — Bank Transfer</h3>
-        <p style="color: var(--primary-dark); font-weight:700; font-size:1.2rem; margin-bottom: 12px;">
-          Minimum Deposit Required: {{ format_price(business.deposit_amount, business.currency) }}
-        </p>
+        <h3>Prefer to pay by bank transfer?</h3>
         {% if business.contact_phone %}<p><strong>Bank:</strong> {{ business.contact_phone }}</p>{% endif %}
         <p style="color: var(--muted); font-size: 0.9rem; margin-top: 8px;">
           Bank transfer details will appear here once the business owner adds them in the app.
         </p>
-      </div>
-
-      <div class="info-card">
-        <h3>Upload Payment Evidence</h3>
-        <form method="POST" enctype="multipart/form-data" action="/t/{{ business.slug }}/upload-confirmation">
-          <div class="form-group">
-            <label>Booking Reference</label>
-            <input type="text" value="{{ booking.id }}" readonly style="opacity:0.7;">
-            <input type="hidden" name="booking_ref" value="{{ booking.id }}">
-          </div>
+        <form method="POST" enctype="multipart/form-data" action="/t/{{ business.slug }}/upload-confirmation" style="margin-top: 12px;">
           <div class="form-group">
             <label>Payment Receipt / Screenshot</label>
             <input type="file" name="confirmation" accept="image/*,application/pdf" required>
+            <input type="hidden" name="booking_ref" value="{{ booking.id }}">
           </div>
-          <button type="submit" class="btn" style="width:100%;">Submit Payment Evidence</button>
+          <button type="submit" class="btn btn-outline" style="width:100%;">Submit Payment Evidence</button>
         </form>
-        <p style="margin-top: 16px; padding: 12px; background: var(--bg-soft); border-radius: 8px; border-left: 3px solid var(--success); color: var(--muted); font-size: 0.9rem;">
+      </div>
+      {% else %}
+      <div class="info-card" style="border-color: var(--success);">
+        <h3 style="color: var(--success);">No deposit required</h3>
+        <p>Your booking is pending confirmation. You will receive a text message once it is confirmed.</p>
+      </div>
+      {% endif %}
+      {% endif %}
+
+      <div class="info-card" style="background: var(--bg-soft); border-left: 3px solid var(--success);">
+        <p style="color: var(--muted); font-size: 0.9rem;">
           <strong style="color: var(--success);">What happens next?</strong><br>
           Once your booking and payment are confirmed, you will receive a text message confirming your appointment.
         </p>
@@ -68,8 +97,54 @@
 
   <div class="footer">
     <div class="container">
-      <p>&copy; {{ business.name }}. Powered by <a href="/" style="color:#38bdf8;">WaveBook</a>.</p>
+      <p>&copy; {{ business.name }}. Powered by <a href="/" style="color:#f9a8d4;">WaveBook</a>.</p>
     </div>
   </div>
+
+  {% if deposit_amount > 0 and booking.payment_status != 'paid' and stripe_publishable_key %}
+  <script>
+    const stripe = Stripe({{ stripe_publishable_key | tojson }});
+    const bookingId = {{ booking.id }};
+    const slug = {{ business.slug | tojson }};
+    const payButton = document.getElementById('pay-button');
+    const errorEl = document.getElementById('payment-error');
+    let elements = null;
+
+    fetch('/api/payments/intent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ booking_id: bookingId })
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) throw new Error(data.detail || 'Could not start payment');
+        elements = stripe.elements({ clientSecret: data.client_secret });
+        const paymentElement = elements.create('payment');
+        paymentElement.mount('#payment-element');
+        payButton.disabled = false;
+      })
+      .catch(err => {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+        payButton.disabled = true;
+      });
+
+    payButton.addEventListener('click', async () => {
+      payButton.disabled = true;
+      errorEl.style.display = 'none';
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: '/t/' + slug + '/booking/' + bookingId + '/paid'
+        }
+      });
+      if (error) {
+        errorEl.textContent = error.message;
+        errorEl.style.display = 'block';
+        payButton.disabled = false;
+      }
+    });
+  </script>
+  {% endif %}
 </body>
 </html>

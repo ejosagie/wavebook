@@ -146,11 +146,43 @@ CREATE TABLE IF NOT EXISTS notifications (
     FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    business_id INTEGER NOT NULL,
+    booking_id INTEGER,
+    stripe_payment_intent_id TEXT DEFAULT '',
+    amount REAL NOT NULL,
+    currency TEXT DEFAULT 'GBP',
+    status TEXT DEFAULT 'pending',
+    method TEXT DEFAULT 'card',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_notifications_business ON notifications(business_id, read);
 CREATE INDEX IF NOT EXISTS idx_bookings_business_date ON bookings(business_id, date);
+CREATE INDEX IF NOT EXISTS idx_payments_booking ON payments(booking_id);
 CREATE INDEX IF NOT EXISTS idx_services_business ON services(business_id);
 CREATE INDEX IF NOT EXISTS idx_users_business ON users(business_id);
 """
+
+
+def _ensure_column(conn, table: str, column: str, ddl: str) -> None:
+    """Add a column to an existing table if it is missing (lightweight migration)."""
+    cols = [r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+    if column not in cols:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {ddl}")
+
+
+def init_db() -> None:
+    conn = get_connection()
+    try:
+        conn.executescript(SCHEMA)
+        _ensure_column(conn, "bookings", "payment_status", "payment_status TEXT DEFAULT 'none'")
+        _ensure_column(conn, "bookings", "payment_intent_id", "payment_intent_id TEXT DEFAULT ''")
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def get_connection() -> sqlite3.Connection:
@@ -160,15 +192,6 @@ def get_connection() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
-
-
-def init_db() -> None:
-    conn = get_connection()
-    try:
-        conn.executescript(SCHEMA)
-        conn.commit()
-    finally:
-        conn.close()
 
 
 def row_to_dict(row: sqlite3.Row | None) -> dict | None:
