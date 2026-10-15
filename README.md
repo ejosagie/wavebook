@@ -29,6 +29,18 @@ copy .env.example .env          # then fill in values
 python run.py                   # http://localhost:8000
 ```
 
+A working `.env` is already present in `backend/.env` with the SMS Works JWT configured (SMS sending is live). Add Stripe keys when ready.
+
+## SMS provider
+
+Text notifications are sent via **The SMS Works** (`POST https://api.thesmsworks.co.uk/v1/message/send`).
+
+- `SMSWORKS_API_KEY` — the full JWT from the SMS Works dashboard (including the `JWT ` prefix)
+- `SMSWORKS_SENDER_ID` — sender name, max 11 chars (default `WaveBook`)
+- If the key is empty, SMS falls back to console logging (dev mode)
+
+Support: support@getwavebook.com
+
 ## Flutter app quickstart
 
 ```bash
