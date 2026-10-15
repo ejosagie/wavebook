@@ -110,7 +110,6 @@ class Business {
         'opening_hours': openingHours,
         'deposit_amount': depositAmount,
         'buffer_minutes': bufferMinutes,
-        'sms_template': smsTemplate,
         'sms_instructions': smsInstructions,
       };
 }

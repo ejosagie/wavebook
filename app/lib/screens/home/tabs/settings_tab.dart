@@ -32,7 +32,6 @@ class _SettingsTabState extends State<SettingsTab> {
   final _hours = TextEditingController();
   final _deposit = TextEditingController();
   final _buffer = TextEditingController();
-  final _smsTemplate = TextEditingController();
   final _smsInstructions = TextEditingController();
 
   @override
@@ -56,7 +55,6 @@ class _SettingsTabState extends State<SettingsTab> {
     _hours.dispose();
     _deposit.dispose();
     _buffer.dispose();
-    _smsTemplate.dispose();
     _smsInstructions.dispose();
     super.dispose();
   }
@@ -85,7 +83,6 @@ class _SettingsTabState extends State<SettingsTab> {
         _hours.text = b.openingHours;
         _deposit.text = b.depositAmount.toStringAsFixed(2);
         _buffer.text = b.bufferMinutes.toString();
-        _smsTemplate.text = b.smsTemplate;
         _smsInstructions.text = b.smsInstructions;
       });
     } on ApiException catch (e) {
@@ -112,7 +109,6 @@ class _SettingsTabState extends State<SettingsTab> {
         'opening_hours': _hours.text.trim(),
         'deposit_amount': double.tryParse(_deposit.text) ?? 20.0,
         'buffer_minutes': int.tryParse(_buffer.text) ?? 30,
-        'sms_template': _smsTemplate.text.trim(),
         'sms_instructions': _smsInstructions.text.trim(),
       });
       if (mounted) {
@@ -127,6 +123,26 @@ class _SettingsTabState extends State<SettingsTab> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  int get _smsRemaining {
+    final b = _business;
+    if (b == null) return 160;
+    final base = 'Hi {customer_name}, your booking with ${b.name} is confirmed: '
+            '{service_name} on {date} at {time}. Contact: ${b.contactPhone}'
+        .replaceAll('{customer_name}', 'Customer')
+        .replaceAll('{service_name}', 'Service')
+        .replaceAll('{date}', '2026-10-20')
+        .replaceAll('{time}', '14:00');
+    final instructions = _smsInstructions.text.trim();
+    final block = instructions.isEmpty ? '' : ' $instructions';
+    return 160 - (base.length + block.length);
+  }
+
+  String get _smsRemainingText {
+    final remaining = _smsRemaining;
+    if (remaining < 0) return 'Over limit by ${-remaining} characters — will cost 2 SMS credits';
+    return '$remaining characters remaining (160 max)';
   }
 
   Future<void> _uploadLogo() async {
@@ -339,22 +355,51 @@ class _SettingsTabState extends State<SettingsTab> {
         const SizedBox(height: 24),
         const Text('SMS Notifications', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
         const SizedBox(height: 12),
-        TextFormField(
-          controller: _smsTemplate,
-          decoration: const InputDecoration(
-            labelText: 'Confirmation Text Template',
-            helperText: 'Placeholders: {customer_name} {business_name} {service_name} {date} {time} {contact_phone} {instructions}',
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Confirmation text is sent automatically:',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Hi {customer_name}, your booking with ${b.name} is confirmed: {service_name} on {date} at {time}. Contact: ${b.contactPhone.isEmpty ? '(your phone)' : b.contactPhone}',
+                  style: const TextStyle(color: WaveBookColors.muted, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Add optional details below (address, parking, what to bring).',
+                  style: TextStyle(color: WaveBookColors.muted, fontSize: 13),
+                ),
+              ],
+            ),
           ),
-          maxLines: 4,
         ),
         const SizedBox(height: 12),
         TextFormField(
           controller: _smsInstructions,
+          onChanged: (_) => setState(() {}),
           decoration: const InputDecoration(
             labelText: 'Special Instructions (optional)',
             helperText: 'e.g. address, parking details, what to bring — added to the confirmation text',
           ),
           maxLines: 3,
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: Text(
+            _smsRemainingText,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: _smsRemaining < 0 ? WaveBookColors.danger : WaveBookColors.muted,
+            ),
+          ),
         ),
         const SizedBox(height: 24),
         ElevatedButton(
