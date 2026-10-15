@@ -1,0 +1,29 @@
+# Python / FastAPI
+backend/.venv/
+backend/data/
+backend/uploads/
+backend/.env
+__pycache__/
+*.pyc
+*.pyo
+
+# Flutter / Dart
+app/.dart_tool/
+app/build/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/.idea/
+app/*.iml
+app/android/.gradle/
+app/android/local.properties
+app/ios/Pods/
+app/ios/.symlinks/
+app/ios/Flutter/ephemeral/
+
+# Legacy single-tenant prototype (contains hardcoded credentials — do not commit)
+slayinstalls/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Subscribe — WaveBook</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="/static/img/logo.svg">
+</head>
+<body>
+  <div class="navbar">
+    <div class="container">
+      <a href="/" class="brand"><img src="/static/img/logo.svg" alt="WaveBook logo">Wave<span>Book</span></a>
+      <nav class="nav-links"><a href="/">Home</a></nav>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="container">
+      <div class="form-container">
+        <div class="card pricing-card pricing-featured" style="text-align:center;">
+          <h3>WaveBook Subscription</h3>
+          <div class="price">£{{ price_gbp }}<small>/month</small></div>
+          <ul style="display:inline-block; text-align:left;">
+            <li>All features included</li>
+            <li>Up to 5 staff members</li>
+            <li>Unlimited bookings &amp; services</li>
+            <li>Cancel anytime</li>
+          </ul>
+          <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 16px;">
+            Subscriptions are activated on the WaveBook website. After subscribing, your premium features unlock automatically in the app.
+          </p>
+          <button id="checkout-btn" class="btn" style="width:100%;">Subscribe with Stripe</button>
+          <p id="checkout-error" style="display:none; color: var(--danger); margin-top: 12px; font-size: 0.9rem;"></p>
+          <p style="color: var(--muted); font-size: 0.85rem; margin-top: 16px;">
+            Secure payments by Stripe. Cards, Apple Pay and Google Pay accepted.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="container">
+      <p>&copy; WaveBook. All rights reserved.</p>
+    </div>
+  </div>
+
+  <script>
+    // Demo mode: no Stripe configured yet — show a friendly message.
+    // When STRIPE_PRICE_ID_MONTHLY is set, this calls the checkout API instead.
+    document.getElementById('checkout-btn').addEventListener('click', async function () {
+      const errorEl = document.getElementById('checkout-error');
+      errorEl.style.display = 'none';
+      try {
+        const res = await fetch('/api/subscription/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include'
+        });
+        if (res.status === 503) {
+          errorEl.textContent = 'Stripe checkout is not configured yet. This is the demo page — the subscription flow will be enabled when Stripe keys are added.';
+          errorEl.style.display = 'block';
+          return;
+        }
+        const data = await res.json();
+        if (data.checkout_url) {
+          window.location.href = data.checkout_url;
+        } else {
+          errorEl.textContent = 'Could not start checkout. Please try again.';
+          errorEl.style.display = 'block';
+        }
+      } catch (e) {
+        errorEl.textContent = 'Network error. Please try again.';
+        errorEl.style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html>

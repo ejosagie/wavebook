@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ business.name }} — Book Now</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="tenant-theme">
+  <div class="navbar tenant-nav">
+    <div class="container">
+      <div class="brand">
+        {% if business.logo_path %}
+          <img src="{{ business.logo_path }}" alt="{{ business.name }}" style="height:40px;">
+        {% else %}
+          <img src="/static/img/logo.svg" alt="logo" style="height:32px;">
+        {% endif %}
+        {{ business.name }}
+      </div>
+      <nav>
+        <a href="/t/{{ business.slug }}">Home</a>
+        <a href="/t/{{ business.slug }}/services">Services</a>
+        <a href="/t/{{ business.slug }}/booking">Book Now</a>
+      </nav>
+    </div>
+  </div>
+
+  <div class="tenant-hero">
+    <h1>Book an Appointment</h1>
+  </div>
+
+  <section class="section">
+    <div class="container">
+      <div class="info-card" style="max-width:600px; margin: 0 auto 24px; border-color: var(--primary);">
+        <p style="font-weight:700; color: var(--primary-dark); font-size:1.1rem;">
+          Minimum Deposit Required: {{ format_price(business.deposit_amount, business.currency) }}
+        </p>
+        <p style="font-size:0.9rem; color: var(--muted); margin-top:4px;">
+          A minimum deposit is required to confirm your booking slot. You'll see payment details after submitting your booking.
+        </p>
+      </div>
+
+      <div class="form-container">
+        <form method="POST" action="/t/{{ business.slug }}/booking">
+          <div class="form-group">
+            <label>Full Name *</label>
+            <input type="text" name="name" required>
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" name="email">
+          </div>
+          <div class="form-group">
+            <label>Phone Number *</label>
+            <input type="tel" name="phone" required>
+          </div>
+          <div class="form-group">
+            <label>Service *</label>
+            <select name="service_id" id="service-select" required>
+              <option value="">-- Select a Service --</option>
+              {% for svc in services %}
+              <option value="{{ svc.id }}" {% if selected_service == svc.id %}selected{% endif %}>
+                {{ svc.name }} — {{ format_price(svc.price, business.currency) }} ({{ format_duration(svc.duration_minutes) }})
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Preferred Date *</label>
+            <input type="date" name="date" id="booking-date" required min="{{ today }}">
+            <p id="date-warning" style="display:none; color: var(--danger); font-size:0.85rem; margin-top:4px;">This date is not available. Please choose another date.</p>
+          </div>
+          <div class="form-group">
+            <label>Preferred Time *</label>
+            <select name="time" id="booking-time" required>
+              <option value="">-- Select a date first --</option>
+            </select>
+            <p id="time-info" style="font-size:0.85rem; color: var(--muted); margin-top:4px;">Available time slots will appear after selecting a date.</p>
+          </div>
+          <div class="form-group">
+            <label>Additional Notes</label>
+            <textarea name="notes" placeholder="Any special requests or information we should know..."></textarea>
+          </div>
+          <button type="submit" class="btn" style="width:100%;">Submit Booking</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="container">
+      <p>&copy; {{ business.name }}. Powered by <a href="/" style="color:#38bdf8;">WaveBook</a>.</p>
+    </div>
+  </div>
+
+  <script>
+    const blockedDates = {{ blocked_dates | tojson }};
+    const dateInput = document.getElementById('booking-date');
+    const timeSelect = document.getElementById('booking-time');
+    const dateWarning = document.getElementById('date-warning');
+    const timeInfo = document.getElementById('time-info');
+    const slug = {{ business.slug | tojson }};
+
+    document.getElementById('service-select').addEventListener('change', function () {
+      if (dateInput.value && !blockedDates.includes(dateInput.value)) {
+        loadTimeSlots(dateInput.value);
+      }
+    });
+
+    dateInput.addEventListener('input', function (e) {
+      const selectedDate = e.target.value;
+      if (blockedDates.includes(selectedDate)) {
+        dateWarning.style.display = 'block';
+        timeSelect.innerHTML = '<option value="">-- Date not available --</option>';
+        timeInfo.textContent = '';
+      } else if (selectedDate) {
+        dateWarning.style.display = 'none';
+        loadTimeSlots(selectedDate);
+      } else {
+        dateWarning.style.display = 'none';
+        timeSelect.innerHTML = '<option value="">-- Select a date first --</option>';
+        timeInfo.textContent = 'Available time slots will appear after selecting a date.';
+      }
+    });
+
+    function loadTimeSlots(date) {
+      timeSelect.innerHTML = '<option value="">Loading...</option>';
+      const serviceId = document.getElementById('service-select').value;
+      fetch('/t/' + slug + '/api/slots?date=' + encodeURIComponent(date) + '&service_id=' + encodeURIComponent(serviceId || ''))
+        .then(r => r.json())
+        .then(data => {
+          if (data.blocked || data.slots.length === 0) {
+            timeSelect.innerHTML = '<option value="">-- No slots available --</option>';
+            timeInfo.textContent = 'Sorry, no time slots are available on this date. Please choose another date.';
+            timeInfo.style.color = 'var(--danger)';
+          } else {
+            timeSelect.innerHTML = '<option value="">-- Select a time --</option>';
+            data.slots.forEach(slot => {
+              const opt = document.createElement('option');
+              opt.value = slot;
+              const [h, m] = slot.split(':');
+              const hour = parseInt(h);
+              const ampm = hour >= 12 ? 'PM' : 'AM';
+              const displayHour = hour % 12 || 12;
+              opt.textContent = displayHour + ':' + m + ' ' + ampm;
+              timeSelect.appendChild(opt);
+            });
+            timeInfo.textContent = data.slots.length + ' time slot' + (data.slots.length > 1 ? 's' : '') + ' available.';
+            timeInfo.style.color = 'var(--success)';
+          }
+        })
+        .catch(() => {
+          timeSelect.innerHTML = '<option value="">-- Error loading slots --</option>';
+          timeInfo.textContent = 'Could not load time slots. Please try again.';
+          timeInfo.style.color = 'var(--danger)';
+        });
+    }
+  </script>
+</body>
+</html>

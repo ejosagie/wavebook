@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ business.name }} — Services</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="tenant-theme">
+  <div class="navbar tenant-nav">
+    <div class="container">
+      <div class="brand">
+        {% if business.logo_path %}
+          <img src="{{ business.logo_path }}" alt="{{ business.name }}" style="height:40px;">
+        {% else %}
+          <img src="/static/img/logo.svg" alt="logo" style="height:32px;">
+        {% endif %}
+        {{ business.name }}
+      </div>
+      <nav>
+        <a href="/t/{{ business.slug }}">Home</a>
+        <a href="/t/{{ business.slug }}/services">Services</a>
+        <a href="/t/{{ business.slug }}/booking">Book Now</a>
+      </nav>
+    </div>
+  </div>
+
+  <div class="tenant-hero">
+    <h1>Our Services</h1>
+    <p>Choose a service to book your appointment</p>
+  </div>
+
+  <section class="section">
+    <div class="container">
+      <div class="grid-3">
+        {% if services %}
+          {% for svc in services %}
+          <div class="service-card">
+            <h3>{{ svc.name }}</h3>
+            <p class="desc">{{ svc.description }}</p>
+            <div class="price">{{ format_price(svc.price, business.currency) }}</div>
+            <div class="duration">{{ format_duration(svc.duration_minutes) }}</div>
+            <a href="/t/{{ business.slug }}/booking?service={{ svc.id }}" class="btn" style="margin-top: 8px;">Book This Service</a>
+          </div>
+          {% endfor %}
+        {% else %}
+          <p style="color: var(--muted);">No services available at this time. Please check back later.</p>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="container">
+      <p>&copy; {{ business.name }}. Powered by <a href="/" style="color:#38bdf8;">WaveBook</a>.</p>
+    </div>
+  </div>
+</body>
+</html>

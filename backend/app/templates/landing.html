@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WaveBook — Simple Booking for Solo Owners &amp; Small Teams</title>
+  <meta name="description" content="WaveBook is a simple, affordable booking and scheduling platform for solo business owners and small teams. £9.99/month, all features included.">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="/static/img/logo.svg">
+</head>
+<body>
+  <div class="navbar">
+    <div class="container">
+      <a href="/" class="brand"><img src="/static/img/logo.svg" alt="WaveBook logo">Wave<span>Book</span></a>
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
+        <a href="/subscribe" class="btn btn-sm">Get Started</a>
+      </nav>
+    </div>
+  </div>
+
+  <section class="hero">
+    <div class="container">
+      <h1>Booking made simple.<br>For businesses like yours.</h1>
+      <p>WaveBook is a modern, UK-focused booking platform for solo owners and small teams. One subscription. Every feature. No tiered pricing, no hidden upgrades.</p>
+      <a href="/subscribe" class="btn">Start Free Trial</a>
+    </div>
+  </section>
+
+  <section class="section" id="features">
+    <div class="container">
+      <h2>Everything you need to run your bookings</h2>
+      <p class="subtitle">Manage appointments, client communication, payments, and staff schedules — all in one app.</p>
+      <div class="grid-3">
+        <div class="card"><div class="icon">📅</div><h3>Unlimited Bookings &amp; Services</h3><p>Create unlimited services and accept unlimited bookings with a fast, intuitive booking page for your customers.</p></div>
+        <div class="card"><div class="icon">🌐</div><h3>Your Own Booking Website</h3><p>Every business gets a free booking site at <strong>yourname.wab.is</strong> — edit it live from the app, no coding needed.</p></div>
+        <div class="card"><div class="icon">👥</div><h3>Staff Access (up to 5)</h3><p>Give up to five staff members their own schedule view — perfect for salons, tutors, therapists and consultants.</p></div>
+        <div class="card"><div class="icon">💳</div><h3>Payments Built In</h3><p>Stripe, GoCardless, Apple Pay and Google Pay for deposits, full payments and automated workflows.</p></div>
+        <div class="card"><div class="icon">🔔</div><h3>SMS &amp; WhatsApp Reminders</h3><p>Reduce no-shows with automated SMS and WhatsApp reminders and follow-up workflows.</p></div>
+        <div class="card"><div class="icon">🗓️</div><h3>Calendar Sync</h3><p>Two-way synchronisation with Google Calendar and Outlook, plus UK bank-holiday logic.</p></div>
+        <div class="card"><div class="icon">🧾</div><h3>VAT-Friendly Receipts</h3><p>Professional, VAT-friendly receipts and customer profiles with full booking history.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-light" id="pricing">
+    <div class="container">
+      <h2>Simple, predictable pricing</h2>
+      <p class="subtitle">One plan. Every feature. No surprises.</p>
+      <div class="grid-3" style="max-width: 420px; margin: 0 auto;">
+        <div class="card pricing-card pricing-featured">
+          <h3>WaveBook</h3>
+          <div class="price">£{{ price_gbp }}<small>/month</small></div>
+          <ul>
+            <li>All features included</li>
+            <li>Up to {{ max_staff }} staff members</li>
+            <li>Unlimited bookings &amp; services</li>
+            <li>SMS &amp; WhatsApp reminders</li>
+            <li>Stripe, GoCardless, Apple Pay &amp; Google Pay</li>
+            <li>Google &amp; Outlook calendar sync</li>
+            <li>VAT-friendly receipts</li>
+            <li>Cancel anytime</li>
+          </ul>
+          <a href="/subscribe" class="btn" style="width:100%;">Get Started</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2>Simpler than Acuity. Cheaper than the rest.</h2>
+      <p class="subtitle">Built for the UK, USA and Canada — with a clean experience and predictable pricing for everyday business owners.</p>
+      <div class="grid-3">
+        <div class="card"><h3>🌊 Simpler</h3><p>No tiered pricing, no calendar-based charges, no enterprise overhead.</p></div>
+        <div class="card"><h3>🇬🇧 UK-Centric</h3><p>UK bank holidays, VAT-friendly receipts and local payment methods.</p></div>
+        <div class="card"><h3>⚡ Modern</h3><p>Fast Flutter app for iOS, Android and web with real-time updates.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="container">
+      <div class="brand"><img src="/static/img/logo.svg" alt="WaveBook logo">Wave<span>Book</span></div>
+      <p>&copy; {{ current_year }} WaveBook. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ business.name }} — Home</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="tenant-theme">
+  <div class="navbar tenant-nav">
+    <div class="container">
+      <div class="brand">
+        {% if business.logo_path %}
+          <img src="{{ business.logo_path }}" alt="{{ business.name }}" style="height:40px;">
+        {% else %}
+          <img src="/static/img/logo.svg" alt="logo" style="height:32px;">
+        {% endif %}
+        {{ business.name }}
+      </div>
+      <nav>
+        <a href="/t/{{ business.slug }}">Home</a>
+        <a href="/t/{{ business.slug }}/services">Services</a>
+        <a href="/t/{{ business.slug }}/booking">Book Now</a>
+      </nav>
+    </div>
+  </div>
+
+  <div class="tenant-hero">
+    <h1>{{ business.name }}</h1>
+    <p>{{ business.tagline }}</p>
+  </div>
+
+  {% if business.about_text or business.about_image %}
+  <section class="section">
+    <div class="container">
+      <h2>Welcome to {{ business.name }}</h2>
+      <table class="about-table">
+        <tr>
+          <td class="about-image-cell">
+            {% if business.about_image %}
+              <img src="{{ business.about_image }}" alt="{{ business.name }}">
+            {% else %}
+              <div class="about-placeholder"><span>Your photo here</span></div>
+            {% endif %}
+          </td>
+          <td>
+            <blockquote style="border-left:4px solid var(--primary); padding-left:16px; color: var(--muted); font-size:1.05rem;">
+              {{ business.about_text | replace('\n', '<br>') | safe }}
+            </blockquote>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if gallery %}
+  <section class="section section-light">
+    <div class="container">
+      <h2>Our Gallery</h2>
+      <div class="gallery-grid">
+        {% for g in gallery %}
+        <div class="gallery-item">
+          <img src="{{ g.path }}" alt="{{ g.caption }}" loading="lazy">
+          {% if g.caption %}<p class="gallery-caption">{{ g.caption }}</p>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="section">
+    <div class="container">
+      <h2>Our Services</h2>
+      <div class="grid-3" style="margin-top: 24px;">
+        {% if services %}
+          {% for svc in services %}
+          <div class="service-card">
+            <h3>{{ svc.name }}</h3>
+            <p class="desc">{{ svc.description }}</p>
+            <div class="price">{{ format_price(svc.price, business.currency) }}</div>
+            <div class="duration">{{ format_duration(svc.duration_minutes) }}</div>
+            <a href="/t/{{ business.slug }}/booking?service={{ svc.id }}" class="btn" style="margin-top: 8px;">Book This Service</a>
+          </div>
+          {% endfor %}
+        {% else %}
+          <p style="color: var(--muted);">Services coming soon. Please check back later.</p>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  {% if business.rules %}
+  <section class="section section-light">
+    <div class="container">
+      <h2>House Rules</h2>
+      <div class="info-card" style="max-width:700px; margin: 24px auto 0;">
+        <p>{{ business.rules | replace('\n', '<br>') | safe }}</p>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="section">
+    <div class="container">
+      <h2>Opening Hours</h2>
+      <div class="grid-3" style="max-width:800px; margin: 24px auto 0;">
+        <div class="info-card">
+          <h3>Weekly Schedule</h3>
+          <ul class="hours-list" style="margin-top: 8px;">
+            {% for key, label in day_labels.items() %}
+            {% set day = availability.working_days.get(key) %}
+            <li>
+              <span>{{ label }}</span>
+              {% if day and day.enabled %}
+                <span class="open">{{ day.start }} - {{ day.end }}</span>
+              {% else %}
+                <span class="closed">Closed</span>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        <div class="info-card">
+          <h3>General Hours</h3>
+          <p>{{ business.opening_hours | replace('\n', '<br>') | safe }}</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-light">
+    <div class="container">
+      <h2>Contact Us</h2>
+      <div class="grid-3" style="max-width:800px; margin: 24px auto 0;">
+        <div class="info-card">
+          <h3>Get in Touch</h3>
+          {% if business.contact_phone %}<p>Phone: {{ business.contact_phone }}</p>{% endif %}
+          {% if business.contact_email %}<p>Email: {{ business.contact_email }}</p>{% endif %}
+          {% if business.address %}<p>Address: {{ business.address | replace('\n', '<br>') | safe }}</p>{% endif %}
+        </div>
+        <div class="info-card">
+          <h3>Follow Us</h3>
+          {% if business.instagram %}<p><a href="{{ business.instagram }}" target="_blank">Instagram</a></p>{% endif %}
+          {% if business.facebook %}<p><a href="{{ business.facebook }}" target="_blank">Facebook</a></p>{% endif %}
+          {% if business.tiktok %}<p><a href="{{ business.tiktok }}" target="_blank">TikTok</a></p>{% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="container">
+      <p>&copy; {{ business.name }}. Powered by <a href="/" style="color:#38bdf8;">WaveBook</a>.</p>
+    </div>
+  </div>
+</body>
+</html>

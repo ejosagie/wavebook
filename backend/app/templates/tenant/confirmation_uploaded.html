@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Evidence Submitted — {{ business.name }}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="tenant-theme">
+  <div class="navbar tenant-nav">
+    <div class="container">
+      <div class="brand">
+        {% if business.logo_path %}
+          <img src="{{ business.logo_path }}" alt="{{ business.name }}" style="height:40px;">
+        {% else %}
+          <img src="/static/img/logo.svg" alt="logo" style="height:32px;">
+        {% endif %}
+        {{ business.name }}
+      </div>
+      <nav>
+        <a href="/t/{{ business.slug }}">Home</a>
+        <a href="/t/{{ business.slug }}/services">Services</a>
+        <a href="/t/{{ business.slug }}/booking">Book Now</a>
+      </nav>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="container" style="max-width: 560px;">
+      <div class="info-card" style="border-color: var(--success); text-align:center;">
+        <div style="font-size:3rem;">✅</div>
+        <h3 style="color: var(--success);">Payment Evidence Submitted!</h3>
+        <p>Thank you! Your payment confirmation has been uploaded.</p>
+        <p style="margin-top: 12px; padding: 12px; background: var(--bg-soft); border-radius: 8px; border-left: 3px solid var(--success); color: var(--muted); font-size: 0.9rem; text-align:left;">
+          <strong style="color: var(--success);">What happens next?</strong><br>
+          Once your booking and payment are confirmed, you will receive a text message confirming your appointment.
+        </p>
+        <a href="/t/{{ business.slug }}" class="btn" style="margin-top: 16px;">Return to Home</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="container">
+      <p>&copy; {{ business.name }}. Powered by <a href="/" style="color:#38bdf8;">WaveBook</a>.</p>
+    </div>
+  </div>
+</body>
+</html>

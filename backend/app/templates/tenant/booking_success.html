@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Booking Submitted — {{ business.name }}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="tenant-theme">
+  <div class="navbar tenant-nav">
+    <div class="container">
+      <div class="brand">
+        {% if business.logo_path %}
+          <img src="{{ business.logo_path }}" alt="{{ business.name }}" style="height:40px;">
+        {% else %}
+          <img src="/static/img/logo.svg" alt="logo" style="height:32px;">
+        {% endif %}
+        {{ business.name }}
+      </div>
+      <nav>
+        <a href="/t/{{ business.slug }}">Home</a>
+        <a href="/t/{{ business.slug }}/services">Services</a>
+        <a href="/t/{{ business.slug }}/booking">Book Now</a>
+      </nav>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="container" style="max-width: 640px;">
+      <div class="info-card" style="border-color: var(--success);">
+        <h3 style="color: var(--success);">Booking Submitted!</h3>
+        <p>Your booking reference is: <strong style="color: var(--primary-dark);">{{ booking.id }}</strong></p>
+        <p style="margin-top: 8px;">Please confirm your booking slot by making the minimum deposit payment below.</p>
+      </div>
+
+      <div class="info-card">
+        <h3>Confirm Your Booking — Bank Transfer</h3>
+        <p style="color: var(--primary-dark); font-weight:700; font-size:1.2rem; margin-bottom: 12px;">
+          Minimum Deposit Required: {{ format_price(business.deposit_amount, business.currency) }}
+        </p>
+        {% if business.contact_phone %}<p><strong>Bank:</strong> {{ business.contact_phone }}</p>{% endif %}
+        <p style="color: var(--muted); font-size: 0.9rem; margin-top: 8px;">
+          Bank transfer details will appear here once the business owner adds them in the app.
+        </p>
+      </div>
+
+      <div class="info-card">
+        <h3>Upload Payment Evidence</h3>
+        <form method="POST" enctype="multipart/form-data" action="/t/{{ business.slug }}/upload-confirmation">
+          <div class="form-group">
+            <label>Booking Reference</label>
+            <input type="text" value="{{ booking.id }}" readonly style="opacity:0.7;">
+            <input type="hidden" name="booking_ref" value="{{ booking.id }}">
+          </div>
+          <div class="form-group">
+            <label>Payment Receipt / Screenshot</label>
+            <input type="file" name="confirmation" accept="image/*,application/pdf" required>
+          </div>
+          <button type="submit" class="btn" style="width:100%;">Submit Payment Evidence</button>
+        </form>
+        <p style="margin-top: 16px; padding: 12px; background: var(--bg-soft); border-radius: 8px; border-left: 3px solid var(--success); color: var(--muted); font-size: 0.9rem;">
+          <strong style="color: var(--success);">What happens next?</strong><br>
+          Once your booking and payment are confirmed, you will receive a text message confirming your appointment.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="container">
+      <p>&copy; {{ business.name }}. Powered by <a href="/" style="color:#38bdf8;">WaveBook</a>.</p>
+    </div>
+  </div>
+</body>
+</html>
