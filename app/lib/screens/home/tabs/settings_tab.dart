@@ -307,7 +307,28 @@ class _SettingsTabState extends State<SettingsTab> {
         const SizedBox(height: 24),
         const Text('Contact', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
         const SizedBox(height: 12),
-        TextFormField(controller: _phone, decoration: const InputDecoration(labelText: 'Phone')),
+        TextFormField(
+          controller: _phone,
+          keyboardType: TextInputType.phone,
+          decoration: const InputDecoration(
+            labelText: 'Phone',
+            hintText: 'e.g. 07123 456789',
+          ),
+          validator: (v) {
+            final digits = (v ?? '').replaceAll(RegExp(r'[^0-9+]'), '');
+            if (digits.isEmpty) return 'Enter your business phone number';
+            final normalized = digits.startsWith('+44')
+                ? digits.substring(1)
+                : digits.startsWith('44') && digits.length == 12
+                    ? digits
+                    : digits.startsWith('0') && digits.length == 11
+                        ? '44${digits.substring(1)}'
+                        : digits;
+            return RegExp(r'^44\d{10}$').hasMatch(normalized)
+                ? null
+                : 'Enter a valid UK mobile number, e.g. 07123 456789';
+          },
+        ),
         const SizedBox(height: 12),
         TextFormField(controller: _email, decoration: const InputDecoration(labelText: 'Email')),
         const SizedBox(height: 12),

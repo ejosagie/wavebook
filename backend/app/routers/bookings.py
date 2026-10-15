@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from ..database import get_connection, row_to_dict, rows_to_dicts
 from ..deps import get_current_business, require_owner
+from ..phone import validate_uk_phone
 from ..routers.notifications import add_notification
 from ..schemas import BookingCreate, BookingStatusUpdate
 from ..services.notifier import send_booking_confirmation_sms
@@ -73,6 +74,10 @@ def available_slots(
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_booking(data: BookingCreate, business: dict = Depends(get_current_business)):
+    try:
+        customer_phone = validate_uk_phone(data.customer_phone)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     conn = get_connection()
     try:
         service = conn.execute(
@@ -111,7 +116,7 @@ def create_booking(data: BookingCreate, business: dict = Depends(get_current_bus
                 business["id"],
                 data.customer_name.strip(),
                 data.customer_email.strip(),
-                data.customer_phone.strip(),
+                customer_phone,
                 service["id"],
                 service["name"],
                 service["price"],
@@ -127,17 +132,17 @@ def create_booking(data: BookingCreate, business: dict = Depends(get_current_bus
         if data.customer_email or data.customer_phone:
             existing = conn.execute(
                 "SELECT id FROM customers WHERE business_id = ? AND (email = ? OR phone = ?) AND email != ''",
-                (business["id"], data.customer_email, data.customer_phone),
+                (business["id"], data.customer_email, customer_phone),
             ).fetchone()
             if existing:
                 conn.execute(
                     "UPDATE customers SET name = ?, email = ?, phone = ? WHERE id = ?",
-                    (data.customer_name.strip(), data.customer_email.strip(), data.customer_phone.strip(), existing["id"]),
+                    (data.customer_name.strip(), data.customer_email.strip(), customer_phone, existing["id"]),
                 )
             else:
                 conn.execute(
                     "INSERT INTO customers (business_id, name, email, phone) VALUES (?, ?, ?, ?)",
-                    (business["id"], data.customer_name.strip(), data.customer_email.strip(), data.customer_phone.strip()),
+                    (business["id"], data.customer_name.strip(), data.customer_email.strip(), customer_phone),
                 )
         conn.commit()
         booking = row_to_dict(conn.execute("SELECT * FROM bookings WHERE id = ?", (booking_id,)).fetchone())

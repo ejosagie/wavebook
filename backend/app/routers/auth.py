@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from ..database import get_connection, row_to_dict
 from ..deps import get_current_user
+from ..phone import validate_uk_phone
 from ..schemas import LoginRequest, SignupRequest, TokenResponse
 from ..security import create_access_token, hash_password, verify_password
 
@@ -15,10 +16,14 @@ def signup(data: SignupRequest):
         existing = conn.execute("SELECT id FROM users WHERE email = ?", (data.email.lower(),)).fetchone()
         if existing:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+        try:
+            phone = validate_uk_phone(data.phone)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
         password_hash = hash_password(data.password)
         cur = conn.execute(
             "INSERT INTO users (email, password_hash, full_name, phone, role) VALUES (?, ?, ?, ?, 'owner')",
-            (data.email.lower(), password_hash, data.full_name, data.phone),
+            (data.email.lower(), password_hash, data.full_name, phone),
         )
         conn.commit()
         user = row_to_dict(conn.execute("SELECT * FROM users WHERE id = ?", (cur.lastrowid,)).fetchone())

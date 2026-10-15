@@ -98,9 +98,24 @@ class _SignupScreenState extends State<SignupScreen> {
                       controller: _phone,
                       keyboardType: TextInputType.phone,
                       decoration: const InputDecoration(
-                        labelText: 'Phone (optional)',
+                        labelText: 'Mobile Number',
+                        hintText: 'e.g. 07123 456789',
                         prefixIcon: Icon(Icons.phone_outlined),
                       ),
+                      validator: (v) {
+                        final digits = (v ?? '').replaceAll(RegExp(r'[^0-9+]'), '');
+                        if (digits.isEmpty) return 'Enter your mobile number';
+                        final normalized = digits.startsWith('+44')
+                            ? digits.substring(1)
+                            : digits.startsWith('44') && digits.length == 12
+                                ? digits
+                                : digits.startsWith('0') && digits.length == 11
+                                    ? '44${digits.substring(1)}'
+                                    : digits;
+                        return RegExp(r'^44\d{10}$').hasMatch(normalized)
+                            ? null
+                            : 'Enter a valid UK mobile number, e.g. 07123 456789';
+                      },
                     ),
                     const SizedBox(height: 16),
                     TextFormField(

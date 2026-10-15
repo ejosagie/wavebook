@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 
 from ..config import settings
 from ..database import get_connection, row_to_dict, rows_to_dicts
+from ..phone import validate_uk_phone
 from ..services.slots import (
     DAY_LABELS,
     blocked_dates_json,
@@ -277,6 +278,11 @@ async def tenant_booking_submit(
     if not business:
         raise HTTPException(status_code=404, detail="Business not found")
 
+    try:
+        phone = validate_uk_phone(phone)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
     conn = get_connection()
     try:
         service = conn.execute(
@@ -311,7 +317,7 @@ async def tenant_booking_submit(
                 service_name, service_price, service_duration_minutes, date, time, notes)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                business["id"], name.strip(), email.strip(), phone.strip(), service["id"],
+                business["id"], name.strip(), email.strip(), phone, service["id"],
                 service["name"], service["price"], service["duration_minutes"],
                 date, time, notes.strip(),
             ),

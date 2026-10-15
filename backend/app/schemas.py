@@ -6,7 +6,7 @@ class SignupRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
     full_name: str = Field(min_length=1)
-    phone: str = ""
+    phone: str = Field(min_length=10)
 
 
 class LoginRequest(BaseModel):
@@ -77,7 +77,7 @@ class AvailabilityUpdate(BaseModel):
 class BookingCreate(BaseModel):
     customer_name: str = Field(min_length=1)
     customer_email: str = ""
-    customer_phone: str = ""
+    customer_phone: str = Field(min_length=10)
     service_id: int
     date: str
     time: str

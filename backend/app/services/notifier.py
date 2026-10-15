@@ -9,11 +9,11 @@ Uses the configured JWT when present; otherwise falls back to a console log
 so the platform keeps working during development and testing.
 """
 import logging
-import re
 
 import requests
 
 from ..config import settings
+from ..phone import normalise_uk_number
 
 logger = logging.getLogger("wavebook")
 
@@ -48,18 +48,6 @@ def render_sms_template(booking: dict, business: dict) -> str:
     return tpl
 
 
-def _normalise_uk_number(phone: str) -> str:
-    """Convert a UK phone number to international format (e.g. 07xxx -> 447xxx)."""
-    digits = re.sub(r"[^0-9+]", "", phone or "")
-    if digits.startswith("+44"):
-        return digits[1:]  # 44...
-    if digits.startswith("44") and len(digits) == 12:
-        return digits
-    if digits.startswith("0") and len(digits) == 11:
-        return "44" + digits[1:]
-    return digits
-
-
 def send_sms(to: str, message: str) -> dict:
     """Send an SMS text message via The SMS Works. Returns delivery info."""
     if not to:
@@ -68,7 +56,7 @@ def send_sms(to: str, message: str) -> dict:
     if settings.SMSWORKS_API_KEY:
         payload = {
             "sender": settings.SMSWORKS_SENDER_ID[:11],
-            "destination": _normalise_uk_number(to),
+            "destination": normalise_uk_number(to),
             "content": message,
         }
         try:
