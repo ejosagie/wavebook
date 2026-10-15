@@ -78,9 +78,5 @@ def send_sms(to: str, message: str) -> dict:
 
 def send_booking_confirmation_sms(booking: dict, business: dict) -> dict:
     """Send the customer a confirmation text after their booking is paid/confirmed."""
-    message = (
-        f"Hi {booking['customer_name']}, your booking with {business['name']} is confirmed: "
-        f"{booking['service_name']} on {booking['date']} at {booking['time']}. "
-        f"See you soon!"
-    )
+    message = render_sms_template(business.get("sms_template", ""), booking, business)
     return send_sms(booking["customer_phone"], message)

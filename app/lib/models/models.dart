@@ -44,6 +44,8 @@ class Business {
   final double depositAmount;
   final int bufferMinutes;
   final String currency;
+  final String smsTemplate;
+  final String smsInstructions;
   final String subscriptionStatus;
 
   Business({
@@ -65,6 +67,8 @@ class Business {
     required this.depositAmount,
     required this.bufferMinutes,
     required this.currency,
+    required this.smsTemplate,
+    required this.smsInstructions,
     required this.subscriptionStatus,
   });
 
@@ -87,6 +91,8 @@ class Business {
         depositAmount: (json['deposit_amount'] as num?)?.toDouble() ?? 20.0,
         bufferMinutes: json['buffer_minutes'] as int? ?? 30,
         currency: json['currency'] as String? ?? 'GBP',
+        smsTemplate: json['sms_template'] as String? ?? '',
+        smsInstructions: json['sms_instructions'] as String? ?? '',
         subscriptionStatus: json['subscription_status'] as String? ?? 'trial',
       );
 
@@ -104,6 +110,8 @@ class Business {
         'opening_hours': openingHours,
         'deposit_amount': depositAmount,
         'buffer_minutes': bufferMinutes,
+        'sms_template': smsTemplate,
+        'sms_instructions': smsInstructions,
       };
 }
 

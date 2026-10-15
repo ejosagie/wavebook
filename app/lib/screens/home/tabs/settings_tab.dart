@@ -32,6 +32,8 @@ class _SettingsTabState extends State<SettingsTab> {
   final _hours = TextEditingController();
   final _deposit = TextEditingController();
   final _buffer = TextEditingController();
+  final _smsTemplate = TextEditingController();
+  final _smsInstructions = TextEditingController();
 
   @override
   void initState() {
@@ -54,6 +56,8 @@ class _SettingsTabState extends State<SettingsTab> {
     _hours.dispose();
     _deposit.dispose();
     _buffer.dispose();
+    _smsTemplate.dispose();
+    _smsInstructions.dispose();
     super.dispose();
   }
 
@@ -81,6 +85,8 @@ class _SettingsTabState extends State<SettingsTab> {
         _hours.text = b.openingHours;
         _deposit.text = b.depositAmount.toStringAsFixed(2);
         _buffer.text = b.bufferMinutes.toString();
+        _smsTemplate.text = b.smsTemplate;
+        _smsInstructions.text = b.smsInstructions;
       });
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -106,6 +112,8 @@ class _SettingsTabState extends State<SettingsTab> {
         'opening_hours': _hours.text.trim(),
         'deposit_amount': double.tryParse(_deposit.text) ?? 20.0,
         'buffer_minutes': int.tryParse(_buffer.text) ?? 30,
+        'sms_template': _smsTemplate.text.trim(),
+        'sms_instructions': _smsInstructions.text.trim(),
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -327,6 +335,26 @@ class _SettingsTabState extends State<SettingsTab> {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 24),
+        const Text('SMS Notifications', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _smsTemplate,
+          decoration: const InputDecoration(
+            labelText: 'Confirmation Text Template',
+            helperText: 'Placeholders: {customer_name} {business_name} {service_name} {date} {time} {contact_phone} {instructions}',
+          ),
+          maxLines: 4,
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _smsInstructions,
+          decoration: const InputDecoration(
+            labelText: 'Special Instructions (optional)',
+            helperText: 'e.g. address, parking details, what to bring — added to the confirmation text',
+          ),
+          maxLines: 3,
         ),
         const SizedBox(height: 24),
         ElevatedButton(

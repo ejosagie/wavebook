@@ -40,6 +40,8 @@ class BusinessUpdate(BaseModel):
     opening_hours: str | None = None
     deposit_amount: float | None = None
     buffer_minutes: int | None = None
+    sms_template: str | None = None
+    sms_instructions: str | None = None
 
 
 # ---- Services ----

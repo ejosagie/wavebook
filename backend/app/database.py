@@ -180,6 +180,8 @@ def init_db() -> None:
         conn.executescript(SCHEMA)
         _ensure_column(conn, "bookings", "payment_status", "payment_status TEXT DEFAULT 'none'")
         _ensure_column(conn, "bookings", "payment_intent_id", "payment_intent_id TEXT DEFAULT ''")
+        _ensure_column(conn, "businesses", "sms_template", "sms_template TEXT DEFAULT ''")
+        _ensure_column(conn, "businesses", "sms_instructions", "sms_instructions TEXT DEFAULT ''")
         conn.commit()
     finally:
         conn.close()
@@ -211,5 +213,7 @@ def json_loads(value: str, default=None):
         return default
     try:
         return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return default
     except (json.JSONDecodeError, TypeError):
         return default
