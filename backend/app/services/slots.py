@@ -62,7 +62,7 @@ def get_available_time_slots(
     service_duration_minutes: int = 60,
     buffer_minutes: int = 30,
 ) -> list[str]:
-    """Generate available time slots for a date, mirroring slayinstalls logic."""
+    """Generate available time slots for a date, mirroring the legacy PHP prototype logic."""
     day_key = get_day_key(date_str)
     day = availability["working_days"].get(day_key)
     if not day or not day["enabled"]:

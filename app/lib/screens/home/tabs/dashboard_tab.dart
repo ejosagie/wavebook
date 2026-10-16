@@ -203,14 +203,14 @@ class _DashboardTabState extends State<DashboardTab> {
   void _openSubscription(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Subscriptions are activated on the WaveBook website: wavebook.com/subscribe'),
+        content: Text('Subscriptions are activated on the WaveBook website: getwavebook.com/subscribe'),
       ),
     );
   }
 
   void _openWebsite(BuildContext context, String slug) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Open $slug.wavebook.com in your browser to view your booking site.')),
+      SnackBar(content: Text('Open $slug.wab.is in your browser to view your booking site.')),
     );
   }
 }

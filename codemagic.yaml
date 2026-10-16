@@ -1,0 +1,70 @@
+workflows:
+  ios-release:
+    name: iOS Release (App Store)
+    max_build_duration: 90
+    instance_type: mac_mini_m2
+
+    integrations:
+      app_store_connect: WaveBook App Store Connect
+
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.wavebook.wavebookApp
+
+      vars:
+        APP_STORE_APPLE_ID: "6823727209"
+
+    scripts:
+      - name: Set up Flutter
+        script: |
+          flutter --version
+          flutter pub get
+
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios
+          pod install
+          cd ..
+
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles
+
+      - name: Increment build number
+        script: |
+          set -e
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || true)
+          if [ -n "$LATEST_BUILD_NUMBER" ] && [ "$LATEST_BUILD_NUMBER" -gt 0 ] 2>/dev/null; then
+            BUILD_NUMBER=$(($LATEST_BUILD_NUMBER + 1))
+          else
+            # Fallback to timestamp to guarantee uniqueness if App Store lookup fails
+            BUILD_NUMBER=$(date +%s)
+          fi
+          echo "Latest build number found: ${LATEST_BUILD_NUMBER:-'none'}"
+          echo "Using new build number: $BUILD_NUMBER"
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $CM_ENV
+
+      - name: Build signed IPA
+        script: |
+          # IMPORTANT: Update --build-name before each release
+          flutter build ipa --release \
+            --build-name=1.0.0 \
+            --build-number=$BUILD_NUMBER \
+            --export-options-plist=/Users/builder/export_options.plist
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - Internal Testers

@@ -27,3 +27,6 @@ slayinstalls/
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Signing credentials (upload via Codemagic UI instead)
+keys/

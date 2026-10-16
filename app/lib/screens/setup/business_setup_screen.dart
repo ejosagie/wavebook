@@ -88,7 +88,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                       controller: _name,
                       decoration: const InputDecoration(
                         labelText: 'Business Name',
-                        hintText: 'e.g. SlayInstalls UK',
+                        hintText: 'e.g. Glow Beauty Studio',
                         prefixIcon: Icon(Icons.storefront_outlined),
                       ),
                       validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter your business name' : null,
@@ -98,9 +98,9 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                       controller: _slug,
                       decoration: const InputDecoration(
                         labelText: 'Website Address',
-                        hintText: 'slayinstalls',
+                        hintText: 'yourbusiness',
                         prefixIcon: Icon(Icons.link),
-                        suffixText: '.wavebook.com',
+                        suffixText: '.wab.is',
                       ),
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) return 'Choose a website address';
