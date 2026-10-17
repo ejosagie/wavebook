@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WaveBook Admin — Feedback</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="/static/img/logo.svg">
+</head>
+<body>
+  <div class="navbar">
+    <div class="container">
+      <a href="/" class="brand"><img src="/static/img/logo.svg" alt="WaveBook logo">Wave<span>Book</span> Admin</a>
+      <nav class="nav-links">
+        <a href="/">View Site</a>
+        <form method="post" action="/admin/logout" style="display:inline;">
+          <button type="submit" class="btn btn-sm" style="margin-left:8px;">Logout</button>
+        </form>
+      </nav>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="container">
+      <nav style="display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap;">
+        <a href="/admin" class="btn btn-sm">Overview</a>
+        <a href="/admin/metrics" class="btn btn-sm">Metrics</a>
+        <a href="/admin/finances" class="btn btn-sm">Finances</a>
+        <a href="/admin/users" class="btn btn-sm">Users</a>
+        <a href="/admin/feedback" class="btn btn-sm">Feedback</a>
+        <a href="/admin/bookings" class="btn btn-sm">Bookings</a>
+      </nav>
+
+      <h2 style="text-align:left; margin-bottom:16px;">Feedback ({{ feedback|length }})</h2>
+      {% if feedback %}
+      <table>
+        <thead>
+          <tr>
+            <th>Business</th>
+            <th>Customer</th>
+            <th>Rating</th>
+            <th>Comment</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in feedback %}
+          <tr>
+            <td><a href="/t/{{ f.business_slug }}" target="_blank">{{ f.business_name }}</a></td>
+            <td>{{ f.customer_name }}</td>
+            <td style="color:#f59e0b;">{{ '★' * f.rating }}{{ '☆' * (5 - f.rating) }}</td>
+            <td>{{ f.comment }}</td>
+            <td>
+              {% if f.approved %}
+                <span class="badge badge-active">approved</span>
+              {% else %}
+                <span class="badge badge-past_due">hidden</span>
+              {% endif %}
+            </td>
+            <td>
+              <form method="post" action="/admin/feedback/{{ f.id }}/approve" style="display:inline;">
+                <input type="hidden" name="approved" value="{{ 0 if f.approved else 1 }}">
+                <button type="submit" class="btn btn-sm">{{ 'Hide' if f.approved else 'Approve' }}</button>
+              </form>
+              <form method="post" action="/admin/feedback/{{ f.id }}/delete" style="display:inline;" onsubmit="return confirm('Delete this review?');">
+                <button type="submit" class="btn btn-sm" style="background:var(--danger);">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color: var(--muted);">No feedback yet.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="container"><p>&copy; WaveBook. All rights reserved.</p></div>
+  </div>
+</body>
+</html>

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../theme.dart';
 import 'customers_tab.dart';
+import 'feedback_tab.dart';
 import 'gallery_tab.dart';
 import 'settings_tab.dart';
 import 'staff_tab.dart';
@@ -37,6 +38,13 @@ class MoreTab extends StatelessWidget {
             title: 'Customers',
             subtitle: 'Customer profiles and booking history',
             onTap: () => _push(context, const CustomersTab()),
+          ),
+          _MenuCard(
+            icon: Icons.rate_review_outlined,
+            color: WaveBookColors.rose,
+            title: 'Feedback',
+            subtitle: 'Reviews left by your customers',
+            onTap: () => _push(context, const FeedbackTab()),
           ),
           _MenuCard(
             icon: Icons.settings_outlined,

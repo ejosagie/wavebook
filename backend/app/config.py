@@ -24,6 +24,9 @@ class Settings:
     SMSWORKS_SENDER_ID: str = os.getenv("SMSWORKS_SENDER_ID", "WaveBook")  # max 11 chars
     GOCARDLESS_ACCESS_TOKEN: str = os.getenv("GOCARDLESS_ACCESS_TOKEN", "")
     GOCARDLESS_WEBHOOK_SECRET: str = os.getenv("GOCARDLESS_WEBHOOK_SECRET", "")
+    # Platform admin access (set in .env / server environment)
+    ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "")
+    ADMIN_ACCESS_TOKEN: str = os.getenv("ADMIN_ACCESS_TOKEN", "")  # ?access=... link on the landing page
 
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 30  # 30 days

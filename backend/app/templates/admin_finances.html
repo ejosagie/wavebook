@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WaveBook Admin — Finances</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="/static/img/logo.svg">
+</head>
+<body>
+  <div class="navbar">
+    <div class="container">
+      <a href="/" class="brand"><img src="/static/img/logo.svg" alt="WaveBook logo">Wave<span>Book</span> Admin</a>
+      <nav class="nav-links">
+        <a href="/">View Site</a>
+        <form method="post" action="/admin/logout" style="display:inline;">
+          <button type="submit" class="btn btn-sm" style="margin-left:8px;">Logout</button>
+        </form>
+      </nav>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="container">
+      <nav style="display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap;">
+        <a href="/admin" class="btn btn-sm">Overview</a>
+        <a href="/admin/metrics" class="btn btn-sm">Metrics</a>
+        <a href="/admin/finances" class="btn btn-sm">Finances</a>
+        <a href="/admin/users" class="btn btn-sm">Users</a>
+        <a href="/admin/feedback" class="btn btn-sm">Feedback</a>
+        <a href="/admin/bookings" class="btn btn-sm">Bookings</a>
+      </nav>
+
+      <h2 style="text-align:left; margin-bottom:16px;">Finances &amp; Settlement</h2>
+
+      <div class="admin-stats">
+        <div class="stat-card"><div class="num">&pound;{{ "%.2f"|format(total_collected) }}</div><div class="label">Collected</div></div>
+        <div class="stat-card"><div class="num">&pound;{{ "%.2f"|format(total_settled) }}</div><div class="label">Settled</div></div>
+        <div class="stat-card"><div class="num">&pound;{{ "%.2f"|format(outstanding) }}</div><div class="label">Outstanding</div></div>
+      </div>
+
+      <h3 style="text-align:left; margin:24px 0 12px;">Business Balances</h3>
+      {% if businesses %}
+      <table>
+        <thead>
+          <tr>
+            <th>Business</th>
+            <th>Collected</th>
+            <th>Settled</th>
+            <th>Outstanding</th>
+            <th>Settle</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in businesses %}
+          <tr>
+            <td><a href="/t/{{ b.slug }}" target="_blank"><strong>{{ b.name }}</strong></a></td>
+            <td>&pound;{{ "%.2f"|format(b.collected) }}</td>
+            <td>&pound;{{ "%.2f"|format(b.settled) }}</td>
+            <td>
+              {% if b.outstanding > 0 %}
+                <strong style="color: var(--success);">&pound;{{ "%.2f"|format(b.outstanding) }}</strong>
+              {% else %}
+                &pound;0.00
+              {% endif %}
+            </td>
+            <td>
+              <form method="post" action="/admin/settlements" style="display:flex; gap:6px; flex-wrap:wrap;">
+                <input type="hidden" name="business_id" value="{{ b.id }}">
+                <input type="number" name="amount" step="0.01" min="0.01" placeholder="Amount" style="width:90px;" required>
+                <select name="method" style="width:130px;">
+                  <option value="bank_transfer">Bank transfer</option>
+                  <option value="paypal">PayPal</option>
+                  <option value="cash">Cash</option>
+                  <option value="other">Other</option>
+                </select>
+                <input type="text" name="reference" placeholder="Reference" style="width:110px;">
+                <input type="text" name="notes" placeholder="Notes" style="width:110px;">
+                <button type="submit" class="btn btn-sm">Settle</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color: var(--muted);">No businesses yet.</p>
+      {% endif %}
+
+      <h3 style="text-align:left; margin:24px 0 12px;">Recent Payments</h3>
+      {% if recent_payments %}
+      <table>
+        <thead>
+          <tr>
+            <th>Business</th>
+            <th>Booking</th>
+            <th>Amount</th>
+            <th>Method</th>
+            <th>Status</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in recent_payments %}
+          <tr>
+            <td>{{ p.business_name }}</td>
+            <td>#{{ p.booking_id }}</td>
+            <td>&pound;{{ "%.2f"|format(p.amount) }}</td>
+            <td>{{ p.method }}</td>
+            <td><span class="badge badge-{{ p.status }}">{{ p.status }}</span></td>
+            <td>{{ p.created_at[:10] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color: var(--muted);">No customer payments yet.</p>
+      {% endif %}
+
+      <h3 style="text-align:left; margin:24px 0 12px;">Settlement History</h3>
+      {% if settlements %}
+      <table>
+        <thead>
+          <tr>
+            <th>Business</th>
+            <th>Amount</th>
+            <th>Method</th>
+            <th>Reference</th>
+            <th>Notes</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in settlements %}
+          <tr>
+            <td>{{ s.business_name }}</td>
+            <td>&pound;{{ "%.2f"|format(s.amount) }}</td>
+            <td>{{ s.method }}</td>
+            <td>{{ s.reference }}</td>
+            <td>{{ s.notes }}</td>
+            <td>{{ s.created_at[:10] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color: var(--muted);">No settlements recorded yet.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="container"><p>&copy; WaveBook. All rights reserved.</p></div>
+  </div>
+</body>
+</html>

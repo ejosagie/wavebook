@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WaveBook Admin — Bookings</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="/static/img/logo.svg">
+</head>
+<body>
+  <div class="navbar">
+    <div class="container">
+      <a href="/" class="brand"><img src="/static/img/logo.svg" alt="WaveBook logo">Wave<span>Book</span> Admin</a>
+      <nav class="nav-links">
+        <a href="/">View Site</a>
+        <form method="post" action="/admin/logout" style="display:inline;">
+          <button type="submit" class="btn btn-sm" style="margin-left:8px;">Logout</button>
+        </form>
+      </nav>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="container">
+      <nav style="display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap;">
+        <a href="/admin" class="btn btn-sm">Overview</a>
+        <a href="/admin/metrics" class="btn btn-sm">Metrics</a>
+        <a href="/admin/finances" class="btn btn-sm">Finances</a>
+        <a href="/admin/users" class="btn btn-sm">Users</a>
+        <a href="/admin/feedback" class="btn btn-sm">Feedback</a>
+        <a href="/admin/bookings" class="btn btn-sm">Bookings</a>
+      </nav>
+
+      <h2 style="text-align:left; margin-bottom:16px;">Bookings ({{ total }})</h2>
+
+      <form method="get" action="/admin/bookings" style="display:flex; gap:12px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
+        <label>From <input type="date" name="from_date" value="{{ from_date }}"></label>
+        <label>To <input type="date" name="to_date" value="{{ to_date }}"></label>
+        <button type="submit" class="btn btn-sm">Filter</button>
+        {% if from_date or to_date %}<a href="/admin/bookings" class="btn btn-sm">Clear</a>{% endif %}
+      </form>
+
+      {% if bookings %}
+      <table>
+        <thead>
+          <tr>
+            <th>Business</th>
+            <th>Customer</th>
+            <th>Service</th>
+            <th>When</th>
+            <th>Price</th>
+            <th>Status</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for bk in bookings %}
+          <tr>
+            <td><a href="/t/{{ bk.business_slug }}" target="_blank">{{ bk.business_name }}</a></td>
+            <td>{{ bk.customer_name }}</td>
+            <td>{{ bk.service_name }}</td>
+            <td>{{ bk.date }} {{ bk.time }}</td>
+            <td>£{{ "%.2f"|format(bk.service_price) }}</td>
+            <td><span class="badge badge-{{ bk.status }}">{{ bk.status }}</span></td>
+            <td>{{ bk.created_at[:10] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color: var(--muted);">No bookings match this filter.</p>
+      {% endif %}
+
+      {% if total_pages > 1 %}
+      <div style="display:flex; gap:12px; align-items:center; margin-top:24px; flex-wrap:wrap;">
+        {% if page > 1 %}
+        <a class="btn btn-sm" href="/admin/bookings?page={{ page - 1 }}&from_date={{ from_date }}&to_date={{ to_date }}">&larr; Prev</a>
+        {% endif %}
+        <span>Page {{ page }} of {{ total_pages }}</span>
+        {% if page < total_pages %}
+        <a class="btn btn-sm" href="/admin/bookings?page={{ page + 1 }}&from_date={{ from_date }}&to_date={{ to_date }}">Next &rarr;</a>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="container"><p>&copy; WaveBook. All rights reserved.</p></div>
+  </div>
+</body>
+</html>

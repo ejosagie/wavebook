@@ -335,3 +335,39 @@ class SubscriptionInfo {
         maxStaff: json['max_staff'] as int? ?? 5,
       );
 }
+
+class FeedbackItem {
+  final int id;
+  final int? bookingId;
+  final String customerName;
+  final int rating;
+  final String comment;
+  final String createdAt;
+  final String bookingDate;
+  final String bookingTime;
+  final String serviceName;
+
+  FeedbackItem({
+    required this.id,
+    this.bookingId,
+    required this.customerName,
+    required this.rating,
+    required this.comment,
+    required this.createdAt,
+    required this.bookingDate,
+    required this.bookingTime,
+    required this.serviceName,
+  });
+
+  factory FeedbackItem.fromJson(Map<String, dynamic> json) => FeedbackItem(
+        id: json['id'] as int,
+        bookingId: json['booking_id'] as int?,
+        customerName: json['customer_name'] as String? ?? '',
+        rating: json['rating'] as int? ?? 5,
+        comment: json['comment'] as String? ?? '',
+        createdAt: json['created_at'] as String? ?? '',
+        bookingDate: json['booking_date'] as String? ?? '',
+        bookingTime: json['booking_time'] as String? ?? '',
+        serviceName: json['service_name'] as String? ?? '',
+      );
+}

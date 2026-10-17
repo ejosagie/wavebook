@@ -8,6 +8,7 @@ from fastapi.templating import Jinja2Templates
 from ..config import settings
 from ..database import get_connection, row_to_dict, rows_to_dicts
 from ..phone import validate_uk_phone
+from ..security import create_admin_token, decode_admin_token
 from ..services.slots import (
     DAY_LABELS,
     blocked_dates_json,
@@ -58,12 +59,31 @@ def _format_duration(minutes: int) -> str:
         return f"{h} hour{'s' if h > 1 else ''}"
     return f"{m} minutes"
 
+def _is_admin(request: Request) -> bool:
+    token = request.cookies.get("wavebook_admin")
+    return bool(token and decode_admin_token(token))
+
+
+def _set_admin_cookie(response, request: Request) -> None:
+    response.set_cookie(
+        "wavebook_admin",
+        create_admin_token(),
+        httponly=True,
+        samesite="lax",
+        secure=request.url.scheme == "https",
+        max_age=7 * 24 * 3600,
+    )
+
 
 # ---- Landing page ----
 
 
 @router.get("/", response_class=HTMLResponse)
-def landing(request: Request):
+def landing(request: Request, access: str | None = None):
+    if access and settings.ADMIN_ACCESS_TOKEN and access == settings.ADMIN_ACCESS_TOKEN:
+        response = RedirectResponse(url="/admin", status_code=303)
+        _set_admin_cookie(response, request)
+        return response
     return templates.TemplateResponse(
         request,
         "landing.html",
@@ -95,9 +115,15 @@ def subscribe_cancel(request: Request):
 
 # ---- Owner admin dashboard ----
 
+ADMIN_COOKIE = "wavebook_admin"
+
 
 @router.get("/admin", response_class=HTMLResponse)
 def admin_dashboard(request: Request):
+    if not _is_admin(request):
+        return templates.TemplateResponse(
+            request, "admin_login.html", {"error": None}, status_code=401
+        )
     conn = get_connection()
     try:
         businesses = rows_to_dicts(
@@ -127,6 +153,386 @@ def admin_dashboard(request: Request):
     )
 
 
+@router.post("/admin/login")
+def admin_login(request: Request, password: str = Form(...)):
+    if settings.ADMIN_PASSWORD and password == settings.ADMIN_PASSWORD:
+        response = RedirectResponse(url="/admin", status_code=303)
+        _set_admin_cookie(response, request)
+        return response
+    return templates.TemplateResponse(
+        request, "admin_login.html", {"error": "Incorrect password"}, status_code=401
+    )
+
+
+@router.post("/admin/logout")
+def admin_logout():
+    response = RedirectResponse(url="/", status_code=303)
+    response.delete_cookie(ADMIN_COOKIE)
+    return response
+
+
+def _admin_or_login(request: Request):
+    """Return the admin dashboard response if not authenticated."""
+    if not _is_admin(request):
+        return templates.TemplateResponse(
+            request, "admin_login.html", {"error": None}, status_code=401
+        )
+    return None
+
+
+@router.get("/admin/users", response_class=HTMLResponse)
+def admin_users(request: Request):
+    blocked = _admin_or_login(request)
+    if blocked:
+        return blocked
+    conn = get_connection()
+    try:
+        users = rows_to_dicts(
+            conn.execute(
+                """SELECT u.*, b.name AS business_name, b.slug AS business_slug
+                   FROM users u LEFT JOIN businesses b ON b.id = u.business_id
+                   ORDER BY u.created_at DESC"""
+            ).fetchall()
+        )
+    finally:
+        conn.close()
+    return templates.TemplateResponse(request, "admin_users.html", {"users": users})
+
+
+@router.post("/admin/users/{user_id}/role")
+def admin_user_role(request: Request, user_id: int, role: str = Form(...)):
+    if not _is_admin(request):
+        return RedirectResponse(url="/admin", status_code=303)
+    if role not in ("owner", "staff", "admin"):
+        return RedirectResponse(url="/admin/users", status_code=303)
+    conn = get_connection()
+    try:
+        conn.execute("UPDATE users SET role = ? WHERE id = ?", (role, user_id))
+        conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse(url="/admin/users", status_code=303)
+
+
+@router.post("/admin/users/{user_id}/delete")
+def admin_user_delete(request: Request, user_id: int):
+    if not _is_admin(request):
+        return RedirectResponse(url="/admin", status_code=303)
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse(url="/admin/users", status_code=303)
+
+
+@router.post("/admin/businesses/{business_id}/subscription")
+def admin_business_subscription(request: Request, business_id: int, status: str = Form(...)):
+    if not _is_admin(request):
+        return RedirectResponse(url="/admin", status_code=303)
+    if status not in ("trial", "active", "past_due", "cancelled"):
+        return RedirectResponse(url="/admin", status_code=303)
+    conn = get_connection()
+    try:
+        conn.execute("UPDATE businesses SET subscription_status = ? WHERE id = ?", (status, business_id))
+        conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse(url="/admin", status_code=303)
+
+
+@router.post("/admin/businesses/{business_id}/delete")
+def admin_business_delete(request: Request, business_id: int):
+    if not _is_admin(request):
+        return RedirectResponse(url="/admin", status_code=303)
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM businesses WHERE id = ?", (business_id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse(url="/admin", status_code=303)
+
+
+@router.get("/admin/feedback", response_class=HTMLResponse)
+def admin_feedback(request: Request):
+    blocked = _admin_or_login(request)
+    if blocked:
+        return blocked
+    conn = get_connection()
+    try:
+        feedback = rows_to_dicts(
+            conn.execute(
+                """SELECT f.*, b.name AS business_name, b.slug AS business_slug
+                   FROM feedback f JOIN businesses b ON b.id = f.business_id
+                   ORDER BY f.created_at DESC"""
+            ).fetchall()
+        )
+    finally:
+        conn.close()
+    return templates.TemplateResponse(request, "admin_feedback.html", {"feedback": feedback})
+
+
+@router.post("/admin/feedback/{feedback_id}/approve")
+def admin_feedback_approve(request: Request, feedback_id: int, approved: int = Form(...)):
+    if not _is_admin(request):
+        return RedirectResponse(url="/admin", status_code=303)
+    conn = get_connection()
+    try:
+        conn.execute("UPDATE feedback SET approved = ? WHERE id = ?", (1 if approved else 0, feedback_id))
+        conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse(url="/admin/feedback", status_code=303)
+
+
+@router.post("/admin/feedback/{feedback_id}/delete")
+def admin_feedback_delete(request: Request, feedback_id: int):
+    if not _is_admin(request):
+        return RedirectResponse(url="/admin", status_code=303)
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM feedback WHERE id = ?", (feedback_id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse(url="/admin/feedback", status_code=303)
+
+
+@router.get("/admin/bookings", response_class=HTMLResponse)
+def admin_bookings(request: Request, page: int = 1, from_date: str = "", to_date: str = ""):
+    blocked = _admin_or_login(request)
+    if blocked:
+        return blocked
+    page = max(page, 1)
+    per_page = 50
+    where = ""
+    params: list = []
+    if from_date:
+        where += " AND bk.date >= ?"
+        params.append(from_date)
+    if to_date:
+        where += " AND bk.date <= ?"
+        params.append(to_date)
+    conn = get_connection()
+    try:
+        total = conn.execute(
+            f"SELECT COUNT(*) AS c FROM bookings bk WHERE 1=1{where}", params
+        ).fetchone()["c"]
+        bookings = rows_to_dicts(
+            conn.execute(
+                f"""SELECT bk.*, b.name AS business_name, b.slug AS business_slug
+                    FROM bookings bk JOIN businesses b ON b.id = bk.business_id
+                    WHERE 1=1{where}
+                    ORDER BY bk.date DESC, bk.time DESC
+                    LIMIT ? OFFSET ?""",
+                params + [per_page, (page - 1) * per_page],
+            ).fetchall()
+        )
+    finally:
+        conn.close()
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    return templates.TemplateResponse(
+        request,
+        "admin_bookings.html",
+        {
+            "bookings": bookings,
+            "page": page,
+            "total_pages": total_pages,
+            "total": total,
+            "from_date": from_date,
+            "to_date": to_date,
+        },
+    )
+
+
+@router.get("/admin/metrics", response_class=HTMLResponse)
+def admin_metrics(request: Request):
+    blocked = _admin_or_login(request)
+    if blocked:
+        return blocked
+    conn = get_connection()
+    try:
+        def one(sql: str, params=()) -> int:
+            return conn.execute(sql, params).fetchone()["c"]
+
+        total_users = one("SELECT COUNT(*) AS c FROM users")
+        new_users_30d = one(
+            "SELECT COUNT(*) AS c FROM users WHERE created_at >= datetime('now', '-30 days')"
+        )
+        owners = one("SELECT COUNT(*) AS c FROM users WHERE role = 'owner'")
+        staff = one("SELECT COUNT(*) AS c FROM users WHERE role = 'staff'")
+        admins = one("SELECT COUNT(*) AS c FROM users WHERE role = 'admin'")
+
+        total_businesses = one("SELECT COUNT(*) AS c FROM businesses")
+        new_businesses_30d = one(
+            "SELECT COUNT(*) AS c FROM businesses WHERE created_at >= datetime('now', '-30 days')"
+        )
+        active_subs = one(
+            "SELECT COUNT(*) AS c FROM businesses WHERE subscription_status = 'active'"
+        )
+        trial_subs = one(
+            "SELECT COUNT(*) AS c FROM businesses WHERE subscription_status = 'trial'"
+        )
+        past_due = one(
+            "SELECT COUNT(*) AS c FROM businesses WHERE subscription_status = 'past_due'"
+        )
+        cancelled = one(
+            "SELECT COUNT(*) AS c FROM businesses WHERE subscription_status = 'cancelled'"
+        )
+
+        total_bookings = one("SELECT COUNT(*) AS c FROM bookings")
+        bookings_30d = one(
+            "SELECT COUNT(*) AS c FROM bookings WHERE created_at >= datetime('now', '-30 days')"
+        )
+        pending = one("SELECT COUNT(*) AS c FROM bookings WHERE status = 'pending'")
+        confirmed = one("SELECT COUNT(*) AS c FROM bookings WHERE status = 'confirmed'")
+        cancelled_bookings = one(
+            "SELECT COUNT(*) AS c FROM bookings WHERE status = 'cancelled'"
+        )
+        revenue_30d = conn.execute(
+            """SELECT COALESCE(SUM(service_price), 0) AS s FROM bookings
+               WHERE status != 'cancelled' AND created_at >= datetime('now', '-30 days')"""
+        ).fetchone()["s"]
+
+        feedback_total = one("SELECT COUNT(*) AS c FROM feedback")
+        feedback_approved = one("SELECT COUNT(*) AS c FROM feedback WHERE approved = 1")
+        avg_rating = conn.execute(
+            "SELECT COALESCE(AVG(rating), 0) AS s FROM feedback"
+        ).fetchone()["s"]
+
+        recent_logins = rows_to_dicts(
+            conn.execute(
+                """SELECT full_name, email, last_login_at FROM users
+                   WHERE last_login_at != '' ORDER BY last_login_at DESC LIMIT 10"""
+            ).fetchall()
+        )
+    finally:
+        conn.close()
+
+    trial_rate = round(trial_subs / total_businesses * 100, 1) if total_businesses else 0.0
+    churn_rate = (
+        round(cancelled / (active_subs + cancelled) * 100, 1)
+        if (active_subs + cancelled)
+        else 0.0
+    )
+    return templates.TemplateResponse(
+        request,
+        "admin_metrics.html",
+        {
+            "total_users": total_users,
+            "new_users_30d": new_users_30d,
+            "owners": owners,
+            "staff": staff,
+            "admins": admins,
+            "total_businesses": total_businesses,
+            "new_businesses_30d": new_businesses_30d,
+            "active_subs": active_subs,
+            "trial_subs": trial_subs,
+            "past_due": past_due,
+            "cancelled": cancelled,
+            "trial_rate": trial_rate,
+            "churn_rate": churn_rate,
+            "total_bookings": total_bookings,
+            "bookings_30d": bookings_30d,
+            "pending": pending,
+            "confirmed": confirmed,
+            "cancelled_bookings": cancelled_bookings,
+            "revenue_30d": revenue_30d,
+            "feedback_total": feedback_total,
+            "feedback_approved": feedback_approved,
+            "avg_rating": avg_rating,
+            "recent_logins": recent_logins,
+        },
+    )
+
+
+@router.get("/admin/finances", response_class=HTMLResponse)
+def admin_finances(request: Request):
+    blocked = _admin_or_login(request)
+    if blocked:
+        return blocked
+    conn = get_connection()
+    try:
+        total_collected = conn.execute(
+            "SELECT COALESCE(SUM(amount), 0) AS s FROM payments WHERE status = 'paid'"
+        ).fetchone()["s"]
+        total_settled = conn.execute(
+            "SELECT COALESCE(SUM(amount), 0) AS s FROM settlements"
+        ).fetchone()["s"]
+
+        businesses = rows_to_dicts(
+            conn.execute(
+                """SELECT b.id, b.name, b.slug, b.subscription_status,
+                          COALESCE((SELECT SUM(p.amount) FROM payments p
+                                    WHERE p.business_id = b.id AND p.status = 'paid'), 0) AS collected,
+                          COALESCE((SELECT SUM(s.amount) FROM settlements s
+                                    WHERE s.business_id = b.id), 0) AS settled
+                   FROM businesses b
+                   ORDER BY collected DESC"""
+            ).fetchall()
+        )
+        for b in businesses:
+            b["outstanding"] = round(b["collected"] - b["settled"], 2)
+
+        recent_payments = rows_to_dicts(
+            conn.execute(
+                """SELECT p.*, b.name AS business_name, b.slug AS business_slug
+                   FROM payments p JOIN businesses b ON b.id = p.business_id
+                   ORDER BY p.created_at DESC LIMIT 20"""
+            ).fetchall()
+        )
+        settlements = rows_to_dicts(
+            conn.execute(
+                """SELECT s.*, b.name AS business_name, b.slug AS business_slug
+                   FROM settlements s JOIN businesses b ON b.id = s.business_id
+                   ORDER BY s.created_at DESC LIMIT 20"""
+            ).fetchall()
+        )
+    finally:
+        conn.close()
+    outstanding = round(total_collected - total_settled, 2)
+    return templates.TemplateResponse(
+        request,
+        "admin_finances.html",
+        {
+            "total_collected": total_collected,
+            "total_settled": total_settled,
+            "outstanding": outstanding,
+            "businesses": businesses,
+            "recent_payments": recent_payments,
+            "settlements": settlements,
+        },
+    )
+
+
+@router.post("/admin/settlements")
+def admin_settlement(
+    request: Request,
+    business_id: int = Form(...),
+    amount: float = Form(...),
+    method: str = Form("bank_transfer"),
+    reference: str = Form(""),
+    notes: str = Form(""),
+):
+    if not _is_admin(request):
+        return RedirectResponse(url="/admin", status_code=303)
+    if amount <= 0:
+        return RedirectResponse(url="/admin/finances", status_code=303)
+    conn = get_connection()
+    try:
+        conn.execute(
+            """INSERT INTO settlements (business_id, amount, method, reference, notes)
+               VALUES (?, ?, ?, ?, ?)""",
+            (business_id, amount, method, reference, notes),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse(url="/admin/finances", status_code=303)
+
+
 # ---- Tenant booking sites ----
 
 
@@ -151,6 +557,12 @@ def tenant_home(request: Request, slug: str):
         availability = get_availability_row(
             conn.execute("SELECT * FROM availability WHERE business_id = ?", (business["id"],)).fetchone()
         )
+        feedback = rows_to_dicts(
+            conn.execute(
+                "SELECT * FROM feedback WHERE business_id = ? AND approved = 1 ORDER BY created_at DESC LIMIT 20",
+                (business["id"],),
+            ).fetchall()
+        )
     finally:
         conn.close()
     return templates.TemplateResponse(
@@ -161,6 +573,7 @@ def tenant_home(request: Request, slug: str):
             "services": services,
             "gallery": gallery,
             "availability": availability,
+            "feedback": feedback,
             "day_labels": DAY_LABELS,
             "format_price": _format_price,
             "format_duration": _format_duration,
@@ -260,6 +673,28 @@ def tenant_slots(slug: str, date: str, service_id: int | None = None):
         int(business["buffer_minutes"] or 30),
     )
     return {"blocked": False, "slots": slots}
+
+
+@router.post("/t/{slug}/feedback")
+def tenant_feedback_submit(
+    slug: str,
+    name: str = Form(...),
+    rating: int = Form(5),
+    comment: str = Form(""),
+):
+    business = _get_business_by_slug(slug)
+    if not business:
+        raise HTTPException(status_code=404, detail="Business not found")
+    conn = get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO feedback (business_id, customer_name, rating, comment) VALUES (?, ?, ?, ?)",
+            (business["id"], name.strip(), max(1, min(5, rating)), comment.strip()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse(url=f"/t/{slug}#feedback", status_code=303)
 
 
 @router.post("/t/{slug}/booking")

@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from ..database import get_connection, row_to_dict
@@ -44,6 +46,15 @@ def login(data: LoginRequest):
         conn.close()
     if user is None or not verify_password(data.password, user["password_hash"]):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE users SET last_login_at = datetime('now') WHERE id = ?", (user["id"],)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    user["last_login_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     user.pop("password_hash", None)
     token = create_access_token(user["id"])
     return TokenResponse(access_token=token, user=user)

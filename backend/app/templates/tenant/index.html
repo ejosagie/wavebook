@@ -130,6 +130,48 @@
     </div>
   </section>
 
+  <section class="section" id="feedback">
+    <div class="container">
+      <h2>Customer Feedback</h2>
+      {% if feedback %}
+      <div style="max-width:700px; margin: 24px auto 0;">
+        {% for f in feedback %}
+        <div class="info-card" style="margin-bottom:12px;">
+          <div style="color:#f59e0b; letter-spacing:2px;">{{ '★' * f.rating }}{{ '☆' * (5 - f.rating) }}</div>
+          {% if f.comment %}<p style="margin-top:6px;">{{ f.comment }}</p>{% endif %}
+          <p style="color: var(--muted); font-size:0.9rem; margin-top:6px;">— {{ f.customer_name }}</p>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p style="color: var(--muted); text-align:center; margin-top:24px;">No reviews yet. Be the first to leave one!</p>
+      {% endif %}
+
+      <form method="post" action="/t/{{ business.slug }}/feedback" class="info-card" style="max-width:700px; margin: 24px auto 0;">
+        <h3>Leave a Review</h3>
+        <div class="form-group" style="margin-top:12px;">
+          <label>Your name</label>
+          <input type="text" name="name" placeholder="e.g. Sarah" required>
+        </div>
+        <div class="form-group">
+          <label>Rating</label>
+          <select name="rating" required>
+            <option value="5">★★★★★ — Loved it</option>
+            <option value="4">★★★★ — Great</option>
+            <option value="3">★★★ — Good</option>
+            <option value="2">★★ — Okay</option>
+            <option value="1">★ — Poor</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Your review</label>
+          <textarea name="comment" rows="3" placeholder="How was your experience?"></textarea>
+        </div>
+        <button type="submit" class="btn">Submit Review</button>
+      </form>
+    </div>
+  </section>
+
   <section class="section section-light">
     <div class="container">
       <h2>Contact Us</h2>

@@ -31,3 +31,19 @@ def decode_access_token(token: str) -> int | None:
         return int(payload["sub"])
     except (jwt.PyJWTError, KeyError, ValueError):
         return None
+
+
+def create_admin_token() -> str:
+    payload = {
+        "role": "admin",
+        "exp": datetime.now(timezone.utc) + timedelta(days=7),
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def decode_admin_token(token: str) -> bool:
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        return payload.get("role") == "admin"
+    except jwt.PyJWTError:
+        return False

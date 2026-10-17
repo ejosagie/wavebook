@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WaveBook Admin — Users</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="/static/img/logo.svg">
+</head>
+<body>
+  <div class="navbar">
+    <div class="container">
+      <a href="/" class="brand"><img src="/static/img/logo.svg" alt="WaveBook logo">Wave<span>Book</span> Admin</a>
+      <nav class="nav-links">
+        <a href="/">View Site</a>
+        <form method="post" action="/admin/logout" style="display:inline;">
+          <button type="submit" class="btn btn-sm" style="margin-left:8px;">Logout</button>
+        </form>
+      </nav>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="container">
+      <nav style="display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap;">
+        <a href="/admin" class="btn btn-sm">Overview</a>
+        <a href="/admin/metrics" class="btn btn-sm">Metrics</a>
+        <a href="/admin/finances" class="btn btn-sm">Finances</a>
+        <a href="/admin/users" class="btn btn-sm">Users</a>
+        <a href="/admin/feedback" class="btn btn-sm">Feedback</a>
+        <a href="/admin/bookings" class="btn btn-sm">Bookings</a>
+      </nav>
+
+      <h2 style="text-align:left; margin-bottom:16px;">Users ({{ users|length }})</h2>
+      {% if users %}
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Business</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td><strong>{{ u.full_name }}</strong></td>
+            <td>{{ u.email }}</td>
+            <td><span class="badge badge-{{ u.role }}">{{ u.role }}</span></td>
+            <td>
+              {% if u.business_slug %}
+                <a href="/t/{{ u.business_slug }}" target="_blank">{{ u.business_name }}</a>
+              {% else %}—{% endif %}
+            </td>
+            <td>{{ u.created_at[:10] }}</td>
+            <td>
+              <form method="post" action="/admin/users/{{ u.id }}/role" style="display:inline;">
+                <select name="role" onchange="this.form.submit()">
+                  <option value="owner" {% if u.role == 'owner' %}selected{% endif %}>owner</option>
+                  <option value="staff" {% if u.role == 'staff' %}selected{% endif %}>staff</option>
+                  <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>admin</option>
+                </select>
+              </form>
+              <form method="post" action="/admin/users/{{ u.id }}/delete" style="display:inline;" onsubmit="return confirm('Delete this user?');">
+                <button type="submit" class="btn btn-sm" style="background:var(--danger);">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color: var(--muted);">No users yet.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="container"><p>&copy; WaveBook. All rights reserved.</p></div>
+  </div>
+</body>
+</html>

@@ -106,10 +106,11 @@ CREATE TABLE IF NOT EXISTS payments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     business_id INTEGER NOT NULL,
     booking_id INTEGER,
+    stripe_payment_intent_id TEXT DEFAULT '',
     amount REAL NOT NULL,
-    provider TEXT NOT NULL DEFAULT 'stripe',
-    status TEXT NOT NULL DEFAULT 'pending',
-    reference TEXT DEFAULT '',
+    currency TEXT DEFAULT 'GBP',
+    status TEXT DEFAULT 'pending',
+    method TEXT DEFAULT 'card',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
 );
@@ -146,19 +147,30 @@ CREATE TABLE IF NOT EXISTS notifications (
     FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS payments (
+CREATE TABLE IF NOT EXISTS feedback (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     business_id INTEGER NOT NULL,
     booking_id INTEGER,
-    stripe_payment_intent_id TEXT DEFAULT '',
-    amount REAL NOT NULL,
-    currency TEXT DEFAULT 'GBP',
-    status TEXT DEFAULT 'pending',
-    method TEXT DEFAULT 'card',
+    customer_name TEXT DEFAULT '',
+    rating INTEGER NOT NULL DEFAULT 5,
+    comment TEXT DEFAULT '',
+    approved INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS settlements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    business_id INTEGER NOT NULL,
+    amount REAL NOT NULL,
+    method TEXT NOT NULL DEFAULT 'bank_transfer',
+    reference TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_feedback_business ON feedback(business_id, approved);
 CREATE INDEX IF NOT EXISTS idx_notifications_business ON notifications(business_id, read);
 CREATE INDEX IF NOT EXISTS idx_bookings_business_date ON bookings(business_id, date);
 CREATE INDEX IF NOT EXISTS idx_payments_booking ON payments(booking_id);
@@ -182,6 +194,10 @@ def init_db() -> None:
         _ensure_column(conn, "bookings", "payment_intent_id", "payment_intent_id TEXT DEFAULT ''")
         _ensure_column(conn, "businesses", "sms_template", "sms_template TEXT DEFAULT ''")
         _ensure_column(conn, "businesses", "sms_instructions", "sms_instructions TEXT DEFAULT ''")
+        _ensure_column(conn, "users", "last_login_at", "last_login_at TEXT DEFAULT ''")
+        _ensure_column(conn, "payments", "stripe_payment_intent_id", "stripe_payment_intent_id TEXT DEFAULT ''")
+        _ensure_column(conn, "payments", "currency", "currency TEXT DEFAULT 'GBP'")
+        _ensure_column(conn, "payments", "method", "method TEXT DEFAULT 'card'")
         conn.commit()
     finally:
         conn.close()

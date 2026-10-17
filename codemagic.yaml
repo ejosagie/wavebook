@@ -5,7 +5,7 @@ workflows:
     instance_type: mac_mini_m2
 
     integrations:
-      app_store_connect: WaveBook App Store Connect
+      app_store_connect: SaleCentra App Store Connect
 
     environment:
       flutter: stable

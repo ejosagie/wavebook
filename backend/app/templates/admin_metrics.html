@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WaveBook Admin — Metrics</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="/static/img/logo.svg">
+</head>
+<body>
+  <div class="navbar">
+    <div class="container">
+      <a href="/" class="brand"><img src="/static/img/logo.svg" alt="WaveBook logo">Wave<span>Book</span> Admin</a>
+      <nav class="nav-links">
+        <a href="/">View Site</a>
+        <form method="post" action="/admin/logout" style="display:inline;">
+          <button type="submit" class="btn btn-sm" style="margin-left:8px;">Logout</button>
+        </form>
+      </nav>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="container">
+      <nav style="display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap;">
+        <a href="/admin" class="btn btn-sm">Overview</a>
+        <a href="/admin/metrics" class="btn btn-sm">Metrics</a>
+        <a href="/admin/finances" class="btn btn-sm">Finances</a>
+        <a href="/admin/users" class="btn btn-sm">Users</a>
+        <a href="/admin/feedback" class="btn btn-sm">Feedback</a>
+        <a href="/admin/bookings" class="btn btn-sm">Bookings</a>
+      </nav>
+
+      <h2 style="text-align:left; margin-bottom:16px;">Investor Metrics</h2>
+
+      <h3 style="text-align:left; margin:24px 0 12px;">Users</h3>
+      <div class="admin-stats">
+        <div class="stat-card"><div class="num">{{ total_users }}</div><div class="label">Total Users</div></div>
+        <div class="stat-card"><div class="num">+{{ new_users_30d }}</div><div class="label">New Users (30d)</div></div>
+        <div class="stat-card"><div class="num">{{ owners }}</div><div class="label">Owners</div></div>
+        <div class="stat-card"><div class="num">{{ staff }}</div><div class="label">Staff</div></div>
+        <div class="stat-card"><div class="num">{{ admins }}</div><div class="label">Admins</div></div>
+      </div>
+
+      <h3 style="text-align:left; margin:24px 0 12px;">Subscriptions</h3>
+      <div class="admin-stats">
+        <div class="stat-card"><div class="num">{{ total_businesses }}</div><div class="label">Businesses</div></div>
+        <div class="stat-card"><div class="num">+{{ new_businesses_30d }}</div><div class="label">New (30d)</div></div>
+        <div class="stat-card"><div class="num">{{ active_subs }}</div><div class="label">Active</div></div>
+        <div class="stat-card"><div class="num">{{ trial_subs }}</div><div class="label">Trial</div></div>
+        <div class="stat-card"><div class="num">{{ past_due }}</div><div class="label">Past Due</div></div>
+        <div class="stat-card"><div class="num">{{ cancelled }}</div><div class="label">Expired / Cancelled</div></div>
+        <div class="stat-card"><div class="num">{{ trial_rate }}%</div><div class="label">Trial Rate</div></div>
+        <div class="stat-card"><div class="num">{{ churn_rate }}%</div><div class="label">Churn Rate</div></div>
+      </div>
+
+      <h3 style="text-align:left; margin:24px 0 12px;">Bookings &amp; Revenue</h3>
+      <div class="admin-stats">
+        <div class="stat-card"><div class="num">{{ total_bookings }}</div><div class="label">Total Bookings</div></div>
+        <div class="stat-card"><div class="num">{{ bookings_30d }}</div><div class="label">Bookings (30d)</div></div>
+        <div class="stat-card"><div class="num">{{ pending }}</div><div class="label">Pending</div></div>
+        <div class="stat-card"><div class="num">{{ confirmed }}</div><div class="label">Confirmed</div></div>
+        <div class="stat-card"><div class="num">{{ cancelled_bookings }}</div><div class="label">Cancelled</div></div>
+        <div class="stat-card"><div class="num">&pound;{{ "%.2f"|format(revenue_30d) }}</div><div class="label">Revenue (30d)</div></div>
+      </div>
+
+      <h3 style="text-align:left; margin:24px 0 12px;">Feedback</h3>
+      <div class="admin-stats">
+        <div class="stat-card"><div class="num">{{ feedback_total }}</div><div class="label">Total Reviews</div></div>
+        <div class="stat-card"><div class="num">{{ feedback_approved }}</div><div class="label">Approved</div></div>
+        <div class="stat-card"><div class="num">{{ "%.1f"|format(avg_rating) }}</div><div class="label">Avg Rating</div></div>
+      </div>
+
+      <h3 style="text-align:left; margin:24px 0 12px;">Recent Logins</h3>
+      {% if recent_logins %}
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Last Login</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in recent_logins %}
+          <tr>
+            <td><strong>{{ u.full_name }}</strong></td>
+            <td>{{ u.email }}</td>
+            <td>{{ u.last_login_at }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color: var(--muted);">No logins recorded yet.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="container"><p>&copy; WaveBook. All rights reserved.</p></div>
+  </div>
+</body>
+</html>

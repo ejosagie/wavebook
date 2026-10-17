@@ -36,11 +36,11 @@ class _SplashScreenState extends State<SplashScreen> {
         decoration: const BoxDecoration(
           gradient: WaveBookColors.gradient,
         ),
-        child: const Center(
+        child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.waves, size: 72, color: Colors.white),
+              Image.asset('assets/logo.png', height: 72),
               SizedBox(height: 16),
               Text(
                 'WaveBook',

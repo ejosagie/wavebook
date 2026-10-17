@@ -51,7 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(Icons.waves, size: 64, color: WaveBookColors.pink),
+                    Image.asset('assets/logo.png', height: 64),
                     const SizedBox(height: 8),
                     const Text(
                       'WaveBook',

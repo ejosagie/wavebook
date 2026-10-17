@@ -108,3 +108,12 @@ class StaffInvite(BaseModel):
 
 class StaffUpdate(BaseModel):
     active: bool | None = None
+
+
+# ---- Feedback ----
+class FeedbackCreate(BaseModel):
+    slug: str = Field(min_length=2)
+    booking_id: int | None = None
+    name: str = Field(min_length=1)
+    rating: int = Field(ge=1, le=5)
+    comment: str = Field(default="", max_length=2000)

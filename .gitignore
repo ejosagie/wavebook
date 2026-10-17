@@ -30,3 +30,6 @@ Thumbs.db
 
 # Signing credentials (upload via Codemagic UI instead)
 keys/
+
+# Scratch notes (contains credentials - do not commit)
+wavebook.txt
