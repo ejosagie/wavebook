@@ -20,17 +20,28 @@
       <div class="form-container">
         <div class="card pricing-card pricing-featured" style="text-align:center;">
           <h3>WaveBook Subscription</h3>
-          <div class="price">£{{ price_gbp }}<small>/month</small></div>
-          <ul style="display:inline-block; text-align:left;">
-            <li>All features included</li>
-            <li>Up to 5 staff members</li>
-            <li>Unlimited bookings &amp; services</li>
-            <li>Cancel anytime</li>
-          </ul>
-          <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 16px;">
-            Subscriptions are activated on the WaveBook website. After subscribing, your premium features unlock automatically in the app.
+          <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 20px;">
+            Choose your plan and billing period, then enter the email you signed up with.
+            After subscribing, your premium features unlock automatically in the app.
           </p>
-          <button id="checkout-btn" class="btn" style="width:100%;">Subscribe with Card</button>
+          <form id="checkout-form" style="text-align:left;">
+            <div class="form-group">
+              <label for="plan">Plan &amp; Billing Period</label>
+              <select id="plan" name="plan" required>
+                {% for key, plan in plans.items() %}
+                <option value="{{ key }}"{% if key == 'standard_monthly' %} selected{% endif %}>
+                  {%- if plan.tier == 'shop' %}WaveBook + Shop{% else %}WaveBook{% endif %}
+                  — {{ interval_labels[plan.interval] }} — £{{ '%.2f'|format(plan.price) }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="email">Account Email</label>
+              <input type="email" id="email" name="email" required placeholder="you@example.com">
+            </div>
+            <button id="checkout-btn" type="submit" class="btn" style="width:100%;">Subscribe with Card</button>
+          </form>
           <p id="checkout-error" style="display:none; color: var(--danger); margin-top: 12px; font-size: 0.9rem;"></p>
           <p style="color: var(--muted); font-size: 0.85rem; margin-top: 16px;">
             Secure card payments by Flutterwave.
@@ -49,30 +60,33 @@
 
   <script>
     // Calls the checkout API and redirects to the Flutterwave payment page.
-    document.getElementById('checkout-btn').addEventListener('click', async function () {
+    document.getElementById('checkout-form').addEventListener('submit', async function (e) {
+      e.preventDefault();
       const errorEl = document.getElementById('checkout-error');
+      const btn = document.getElementById('checkout-btn');
       errorEl.style.display = 'none';
+      btn.disabled = true;
       try {
         const res = await fetch('/api/subscription/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include'
+          body: JSON.stringify({
+            email: document.getElementById('email').value,
+            plan: document.getElementById('plan').value
+          })
         });
-        if (res.status === 503) {
-          errorEl.textContent = 'Card checkout is not configured yet. This is the demo page — the subscription flow will be enabled when Flutterwave keys are added.';
-          errorEl.style.display = 'block';
-          return;
-        }
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (data.payment_link) {
           window.location.href = data.payment_link;
-        } else {
-          errorEl.textContent = 'Could not start checkout. Please try again.';
-          errorEl.style.display = 'block';
+          return;
         }
-      } catch (e) {
+        errorEl.textContent = data.detail || 'Could not start checkout. Please try again.';
+        errorEl.style.display = 'block';
+      } catch (err) {
         errorEl.textContent = 'Network error. Please try again.';
         errorEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
       }
     });
   </script>

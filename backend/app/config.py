@@ -47,6 +47,22 @@ class Settings:
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 30  # 30 days
     SUBSCRIPTION_PRICE_GBP: float = 9.99
+    # Subscription plans: 'standard' = booking platform, 'shop' = + online store.
+    # Keys must not contain '-' (hyphens are used in tx_ref parsing).
+    SUBSCRIPTION_PLANS: dict = {
+        "standard_monthly":   {"tier": "standard", "interval": "monthly",   "price": 9.99},
+        "standard_quarterly": {"tier": "standard", "interval": "quarterly", "price": 27.99},
+        "standard_biannual":  {"tier": "standard", "interval": "biannual",  "price": 54.99},
+        "standard_yearly":    {"tier": "standard", "interval": "yearly",    "price": 99.99},
+        "shop_monthly":       {"tier": "shop", "interval": "monthly",   "price": 12.99},
+        "shop_quarterly":     {"tier": "shop", "interval": "quarterly", "price": 36.99},
+        "shop_biannual":      {"tier": "shop", "interval": "biannual",  "price": 69.99},
+        "shop_yearly":        {"tier": "shop", "interval": "yearly",    "price": 129.99},
+    }
+    INTERVAL_LABELS: dict = {
+        "monthly": "Monthly", "quarterly": "Quarterly (3 months)",
+        "biannual": "6 Months", "yearly": "Yearly",
+    }
     MAX_STAFF: int = 5
     TRIAL_DAYS: int = 14
     SMS_FREE_LIMIT: int = 50  # free SMS per business

@@ -169,7 +169,11 @@ def subscribe_page(request: Request):
     return templates.TemplateResponse(
         request,
         "subscribe.html",
-        {"price_gbp": settings.SUBSCRIPTION_PRICE_GBP},
+        {
+            "price_gbp": settings.SUBSCRIPTION_PRICE_GBP,
+            "plans": settings.SUBSCRIPTION_PLANS,
+            "interval_labels": settings.INTERVAL_LABELS,
+        },
     )
 
 
@@ -196,16 +200,24 @@ def subscribe_verify(request: Request, tx_ref: str = "", transaction_id: str = "
         return templates.TemplateResponse(request, "subscribe_cancel.html", {})
 
     business_id = 0
+    plan_key = (data.get("meta") or {}).get("plan") or "standard_monthly"
     if tx_ref.startswith("WB-SUB-"):
+        parts = tx_ref.split("-")
         try:
-            business_id = int(tx_ref.split("-")[2])
+            business_id = int(parts[2])
         except (IndexError, ValueError):
             business_id = 0
+        # Older refs lack the plan segment; meta is authoritative when present
+        if plan_key not in settings.SUBSCRIPTION_PLANS and len(parts) > 3:
+            plan_key = parts[3]
+    if plan_key not in settings.SUBSCRIPTION_PLANS:
+        plan_key = "standard_monthly"
+    plan = settings.SUBSCRIPTION_PLANS[plan_key]
     if not business_id:
         return templates.TemplateResponse(request, "subscribe_cancel.html", {})
 
     paid = float(data.get("amount") or 0)
-    if paid < settings.SUBSCRIPTION_PRICE_GBP:
+    if paid < plan["price"]:
         return templates.TemplateResponse(request, "subscribe_cancel.html", {})
 
     conn = get_connection()
@@ -216,14 +228,20 @@ def subscribe_verify(request: Request, tx_ref: str = "", transaction_id: str = "
         ).fetchone()
         if existing:
             return templates.TemplateResponse(request, "subscribe_success.html", {})
-        conn.execute(
-            "UPDATE businesses SET subscription_status = 'active' WHERE id = ?",
-            (business_id,),
-        )
+        if plan["tier"] == "shop":
+            conn.execute(
+                "UPDATE businesses SET subscription_status = 'active', storefront_enabled = 1 WHERE id = ?",
+                (business_id,),
+            )
+        else:
+            conn.execute(
+                "UPDATE businesses SET subscription_status = 'active' WHERE id = ?",
+                (business_id,),
+            )
         conn.execute(
             "INSERT INTO subscriptions (business_id, stripe_subscription_id, status, plan, amount) "
-            "VALUES (?, ?, 'active', 'monthly', ?)",
-            (business_id, tx_ref, settings.SUBSCRIPTION_PRICE_GBP),
+            "VALUES (?, ?, 'active', ?, ?)",
+            (business_id, tx_ref, plan_key, paid),
         )
         conn.commit()
     finally:

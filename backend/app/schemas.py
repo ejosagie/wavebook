@@ -52,6 +52,12 @@ class BusinessUpdate(BaseModel):
     theme_color: str | None = None
 
 
+# ---- Subscription ----
+class SubscriptionCheckoutRequest(BaseModel):
+    email: EmailStr | None = None  # required for website visitors (no session)
+    plan: str = "standard_monthly"
+
+
 # ---- Storefront products ----
 class ProductCreate(BaseModel):
     name: str = Field(min_length=1)
