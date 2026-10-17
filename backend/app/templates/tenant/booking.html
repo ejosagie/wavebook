@@ -20,6 +20,7 @@
       <nav>
         <a href="/t/{{ business.slug }}">Home</a>
         <a href="/t/{{ business.slug }}/services">Services</a>
+        {% if business.storefront_enabled %}<a href="/t/{{ business.slug }}/store">Store</a>{% endif %}
         <a href="/t/{{ business.slug }}/booking">Book Now</a>
       </nav>
     </div>

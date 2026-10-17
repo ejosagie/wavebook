@@ -103,6 +103,7 @@ class _SubscriptionTabState extends State<SubscriptionTab> {
     }
     final info = _info!;
     final active = info.status == 'active';
+    final trial = info.status == 'trial';
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -126,6 +127,19 @@ class _SubscriptionTabState extends State<SubscriptionTab> {
                   '£${info.priceGbp.toStringAsFixed(2)}/month · all features included',
                   style: const TextStyle(color: WaveBookColors.muted),
                 ),
+                if (trial) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    info.trialDaysLeft > 0
+                        ? '${info.trialDaysLeft} day${info.trialDaysLeft == 1 ? '' : 's'} left in your free trial'
+                        : 'Your free trial has ended',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: WaveBookColors.pink,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 const Text(
                   'Subscriptions are activated on the WaveBook website (getwavebook.com/subscribe) to comply with App Store policies. Premium features unlock automatically in the app after subscribing.',
@@ -148,7 +162,7 @@ class _SubscriptionTabState extends State<SubscriptionTab> {
         if (!active)
           ElevatedButton(
             onPressed: _startCheckout,
-            child: const Text('Subscribe on Website'),
+            child: Text(Platform.isIOS ? 'Manage Subscription on Website' : 'Subscribe Now'),
           ),
       ],
     );

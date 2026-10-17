@@ -170,6 +170,38 @@ CREATE TABLE IF NOT EXISTS settlements (
     FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS products (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    business_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    price REAL NOT NULL DEFAULT 0,
+    image_path TEXT DEFAULT '',
+    active INTEGER NOT NULL DEFAULT 1,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    business_id INTEGER NOT NULL,
+    customer_name TEXT DEFAULT '',
+    customer_email TEXT DEFAULT '',
+    customer_phone TEXT DEFAULT '',
+    items TEXT NOT NULL DEFAULT '[]',
+    total REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'pending',  -- pending | paid | cancelled
+    payment_ref TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS app_meta (
+    key TEXT PRIMARY KEY,
+    value TEXT DEFAULT ''
+);
+
 CREATE INDEX IF NOT EXISTS idx_feedback_business ON feedback(business_id, approved);
 CREATE INDEX IF NOT EXISTS idx_notifications_business ON notifications(business_id, read);
 CREATE INDEX IF NOT EXISTS idx_bookings_business_date ON bookings(business_id, date);
@@ -198,6 +230,14 @@ def init_db() -> None:
         _ensure_column(conn, "payments", "stripe_payment_intent_id", "stripe_payment_intent_id TEXT DEFAULT ''")
         _ensure_column(conn, "payments", "currency", "currency TEXT DEFAULT 'GBP'")
         _ensure_column(conn, "payments", "method", "method TEXT DEFAULT 'card'")
+        _ensure_column(conn, "businesses", "storefront_enabled", "storefront_enabled INTEGER NOT NULL DEFAULT 0")
+        _ensure_column(conn, "businesses", "payout_bank_name", "payout_bank_name TEXT DEFAULT ''")
+        _ensure_column(conn, "businesses", "payout_account_name", "payout_account_name TEXT DEFAULT ''")
+        _ensure_column(conn, "businesses", "payout_account_number", "payout_account_number TEXT DEFAULT ''")
+        _ensure_column(conn, "businesses", "payout_sort_code", "payout_sort_code TEXT DEFAULT ''")
+        _ensure_column(conn, "businesses", "sms_used", "sms_used INTEGER NOT NULL DEFAULT 0")
+        _ensure_column(conn, "businesses", "sms_credits", "sms_credits INTEGER NOT NULL DEFAULT 0")
+        _ensure_column(conn, "businesses", "trial_ends_at", "trial_ends_at TEXT DEFAULT ''")
         conn.commit()
     finally:
         conn.close()

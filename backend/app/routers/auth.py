@@ -7,6 +7,7 @@ from ..deps import get_current_user
 from ..phone import validate_uk_phone
 from ..schemas import LoginRequest, SignupRequest, TokenResponse
 from ..security import create_access_token, hash_password, verify_password
+from ..services.emailer import send_welcome_email
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -31,6 +32,8 @@ def signup(data: SignupRequest):
         user = row_to_dict(conn.execute("SELECT * FROM users WHERE id = ?", (cur.lastrowid,)).fetchone())
     finally:
         conn.close()
+    # Notify the new business owner by email
+    send_welcome_email(user["email"], user["full_name"])
     token = create_access_token(user["id"])
     return TokenResponse(access_token=token, user=user)
 

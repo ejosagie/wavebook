@@ -47,6 +47,14 @@ class Business {
   final String smsTemplate;
   final String smsInstructions;
   final String subscriptionStatus;
+  final bool storefrontEnabled;
+  final String payoutBankName;
+  final String payoutAccountName;
+  final String payoutAccountNumber;
+  final String payoutSortCode;
+  final int smsUsed;
+  final int smsCredits;
+  final String trialEndsAt;
 
   Business({
     required this.id,
@@ -70,6 +78,14 @@ class Business {
     required this.smsTemplate,
     required this.smsInstructions,
     required this.subscriptionStatus,
+    required this.storefrontEnabled,
+    required this.payoutBankName,
+    required this.payoutAccountName,
+    required this.payoutAccountNumber,
+    required this.payoutSortCode,
+    required this.smsUsed,
+    required this.smsCredits,
+    required this.trialEndsAt,
   });
 
   factory Business.fromJson(Map<String, dynamic> json) => Business(
@@ -94,6 +110,14 @@ class Business {
         smsTemplate: json['sms_template'] as String? ?? '',
         smsInstructions: json['sms_instructions'] as String? ?? '',
         subscriptionStatus: json['subscription_status'] as String? ?? 'trial',
+        storefrontEnabled: (json['storefront_enabled'] as num?)?.toInt() == 1,
+        payoutBankName: json['payout_bank_name'] as String? ?? '',
+        payoutAccountName: json['payout_account_name'] as String? ?? '',
+        payoutAccountNumber: json['payout_account_number'] as String? ?? '',
+        payoutSortCode: json['payout_sort_code'] as String? ?? '',
+        smsUsed: json['sms_used'] as int? ?? 0,
+        smsCredits: json['sms_credits'] as int? ?? 0,
+        trialEndsAt: json['trial_ends_at'] as String? ?? '',
       );
 
   Map<String, dynamic> toJson() => {
@@ -111,7 +135,90 @@ class Business {
         'deposit_amount': depositAmount,
         'buffer_minutes': bufferMinutes,
         'sms_instructions': smsInstructions,
+        'storefront_enabled': storefrontEnabled,
+        'payout_bank_name': payoutBankName,
+        'payout_account_name': payoutAccountName,
+        'payout_account_number': payoutAccountNumber,
+        'payout_sort_code': payoutSortCode,
       };
+}
+
+class Product {
+  final int id;
+  final String name;
+  final String description;
+  final double price;
+  final String imagePath;
+  final bool active;
+  final int sortOrder;
+
+  Product({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.price,
+    required this.imagePath,
+    required this.active,
+    required this.sortOrder,
+  });
+
+  factory Product.fromJson(Map<String, dynamic> json) => Product(
+        id: json['id'] as int,
+        name: json['name'] as String? ?? '',
+        description: json['description'] as String? ?? '',
+        price: (json['price'] as num?)?.toDouble() ?? 0,
+        imagePath: json['image_path'] as String? ?? '',
+        active: (json['active'] as num?)?.toInt() == 1,
+        sortOrder: json['sort_order'] as int? ?? 0,
+      );
+}
+
+class SmsBalance {
+  final int used;
+  final int freeLimit;
+  final int freeRemaining;
+  final int credits;
+  final int totalRemaining;
+  final double topupPriceGbp;
+  final int topupCredits;
+
+  SmsBalance({
+    required this.used,
+    required this.freeLimit,
+    required this.freeRemaining,
+    required this.credits,
+    required this.totalRemaining,
+    required this.topupPriceGbp,
+    required this.topupCredits,
+  });
+
+  factory SmsBalance.fromJson(Map<String, dynamic> json) => SmsBalance(
+        used: json['used'] as int? ?? 0,
+        freeLimit: json['free_limit'] as int? ?? 50,
+        freeRemaining: json['free_remaining'] as int? ?? 0,
+        credits: json['credits'] as int? ?? 0,
+        totalRemaining: json['total_remaining'] as int? ?? 0,
+        topupPriceGbp: (json['topup_price_gbp'] as num?)?.toDouble() ?? 5.0,
+        topupCredits: json['topup_credits'] as int? ?? 50,
+      );
+}
+
+class AppMeta {
+  final String latestVersion;
+  final String updateUrl;
+  final String updateMessage;
+
+  AppMeta({
+    required this.latestVersion,
+    required this.updateUrl,
+    required this.updateMessage,
+  });
+
+  factory AppMeta.fromJson(Map<String, dynamic> json) => AppMeta(
+        latestVersion: json['latest_version'] as String? ?? '',
+        updateUrl: json['update_url'] as String? ?? '',
+        updateMessage: json['update_message'] as String? ?? '',
+      );
 }
 
 class Service {
@@ -322,17 +429,26 @@ class SubscriptionInfo {
   final String status;
   final double priceGbp;
   final int maxStaff;
+  final int trialDays;
+  final String trialEndsAt;
+  final int trialDaysLeft;
 
   SubscriptionInfo({
     required this.status,
     required this.priceGbp,
     required this.maxStaff,
+    required this.trialDays,
+    required this.trialEndsAt,
+    required this.trialDaysLeft,
   });
 
   factory SubscriptionInfo.fromJson(Map<String, dynamic> json) => SubscriptionInfo(
         status: json['status'] as String? ?? 'trial',
         priceGbp: (json['price_gbp'] as num?)?.toDouble() ?? 9.99,
         maxStaff: json['max_staff'] as int? ?? 5,
+        trialDays: json['trial_days'] as int? ?? 14,
+        trialEndsAt: json['trial_ends_at'] as String? ?? '',
+        trialDaysLeft: json['trial_days_left'] as int? ?? 0,
       );
 }
 

@@ -1,12 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from ..config import settings
 from ..database import get_connection, row_to_dict, rows_to_dicts
 from ..deps import get_current_business, require_owner
 from ..phone import validate_uk_phone
 from ..schemas import SendTextRequest
-from ..services.notifier import send_booking_confirmation_sms, send_sms
+from ..services.notifier import send_business_sms, send_booking_confirmation_sms, sms_balance
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
+
+
+@router.get("/sms-balance")
+def sms_balance_endpoint(business: dict = Depends(get_current_business)):
+    balance = sms_balance(business)
+    balance["topup_price_gbp"] = settings.SMS_TOPUP_PRICE_GBP
+    balance["topup_credits"] = settings.SMS_TOPUP_CREDITS
+    return balance
 
 
 def add_notification(
@@ -100,8 +109,8 @@ def send_text(
         phone = validate_uk_phone(data.phone)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-    """Send an SMS texsage to any phone number (owner only)."""
-    result = send_sms(data.phone, data.message)
+    """Send an SMS text message to any phone number (owner only)."""
+    result = send_business_sms(business, phone, data.message)
     return {"ok": True, **result}
 
 

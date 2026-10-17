@@ -6,6 +6,10 @@ import '../../../models/models.dart';
 import '../../../state/auth_state.dart';
 import '../../../theme.dart';
 
+/// Current app version — the dashboard compares this against the admin-managed
+/// `latest_version` from /api/app/meta to show an update banner.
+const String kAppVersion = '1.0.0';
+
 class DashboardTab extends StatefulWidget {
   const DashboardTab({super.key});
 
@@ -18,6 +22,7 @@ class _DashboardTabState extends State<DashboardTab> {
   Business? _business;
   List<Booking> _bookings = [];
   List<Service> _services = [];
+  AppMeta? _appMeta;
   bool _loading = true;
   String? _error;
 
@@ -36,11 +41,19 @@ class _DashboardTabState extends State<DashboardTab> {
       final businessData = await _api.get('/api/business');
       final bookingsData = await _api.get('/api/bookings');
       final servicesData = await _api.get('/api/services');
+      AppMeta? appMeta;
+      try {
+        final metaData = await _api.get('/api/app/meta');
+        appMeta = AppMeta.fromJson(metaData as Map<String, dynamic>);
+      } on ApiException {
+        appMeta = null;
+      }
       if (!mounted) return;
       setState(() {
         _business = Business.fromJson(businessData as Map<String, dynamic>);
         _bookings = (bookingsData as List).map((b) => Booking.fromJson(b as Map<String, dynamic>)).toList();
         _services = (servicesData as List).map((s) => Service.fromJson(s as Map<String, dynamic>)).toList();
+        _appMeta = appMeta;
       });
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -94,13 +107,33 @@ class _DashboardTabState extends State<DashboardTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (_hasUpdate())
+          Card(
+            color: WaveBookColors.darkSurfaceAlt,
+            child: ListTile(
+              leading: const Icon(Icons.system_update_alt, color: WaveBookColors.pink),
+              title: const Text('Update available', style: TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text(
+                _appMeta!.updateMessage.isNotEmpty
+                    ? _appMeta!.updateMessage
+                    : 'A new version of the WaveBook app is available.',
+              ),
+              trailing: _appMeta!.updateUrl.isNotEmpty
+                  ? TextButton(
+                      onPressed: () => _openUrl(_appMeta!.updateUrl),
+                      child: const Text('Update'),
+                    )
+                  : null,
+            ),
+          ),
+        if (_hasUpdate()) const SizedBox(height: 8),
         if (business.subscriptionStatus == 'trial')
           Card(
             color: WaveBookColors.darkSurfaceAlt,
             child: ListTile(
               leading: const Icon(Icons.rocket_launch, color: WaveBookColors.pink),
               title: const Text('Free trial active', style: TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: const Text('Subscribe for £9.99/month to unlock everything.'),
+              subtitle: Text(_trialNotice(business)),
               trailing: TextButton(
                 onPressed: () => _openSubscription(context),
                 child: const Text('Subscribe'),
@@ -192,6 +225,41 @@ class _DashboardTabState extends State<DashboardTab> {
           ),
         ),
       ],
+    );
+  }
+
+  bool _hasUpdate() {
+    final meta = _appMeta;
+    if (meta == null || meta.latestVersion.isEmpty) return false;
+    return _versionCompare(meta.latestVersion, kAppVersion) > 0;
+  }
+
+  int _versionCompare(String a, String b) {
+    final pa = a.split('.').map((s) => int.tryParse(s) ?? 0).toList();
+    final pb = b.split('.').map((s) => int.tryParse(s) ?? 0).toList();
+    final len = pa.length > pb.length ? pa.length : pb.length;
+    for (var i = 0; i < len; i++) {
+      final va = i < pa.length ? pa[i] : 0;
+      final vb = i < pb.length ? pb[i] : 0;
+      if (va != vb) return va - vb;
+    }
+    return 0;
+  }
+
+  String _trialNotice(Business business) {
+    if (business.trialEndsAt.isEmpty) return 'Subscribe for £9.99/month to unlock everything.';
+    final parts = business.trialEndsAt.split('-');
+    if (parts.length != 3) return 'Subscribe for £9.99/month to unlock everything.';
+    final end = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+    final days = end.difference(DateTime.now()).inDays;
+    if (days <= 0) return 'Your free trial has ended. Subscribe for £9.99/month to keep using WaveBook.';
+    if (days == 1) return 'Your free trial ends tomorrow. Subscribe for £9.99/month to keep everything.';
+    return '$days days left in your free trial. Subscribe for £9.99/month to unlock everything.';
+  }
+
+  void _openUrl(String url) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Open $url in your browser to update the app.')),
     );
   }
 

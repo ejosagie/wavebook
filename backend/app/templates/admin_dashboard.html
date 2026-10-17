@@ -48,6 +48,9 @@
             <th>Bookings</th>
             <th>Pending</th>
             <th>Subscription</th>
+            <th>Store</th>
+            <th>SMS Used</th>
+            <th>Payout Details</th>
             <th>Created</th>
             <th>Actions</th>
           </tr>
@@ -60,6 +63,15 @@
             <td>{{ b.booking_count }}</td>
             <td>{{ b.pending_count }}</td>
             <td><span class="badge badge-{{ b.subscription_status }}">{{ b.subscription_status }}</span></td>
+            <td>{% if b.storefront_enabled %}✅{% else %}—{% endif %}</td>
+            <td>{{ b.sms_used }} / 50{% if b.sms_credits > 0 %} (+{{ b.sms_credits }}){% endif %}</td>
+            <td>
+              {% if b.payout_account_number %}
+                {{ b.payout_bank_name }}<br>{{ b.payout_account_name }}<br>{{ b.payout_sort_code }} {{ b.payout_account_number }}
+              {% else %}
+                <span style="color:var(--muted);">Not set</span>
+              {% endif %}
+            </td>
             <td>{{ b.created_at[:10] }}</td>
             <td>
               <form method="post" action="/admin/businesses/{{ b.id }}/subscription" style="display:inline;">
@@ -81,6 +93,28 @@
       {% else %}
       <p style="color: var(--muted);">No businesses yet. Sign up in the app to create the first one.</p>
       {% endif %}
+
+      <h2 style="text-align:left; margin: 32px 0 16px;">App Update Notice</h2>
+      <div class="card" style="max-width: 640px; padding: 20px;">
+        <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 12px;">
+          Set the latest app version here — the Flutter app checks this on the dashboard and shows an update banner when a newer version is available.
+        </p>
+        <form method="post" action="/admin/app-meta">
+          <div class="form-group">
+            <label>Latest version</label>
+            <input type="text" name="latest_version" value="{{ app_meta.latest_version }}" placeholder="e.g. 1.1.0">
+          </div>
+          <div class="form-group">
+            <label>Update URL</label>
+            <input type="text" name="update_url" value="{{ app_meta.update_url }}" placeholder="e.g. https://play.google.com/store/apps/details?id=...">
+          </div>
+          <div class="form-group">
+            <label>Update message</label>
+            <input type="text" name="update_message" value="{{ app_meta.update_message }}" placeholder="e.g. New version available — bug fixes and improvements">
+          </div>
+          <button type="submit" class="btn btn-sm">Save Update Notice</button>
+        </form>
+      </div>
     </div>
   </section>
 

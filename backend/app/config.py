@@ -33,11 +33,21 @@ class Settings:
     FLW_ENCRYPTION_KEY: str = os.getenv("FLW_ENCRYPTION_KEY", "")
     FLW_CURRENCY: str = os.getenv("FLW_CURRENCY", "GBP")
     FLW_COUNTRY: str = os.getenv("FLW_COUNTRY", "GB")
+    # SMTP (email notifications — leave empty to log instead)
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USER: str = os.getenv("SMTP_USER", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    SMTP_FROM: str = os.getenv("SMTP_FROM", "WaveBook <no-reply@getwavebook.com>")
 
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 30  # 30 days
     SUBSCRIPTION_PRICE_GBP: float = 9.99
     MAX_STAFF: int = 5
+    TRIAL_DAYS: int = 14
+    SMS_FREE_LIMIT: int = 50  # free SMS per business
+    SMS_TOPUP_PRICE_GBP: float = 5.00
+    SMS_TOPUP_CREDITS: int = 50  # SMS added per £5 top-up
 
 
 settings = Settings()

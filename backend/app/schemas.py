@@ -41,6 +41,41 @@ class BusinessUpdate(BaseModel):
     deposit_amount: float | None = None
     buffer_minutes: int | None = None
     sms_instructions: str | None = None
+    storefront_enabled: bool | None = None
+    payout_bank_name: str | None = None
+    payout_account_name: str | None = None
+    payout_account_number: str | None = None
+    payout_sort_code: str | None = None
+
+
+# ---- Storefront products ----
+class ProductCreate(BaseModel):
+    name: str = Field(min_length=1)
+    description: str = ""
+    price: float = Field(ge=0)
+    sort_order: int = 0
+
+
+class ProductUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    price: float | None = Field(default=None, ge=0)
+    image_path: str | None = None
+    active: bool | None = None
+    sort_order: int | None = None
+
+
+class StorefrontItem(BaseModel):
+    product_id: int
+    quantity: int = Field(default=1, ge=1)
+
+
+class StorefrontCheckout(BaseModel):
+    slug: str = Field(min_length=2)
+    customer_name: str = Field(min_length=1)
+    customer_email: str = ""
+    customer_phone: str = ""
+    items: list[StorefrontItem]
 
 
 # ---- Services ----

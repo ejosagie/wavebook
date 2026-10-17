@@ -14,6 +14,7 @@ from .routers import (
     feedback,
     notifications,
     payments,
+    products,
     services,
     staff,
     subscription,
@@ -25,8 +26,9 @@ UPLOADS_DIR = BASE_DIR / "uploads"
 
 app = FastAPI(title="WaveBook API", version="0.1.0")
 
-# Wire upload dir into the business router
+# Wire upload dir into the business and products routers
 business.UPLOAD_DIR = UPLOADS_DIR
+products.UPLOAD_DIR = UPLOADS_DIR
 
 # Static files (CSS, uploaded images)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
@@ -49,6 +51,7 @@ app.include_router(customers.router)
 app.include_router(feedback.router)
 app.include_router(notifications.router)
 app.include_router(payments.router)
+app.include_router(products.router)
 app.include_router(staff.router)
 app.include_router(subscription.router)
 

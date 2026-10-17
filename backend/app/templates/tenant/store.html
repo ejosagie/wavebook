@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Store — {{ business.name }}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="tenant-theme">
+  <div class="navbar tenant-nav">
+    <div class="container">
+      <div class="brand">
+        {% if business.logo_path %}
+          <img src="{{ business.logo_path }}" alt="{{ business.name }}" style="height:40px;">
+        {% else %}
+          <img src="/static/img/logo.png" alt="logo" style="height:32px;">
+        {% endif %}
+        {{ business.name }}
+      </div>
+      <nav>
+        <a href="/t/{{ business.slug }}">Home</a>
+        <a href="/t/{{ business.slug }}/services">Services</a>
+        <a href="/t/{{ business.slug }}/store">Store</a>
+        <a href="/t/{{ business.slug }}/booking">Book Now</a>
+      </nav>
+    </div>
+  </div>
+
+  <div class="tenant-hero">
+    <h1>Store</h1>
+    <p>Products from {{ business.name }}</p>
+  </div>
+
+  <section class="section">
+    <div class="container">
+      {% if products %}
+      <div class="grid-3" style="margin-top: 24px;">
+        {% for p in products %}
+        <div class="service-card">
+          {% if p.image_path %}
+            <img src="{{ p.image_path }}" alt="{{ p.name }}" style="width:100%; height:180px; object-fit:cover; border-radius:10px; margin-bottom:12px;">
+          {% endif %}
+          <h3>{{ p.name }}</h3>
+          {% if p.description %}<p class="desc">{{ p.description }}</p>{% endif %}
+          <div class="price">{{ format_price(p.price, business.currency) }}</div>
+          <button class="btn add-to-basket" data-id="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.price }}" style="margin-top: 8px; width:100%;">Add to Basket</button>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="info-card" style="max-width: 640px; margin: 32px auto 0;">
+        <h3>Your Basket</h3>
+        <div id="basket-items" style="margin-top: 12px;">
+          <p style="color: var(--muted);">Your basket is empty.</p>
+        </div>
+        <div id="basket-total" style="font-weight:700; margin-top: 12px; display:none;"></div>
+
+        <div id="checkout-form" style="display:none; margin-top: 16px;">
+          <div class="form-group">
+            <label>Your name</label>
+            <input type="text" id="cust-name" placeholder="e.g. Sarah" required>
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="cust-email" placeholder="you@example.com">
+          </div>
+          <div class="form-group">
+            <label>Mobile number</label>
+            <input type="tel" id="cust-phone" placeholder="e.g. 07123 456789">
+          </div>
+          <button id="pay-button" class="btn" style="width:100%;">Pay with Card</button>
+          <p id="payment-error" style="display:none; color: var(--danger); margin-top: 10px; font-size: 0.9rem;"></p>
+          <p style="margin-top: 12px; font-size: 0.85rem; color: var(--muted); text-align:center;">
+            🔒 Secure card payment powered by Flutterwave. Payment processing and transfer fees apply.
+          </p>
+        </div>
+      </div>
+      {% else %}
+      <p style="color: var(--muted); text-align:center; margin-top: 24px;">No products yet. Please check back later.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="container">
+      <p>&copy; {{ business.name }}. Powered by <a href="/" style="color:#38bdf8;">WaveBook</a>.</p>
+    </div>
+  </div>
+
+  <script>
+    const slug = {{ business.slug | tojson }};
+    const basket = new Map();
+
+    document.querySelectorAll('.add-to-basket').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = Number(btn.dataset.id);
+        const name = btn.dataset.name;
+        const price = Number(btn.dataset.price);
+        const current = basket.get(id);
+        basket.set(id, { id, name, price, qty: (current ? current.qty : 0) + 1 });
+        renderBasket();
+      });
+    });
+
+    function renderBasket() {
+      const container = document.getElementById('basket-items');
+      const totalEl = document.getElementById('basket-total');
+      const form = document.getElementById('checkout-form');
+      if (basket.size === 0) {
+        container.innerHTML = '<p style="color: var(--muted);">Your basket is empty.</p>';
+        totalEl.style.display = 'none';
+        form.style.display = 'none';
+        return;
+      }
+      let html = '';
+      let total = 0;
+      basket.forEach(item => {
+        total += item.price * item.qty;
+        html += '<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border);">' +
+          '<span>' + item.name + ' × ' + item.qty + '</span>' +
+          '<span>£' + (item.price * item.qty).toFixed(2) + ' ' +
+          '<button class="btn btn-sm" onclick="changeQty(' + item.id + ', -1)">−</button> ' +
+          '<button class="btn btn-sm" onclick="changeQty(' + item.id + ', 1)">+</button></span></div>';
+      });
+      container.innerHTML = html;
+      totalEl.textContent = 'Total: £' + total.toFixed(2);
+      totalEl.style.display = 'block';
+      form.style.display = 'block';
+    }
+
+    window.changeQty = function (id, delta) {
+      const item = basket.get(id);
+      if (!item) return;
+      item.qty += delta;
+      if (item.qty <= 0) basket.delete(id);
+      renderBasket();
+    };
+
+    document.getElementById('pay-button').addEventListener('click', async () => {
+      const errorEl = document.getElementById('payment-error');
+      errorEl.style.display = 'none';
+      const name = document.getElementById('cust-name').value.trim();
+      if (!name) {
+        errorEl.textContent = 'Please enter your name.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      const items = [];
+      basket.forEach(item => items.push({ product_id: item.id, quantity: item.qty }));
+      const btn = document.getElementById('pay-button');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/storefront/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            slug: slug,
+            customer_name: name,
+            customer_email: document.getElementById('cust-email').value.trim(),
+            customer_phone: document.getElementById('cust-phone').value.trim(),
+            items: items
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Could not start checkout');
+        window.location.href = data.payment_link;
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

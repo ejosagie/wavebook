@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Confirmed — {{ business.name }}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="tenant-theme">
+  <div class="navbar tenant-nav">
+    <div class="container">
+      <div class="brand">
+        {% if business.logo_path %}
+          <img src="{{ business.logo_path }}" alt="{{ business.name }}" style="height:40px;">
+        {% else %}
+          <img src="/static/img/logo.png" alt="logo" style="height:32px;">
+        {% endif %}
+        {{ business.name }}
+      </div>
+      <nav>
+        <a href="/t/{{ business.slug }}">Home</a>
+        <a href="/t/{{ business.slug }}/services">Services</a>
+        <a href="/t/{{ business.slug }}/store">Store</a>
+        <a href="/t/{{ business.slug }}/booking">Book Now</a>
+      </nav>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="container" style="max-width: 640px;">
+      <div class="info-card" style="border-color: var(--success); text-align:center;">
+        <div style="font-size:3rem;">✅</div>
+        <h3 style="color: var(--success);">Order Confirmed!</h3>
+        <p>Thank you, {{ order.customer_name }}. Your order has been paid and confirmed.</p>
+        <p style="margin-top: 8px;">Order reference: <strong>{{ order.id }}</strong></p>
+        <p style="margin-top: 8px;">Total paid: <strong>{{ format_price(order.total, business.currency) }}</strong></p>
+        <p style="margin-top: 16px; color: var(--muted); font-size: 0.9rem;">
+          {{ business.name }} will be in touch to arrange delivery or collection.
+        </p>
+        <a href="/t/{{ business.slug }}/store" class="btn" style="margin-top: 20px;">Back to Store</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="container">
+      <p>&copy; {{ business.name }}. Powered by <a href="/" style="color:#38bdf8;">WaveBook</a>.</p>
+    </div>
+  </div>
+</body>
+</html>

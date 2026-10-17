@@ -13,6 +13,7 @@ import logging
 import requests
 
 from ..config import settings
+from ..database import get_connection, row_to_dict
 from ..phone import normalise_uk_number
 
 logger = logging.getLogger("wavebook")
@@ -92,7 +93,67 @@ def send_sms(to: str, message: str) -> dict:
     return {"provider": "dev-log", "message_id": "", "status": "queued"}
 
 
+def sms_balance(business: dict) -> dict:
+    """Return the SMS credit balance for a business (50 free, then purchased)."""
+    used = int(business.get("sms_used") or 0)
+    credits = int(business.get("sms_credits") or 0)
+    free_limit = settings.SMS_FREE_LIMIT
+    free_remaining = max(0, free_limit - used)
+    return {
+        "used": used,
+        "free_limit": free_limit,
+        "free_remaining": free_remaining,
+        "credits": credits,
+        "total_remaining": free_remaining + credits,
+    }
+
+
+def consume_sms_credit(conn, business: dict) -> bool:
+    """Consume one SMS credit for a business. Returns False when the limit is reached."""
+    balance = sms_balance(business)
+    if balance["total_remaining"] <= 0:
+        return False
+    if balance["free_remaining"] > 0:
+        conn.execute(
+            "UPDATE businesses SET sms_used = sms_used + 1 WHERE id = ?", (business["id"],)
+        )
+    else:
+        conn.execute(
+            "UPDATE businesses SET sms_credits = sms_credits - 1 WHERE id = ?", (business["id"],)
+        )
+    return True
+
+
+def send_business_sms(business: dict, to: str, message: str) -> dict:
+    """Send an SMS on behalf of a business, consuming one SMS credit.
+
+    The credit is only consumed when the provider accepts the message, so a
+    failed send does not burn a credit.
+    """
+    conn = get_connection()
+    try:
+        fresh = row_to_dict(
+            conn.execute("SELECT * FROM businesses WHERE id = ?", (business["id"],)).fetchone()
+        )
+        if fresh:
+            business = fresh
+        if not consume_sms_credit(conn, business):
+            return {
+                "provider": "none",
+                "status": "blocked",
+                "reason": "sms_limit_reached",
+            }
+        result = send_sms(to, message)
+        if result.get("status") in ("sent", "queued"):
+            conn.commit()
+        else:
+            conn.rollback()  # refund the credit when delivery failed
+    finally:
+        conn.close()
+    return result
+
+
 def send_booking_confirmation_sms(booking: dict, business: dict) -> dict:
     """Send the customer a confirmation text after their booking is paid/confirmed."""
     message = render_sms_template(booking, business)
-    return send_sms(booking["customer_phone"], message)
+    return send_business_sms(business, booking["customer_phone"], message)

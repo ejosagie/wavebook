@@ -11,6 +11,7 @@ from ..phone import validate_uk_phone
 from ..routers.payments import verify_payment as verify_booking_payment
 from ..security import create_admin_token, decode_admin_token
 from ..services import flutterwave
+from ..services.notifier import send_business_sms
 from ..services.slots import (
     DAY_LABELS,
     blocked_dates_json,
@@ -130,14 +131,24 @@ def subscribe_verify(request: Request, tx_ref: str = "", transaction_id: str = "
     business_id = 0
     if tx_ref.startswith("WB-SUB-"):
         try:
-            business_id = int(tx_ref.split("-")[1])
+            business_id = int(tx_ref.split("-")[2])
         except (IndexError, ValueError):
             business_id = 0
     if not business_id:
         return templates.TemplateResponse(request, "subscribe_cancel.html", {})
 
+    paid = float(data.get("amount") or 0)
+    if paid < settings.SUBSCRIPTION_PRICE_GBP:
+        return templates.TemplateResponse(request, "subscribe_cancel.html", {})
+
     conn = get_connection()
     try:
+        # Idempotency: never activate twice for the same Flutterwave transaction
+        existing = conn.execute(
+            "SELECT id FROM subscriptions WHERE stripe_subscription_id = ?", (tx_ref,)
+        ).fetchone()
+        if existing:
+            return templates.TemplateResponse(request, "subscribe_success.html", {})
         conn.execute(
             "UPDATE businesses SET subscription_status = 'active' WHERE id = ?",
             (business_id,),
@@ -155,11 +166,29 @@ def subscribe_verify(request: Request, tx_ref: str = "", transaction_id: str = "
 
 @router.get("/pay/verify")
 def pay_verify(request: Request, tx_ref: str = "", transaction_id: str = ""):
-    """Flutterwave redirect handler for booking deposits — then show the success page."""
+    """Flutterwave redirect handler — then show the relevant success page."""
     try:
         result = verify_booking_payment(tx_ref=tx_ref, transaction_id=transaction_id)
     except HTTPException:
         return RedirectResponse(url="/", status_code=303)
+
+    if "order_id" in result:
+        order_id = result["order_id"]
+        conn = get_connection()
+        try:
+            order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+            if not order:
+                return RedirectResponse(url="/", status_code=303)
+            slug = conn.execute(
+                "SELECT slug FROM businesses WHERE id = ?", (order["business_id"],)
+            ).fetchone()["slug"]
+        finally:
+            conn.close()
+        return RedirectResponse(url=f"/t/{slug}/store/order/{order_id}/success", status_code=303)
+
+    if "business_id" in result:
+        return templates.TemplateResponse(request, "pay_success.html", {"kind": "sms"})
+
     booking_id = result["booking_id"]
     conn = get_connection()
     try:
@@ -172,6 +201,57 @@ def pay_verify(request: Request, tx_ref: str = "", transaction_id: str = ""):
     finally:
         conn.close()
     return RedirectResponse(url=f"/t/{slug}/booking/{booking_id}/paid", status_code=303)
+
+
+# ---- App metadata (update checks, managed by the platform admin) ----
+
+APP_META_DEFAULTS = {
+    "latest_version": "",
+    "update_url": "",
+    "update_message": "",
+}
+
+
+@router.get("/api/app/meta")
+def app_meta():
+    """Public app metadata — the Flutter app checks this for update notices."""
+    conn = get_connection()
+    try:
+        rows = conn.execute("SELECT key, value FROM app_meta").fetchall()
+    finally:
+        conn.close()
+    meta = dict(APP_META_DEFAULTS)
+    for row in rows:
+        meta[row["key"]] = row["value"]
+    return meta
+
+
+@router.post("/admin/app-meta")
+def admin_update_app_meta(
+    request: Request,
+    latest_version: str = Form(default=""),
+    update_url: str = Form(default=""),
+    update_message: str = Form(default=""),
+):
+    blocked = _admin_or_login(request)
+    if blocked:
+        return blocked
+    conn = get_connection()
+    try:
+        for key, value in {
+            "latest_version": latest_version.strip(),
+            "update_url": update_url.strip(),
+            "update_message": update_message.strip(),
+        }.items():
+            conn.execute(
+                "INSERT INTO app_meta (key, value) VALUES (?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (key, value),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse(url="/admin", status_code=303)
 
 
 # ---- Owner admin dashboard ----
@@ -200,8 +280,12 @@ def admin_dashboard(request: Request):
         active_subs = conn.execute(
             "SELECT COUNT(*) AS c FROM businesses WHERE subscription_status = 'active'"
         ).fetchone()["c"]
+        meta_rows = conn.execute("SELECT key, value FROM app_meta").fetchall()
     finally:
         conn.close()
+    meta = dict(APP_META_DEFAULTS)
+    for row in meta_rows:
+        meta[row["key"]] = row["value"]
     return templates.TemplateResponse(
         request,
         "admin_dashboard.html",
@@ -210,6 +294,7 @@ def admin_dashboard(request: Request):
             "total_bookings": total_bookings,
             "total_businesses": total_businesses,
             "active_subs": active_subs,
+            "app_meta": meta,
         },
     )
 
@@ -835,7 +920,8 @@ async def tenant_booking_submit(
 
     # Notify the owner by text message
     if business.get("contact_phone"):
-        send_sms(
+        send_business_sms(
+            business,
             business["contact_phone"],
             f"New booking: {name.strip()} booked {service['name']} on {date} at {time} "
             f"({business['name']}). Ref: {booking_id}",
@@ -876,6 +962,62 @@ def tenant_booking_paid(request: Request, slug: str, booking_id: int):
             "business": business,
             "booking": row_to_dict(booking),
             "deposit_amount": 0.0,
+            "format_price": _format_price,
+        },
+    )
+
+
+@router.get("/t/{slug}/store", response_class=HTMLResponse)
+def tenant_store(request: Request, slug: str):
+    """Public storefront for a business (only when the owner enables it)."""
+    business = _get_business_by_slug(slug)
+    if not business:
+        raise HTTPException(status_code=404, detail="Business not found")
+    if not business["storefront_enabled"]:
+        raise HTTPException(status_code=404, detail="Storefront not enabled")
+    conn = get_connection()
+    try:
+        products = rows_to_dicts(
+            conn.execute(
+                "SELECT * FROM products WHERE business_id = ? AND active = 1 ORDER BY sort_order, id",
+                (business["id"],),
+            ).fetchall()
+        )
+    finally:
+        conn.close()
+    return templates.TemplateResponse(
+        request,
+        "tenant/store.html",
+        {
+            "business": business,
+            "products": products,
+            "format_price": _format_price,
+        },
+    )
+
+
+@router.get("/t/{slug}/store/order/{order_id}/success", response_class=HTMLResponse)
+def tenant_store_order_success(request: Request, slug: str, order_id: int):
+    """Landing page after a successful storefront payment."""
+    business = _get_business_by_slug(slug)
+    if not business:
+        raise HTTPException(status_code=404, detail="Business not found")
+    conn = get_connection()
+    try:
+        order = conn.execute(
+            "SELECT * FROM orders WHERE id = ? AND business_id = ?",
+            (order_id, business["id"]),
+        ).fetchone()
+    finally:
+        conn.close()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return templates.TemplateResponse(
+        request,
+        "tenant/store_success.html",
+        {
+            "business": business,
+            "order": row_to_dict(order),
             "format_price": _format_price,
         },
     )

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../api/api_client.dart';
 import '../../../models/models.dart';
 import '../../../theme.dart';
+import '../../storefront/products_screen.dart';
 
 class SettingsTab extends StatefulWidget {
   const SettingsTab({super.key});
@@ -33,6 +35,12 @@ class _SettingsTabState extends State<SettingsTab> {
   final _deposit = TextEditingController();
   final _buffer = TextEditingController();
   final _smsInstructions = TextEditingController();
+  final _payoutBankName = TextEditingController();
+  final _payoutAccountName = TextEditingController();
+  final _payoutAccountNumber = TextEditingController();
+  final _payoutSortCode = TextEditingController();
+  bool _storefrontEnabled = false;
+  SmsBalance? _smsBalance;
 
   @override
   void initState() {
@@ -56,6 +64,10 @@ class _SettingsTabState extends State<SettingsTab> {
     _deposit.dispose();
     _buffer.dispose();
     _smsInstructions.dispose();
+    _payoutBankName.dispose();
+    _payoutAccountName.dispose();
+    _payoutAccountNumber.dispose();
+    _payoutSortCode.dispose();
     super.dispose();
   }
 
@@ -66,6 +78,7 @@ class _SettingsTabState extends State<SettingsTab> {
     });
     try {
       final data = await _api.get('/api/business');
+      final smsData = await _api.get('/api/notifications/sms-balance');
       if (!mounted) return;
       final b = Business.fromJson(data as Map<String, dynamic>);
       setState(() {
@@ -84,6 +97,12 @@ class _SettingsTabState extends State<SettingsTab> {
         _deposit.text = b.depositAmount.toStringAsFixed(2);
         _buffer.text = b.bufferMinutes.toString();
         _smsInstructions.text = b.smsInstructions;
+        _storefrontEnabled = b.storefrontEnabled;
+        _payoutBankName.text = b.payoutBankName;
+        _payoutAccountName.text = b.payoutAccountName;
+        _payoutAccountNumber.text = b.payoutAccountNumber;
+        _payoutSortCode.text = b.payoutSortCode;
+        _smsBalance = SmsBalance.fromJson(smsData as Map<String, dynamic>);
       });
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -110,6 +129,11 @@ class _SettingsTabState extends State<SettingsTab> {
         'deposit_amount': double.tryParse(_deposit.text) ?? 20.0,
         'buffer_minutes': int.tryParse(_buffer.text) ?? 30,
         'sms_instructions': _smsInstructions.text.trim(),
+        'storefront_enabled': _storefrontEnabled,
+        'payout_bank_name': _payoutBankName.text.trim(),
+        'payout_account_name': _payoutAccountName.text.trim(),
+        'payout_account_number': _payoutAccountNumber.text.trim(),
+        'payout_sort_code': _payoutSortCode.text.trim(),
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -125,24 +149,34 @@ class _SettingsTabState extends State<SettingsTab> {
     }
   }
 
-  int get _smsRemaining {
-    final b = _business;
-    if (b == null) return 160;
-    final base = 'Hi {customer_name}, your booking with ${b.name} is confirmed: '
-            '{service_name} on {date} at {time}. Contact: ${b.contactPhone}'
-        .replaceAll('{customer_name}', 'Customer')
-        .replaceAll('{service_name}', 'Service')
-        .replaceAll('{date}', '2026-10-20')
-        .replaceAll('{time}', '14:00');
-    final instructions = _smsInstructions.text.trim();
-    final block = instructions.isEmpty ? '' : ' $instructions';
-    return 160 - (base.length + block.length);
+  Future<void> _buySmsCredits() async {
+    try {
+      final data = await _api.post('/api/payments/sms/topup');
+      final url = data['payment_link'] as String?;
+      if (url != null) {
+        final opened = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+        if (mounted && !opened) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open the payment page.')),
+          );
+        }
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not start checkout.')),
+        );
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
   }
 
-  String get _smsRemainingText {
-    final remaining = _smsRemaining;
-    if (remaining < 0) return 'Over limit by ${-remaining} characters — will cost 2 SMS credits';
-    return '$remaining characters remaining (160 max)';
+  Future<void> _openProducts() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ProductsScreen()),
+    );
+    _load();
   }
 
   Future<void> _uploadLogo() async {
@@ -383,14 +417,31 @@ class _SettingsTabState extends State<SettingsTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Confirmation text is sent automatically:',
+                  'SMS credit balance',
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  'Hi {customer_name}, your booking with ${b.name} is confirmed: {service_name} on {date} at {time}. Contact: ${b.contactPhone.isEmpty ? '(your phone)' : b.contactPhone}',
-                  style: const TextStyle(color: WaveBookColors.muted, fontSize: 13),
-                ),
+                if (_smsBalance != null)
+                  Text(
+                    '${_smsBalance!.freeRemaining} of ${_smsBalance!.freeLimit} free texts remaining'
+                    '${_smsBalance!.credits > 0 ? ' + ${_smsBalance!.credits} purchased' : ''}',
+                    style: const TextStyle(color: WaveBookColors.muted, fontSize: 13),
+                  ),
+                const SizedBox(height: 8),
+                if (_smsBalance != null && _smsBalance!.totalRemaining <= 0)
+                  ElevatedButton(
+                    onPressed: _buySmsCredits,
+                    child: Text(
+                      'Buy ${_smsBalance!.topupCredits} more texts for £${_smsBalance!.topupPriceGbp.toStringAsFixed(2)}',
+                    ),
+                  )
+                else if (_smsBalance != null)
+                  TextButton(
+                    onPressed: _buySmsCredits,
+                    child: Text(
+                      'Buy ${_smsBalance!.topupCredits} more texts for £${_smsBalance!.topupPriceGbp.toStringAsFixed(2)}',
+                    ),
+                  ),
                 const SizedBox(height: 8),
                 const Text(
                   'Add optional details below (address, parking, what to bring).',
@@ -403,24 +454,72 @@ class _SettingsTabState extends State<SettingsTab> {
         const SizedBox(height: 12),
         TextFormField(
           controller: _smsInstructions,
-          onChanged: (_) => setState(() {}),
           decoration: const InputDecoration(
             labelText: 'Special Instructions (optional)',
             helperText: 'e.g. address, parking details, what to bring — added to the confirmation text',
           ),
           maxLines: 3,
         ),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Text(
-            _smsRemainingText,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: _smsRemaining < 0 ? WaveBookColors.danger : WaveBookColors.muted,
-            ),
+        const SizedBox(height: 24),
+        const Text('Storefront', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 12),
+        Card(
+          child: Column(
+            children: [
+              SwitchListTile(
+                value: _storefrontEnabled,
+                onChanged: (v) => setState(() => _storefrontEnabled = v),
+                title: const Text('Sell products on your booking website', style: TextStyle(fontWeight: FontWeight.w700)),
+                subtitle: const Text(
+                  'Adds a Store menu to your customer booking site. Payment processing and transfer fees apply to every sale.',
+                ),
+              ),
+              if (_storefrontEnabled)
+                ListTile(
+                  leading: const Icon(Icons.inventory_2_outlined, color: WaveBookColors.pink),
+                  title: const Text('Manage Products', style: TextStyle(fontWeight: FontWeight.w700)),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _openProducts,
+                ),
+            ],
           ),
+        ),
+        const SizedBox(height: 24),
+        const Text('Payout Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 4),
+        const Text(
+          'We pay you for deposits and store sales by bank transfer. Add your bank details below.',
+          style: TextStyle(color: WaveBookColors.muted, fontSize: 13),
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _payoutBankName,
+          decoration: const InputDecoration(labelText: 'Bank Name'),
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _payoutAccountName,
+          decoration: const InputDecoration(labelText: 'Account Holder Name'),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _payoutSortCode,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Sort Code'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextFormField(
+                controller: _payoutAccountNumber,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Account Number'),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 24),
         ElevatedButton(

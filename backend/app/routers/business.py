@@ -1,7 +1,9 @@
 import re
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 
+from ..config import settings
 from ..database import get_connection, row_to_dict, rows_to_dicts
 from ..deps import get_current_business, get_current_user, require_owner
 from ..phone import validate_uk_phone
@@ -31,9 +33,10 @@ def create_business(data: BusinessCreate, user: dict = Depends(get_current_user)
         if existing:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="That website address is already taken")
 
+        trial_ends = (datetime.utcnow() + timedelta(days=settings.TRIAL_DAYS)).strftime("%Y-%m-%d")
         cur = conn.execute(
-            "INSERT INTO businesses (slug, name) VALUES (?, ?)",
-            (slug, data.name.strip()),
+            "INSERT INTO businesses (slug, name, trial_ends_at) VALUES (?, ?, ?)",
+            (slug, data.name.strip(), trial_ends),
         )
         business_id = cur.lastrowid
         conn.execute(
