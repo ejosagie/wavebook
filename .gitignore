@@ -22,6 +22,7 @@ app/ios/Flutter/ephemeral/
 
 # Legacy single-tenant prototype (contains hardcoded credentials — do not commit)
 slayinstalls/
+fluttermethod/
 
 # OS / editor
 .DS_Store

@@ -1,26 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+import secrets
+
+from fastapi import APIRouter, HTTPException
 
 from ..config import settings
 from ..database import get_connection, row_to_dict
 from ..routers.notifications import add_notification
 from ..schemas import PaymentIntentCreate
+from ..services import flutterwave
 from ..services.notifier import send_booking_confirmation_sms
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
 
-def _stripe():
-    if not settings.STRIPE_SECRET_KEY:
-        raise HTTPException(status_code=503, detail="Stripe is not configured yet")
-    import stripe
-
-    stripe.api_key = settings.STRIPE_SECRET_KEY
-    return stripe
-
-
-@router.post("/intent")
-def create_payment_intent(data: PaymentIntentCreate):
-    """Create a Stripe PaymentIntent for a booking deposit.
+@router.post("/init")
+def init_payment(data: PaymentIntentCreate):
+    """Create a Flutterwave payment link for a booking deposit.
 
     Public endpoint — called from the tenant booking page after a booking is
     created, so the customer can pay the deposit by card.
@@ -46,93 +40,98 @@ def create_payment_intent(data: PaymentIntentCreate):
         if amount <= 0:
             raise HTTPException(status_code=400, detail="No payment is required for this booking")
 
-        stripe = _stripe()
-        intent = stripe.PaymentIntent.create(
-            amount=int(round(amount * 100)),
-            currency=settings.STRIPE_CURRENCY,
-            metadata={
+        tx_ref = f"WB-BK-{booking['id']}-{secrets.token_hex(4)}"
+        payment_link = flutterwave.create_payment_link(
+            tx_ref=tx_ref,
+            amount=amount,
+            currency=settings.FLW_CURRENCY,
+            redirect_url=f"{settings.API_PUBLIC_URL}/pay/verify",
+            customer_email=booking["customer_email"] or "",
+            meta={
                 "booking_id": str(booking["id"]),
                 "business_id": str(business["id"]),
+                "type": "booking_deposit",
             },
-            automatic_payment_methods={"enabled": True},
+            title="WaveBook Deposit",
+            description=f"{service['name']} deposit for {business['name']}",
         )
         conn.execute(
             "UPDATE bookings SET payment_intent_id = ?, payment_status = 'pending' WHERE id = ?",
-            (intent.id, booking["id"]),
+            (tx_ref, booking["id"]),
         )
         conn.commit()
     finally:
         conn.close()
 
     return {
-        "client_secret": intent.client_secret,
-        "publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
+        "payment_link": payment_link,
         "amount": amount,
-        "currency": settings.STRIPE_CURRENCY.upper(),
+        "currency": settings.FLW_CURRENCY.upper(),
     }
 
 
-@router.post("/webhook")
-async def stripe_webhook(request: Request):
-    """Handle Stripe events: mark bookings paid/confirmed when payment succeeds."""
-    if not settings.STRIPE_WEBHOOK_SECRET:
-        raise HTTPException(status_code=503, detail="Stripe webhook not configured")
+@router.get("/verify")
+def verify_payment(tx_ref: str, transaction_id: str):
+    """Verify a Flutterwave deposit payment and confirm the booking.
 
-    import stripe
+    Flutterwave redirects the customer here after paying on the hosted page.
+    """
+    data = flutterwave.verify_transaction(transaction_id)
 
-    stripe.api_key = settings.STRIPE_SECRET_KEY
-    payload = await request.body()
-    sig = request.headers.get("stripe-signature", "")
-    try:
-        event = stripe.Webhook.construct_event(payload, sig, settings.STRIPE_WEBHOOK_SECRET)
-    except (ValueError, stripe.error.SignatureVerificationError) as exc:
-        raise HTTPException(status_code=400, detail="Invalid signature") from exc
+    if data.get("status") != "successful":
+        raise HTTPException(status_code=400, detail="Payment was not successful")
+    if data.get("tx_ref") != tx_ref:
+        raise HTTPException(status_code=400, detail="Transaction reference mismatch")
+
+    booking_id = 0
+    if tx_ref.startswith("WB-BK-"):
+        try:
+            booking_id = int(tx_ref.split("-")[1])
+        except (IndexError, ValueError):
+            booking_id = 0
+    if not booking_id:
+        raise HTTPException(status_code=400, detail="Invalid payment reference")
 
     conn = get_connection()
     try:
-        if event["type"] == "payment_intent.succeeded":
-            intent = event["data"]["object"]
-            booking_id = int(intent.get("metadata", {}).get("booking_id") or 0)
-            if booking_id:
-                booking = conn.execute("SELECT * FROM bookings WHERE id = ?", (booking_id,)).fetchone()
-                if booking:
-                    conn.execute(
-                        "UPDATE bookings SET payment_status = 'paid', status = 'confirmed' WHERE id = ?",
-                        (booking_id,),
-                    )
-                    conn.execute(
-                        "INSERT INTO payments (business_id, booking_id, stripe_payment_intent_id, amount, currency, status, method) "
-                        "VALUES (?, ?, ?, ?, ?, 'paid', 'card')",
-                        (
-                            booking["business_id"],
-                            booking_id,
-                            intent.get("id", ""),
-                            float(intent.get("amount", 0)) / 100,
-                            settings.STRIPE_CURRENCY.upper(),
-                        ),
-                    )
-                    business = conn.execute(
-                        "SELECT * FROM businesses WHERE id = ?", (booking["business_id"],)
-                    ).fetchone()
-                    add_notification(
-                        conn,
-                        booking["business_id"],
-                        "Payment received",
-                        f"{booking['customer_name']} paid for {booking['service_name']} on {booking['date']} at {booking['time']}",
-                        booking_id,
-                        type_="payment",
-                    )
-                    conn.commit()
-                    # Send the customer a confirmation text
-                    send_booking_confirmation_sms(row_to_dict(booking), row_to_dict(business))
-        elif event["type"] == "payment_intent.payment_failed":
-            intent = event["data"]["object"]
-            booking_id = int(intent.get("metadata", {}).get("booking_id") or 0)
-            if booking_id:
-                conn.execute(
-                    "UPDATE bookings SET payment_status = 'failed' WHERE id = ?", (booking_id,)
-                )
-                conn.commit()
+        booking = conn.execute("SELECT * FROM bookings WHERE id = ?", (booking_id,)).fetchone()
+        if not booking:
+            raise HTTPException(status_code=404, detail="Booking not found")
+
+        expected = float(data.get("meta", {}).get("charged_amount") or 0)
+        paid = float(data.get("amount") or 0)
+        if expected and paid < expected:
+            raise HTTPException(status_code=400, detail="Payment amount does not match")
+
+        conn.execute(
+            "UPDATE bookings SET payment_status = 'paid', status = 'confirmed' WHERE id = ?",
+            (booking_id,),
+        )
+        conn.execute(
+            "INSERT INTO payments (business_id, booking_id, stripe_payment_intent_id, amount, currency, status, method) "
+            "VALUES (?, ?, ?, ?, ?, 'paid', 'card')",
+            (
+                booking["business_id"],
+                booking_id,
+                data.get("id", ""),
+                paid,
+                data.get("currency") or settings.FLW_CURRENCY.upper(),
+            ),
+        )
+        business = conn.execute(
+            "SELECT * FROM businesses WHERE id = ?", (booking["business_id"],)
+        ).fetchone()
+        add_notification(
+            conn,
+            booking["business_id"],
+            "Payment received",
+            f"{booking['customer_name']} paid for {booking['service_name']} on {booking['date']} at {booking['time']}",
+            booking_id,
+            type_="payment",
+        )
+        conn.commit()
+        # Send the customer a confirmation text
+        send_booking_confirmation_sms(row_to_dict(booking), row_to_dict(business))
     finally:
         conn.close()
-    return {"received": True}
+    return {"status": "paid", "booking_id": booking_id}

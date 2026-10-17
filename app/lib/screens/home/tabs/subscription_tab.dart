@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../api/api_client.dart';
 import '../../../models/models.dart';
@@ -42,16 +43,17 @@ class _SubscriptionTabState extends State<SubscriptionTab> {
   Future<void> _startCheckout() async {
     try {
       final data = await _api.post('/api/subscription/checkout');
-      final url = data['checkout_url'] as String?;
-      if (mounted) {
+      final url = data['payment_link'] as String?;
+      if (url != null) {
+        final opened = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+        if (mounted && !opened) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open the payment page.')),
+          );
+        }
+      } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              url != null
-                  ? 'Opening checkout in your browser...'
-                  : 'Could not start checkout.',
-            ),
-          ),
+          const SnackBar(content: Text('Could not start checkout.')),
         );
       }
     } on ApiException catch (e) {

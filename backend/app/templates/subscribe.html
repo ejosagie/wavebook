@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Subscribe — WaveBook</title>
   <link rel="stylesheet" href="/static/css/style.css">
-  <link rel="icon" type="image/svg+xml" href="/static/img/logo.svg">
+  <link rel="icon" type="image/png" href="/static/img/logo.png">
 </head>
 <body>
   <div class="navbar">
     <div class="container">
-      <a href="/" class="brand"><img src="/static/img/logo.svg" alt="WaveBook logo">Wave<span>Book</span></a>
+      <a href="/" class="brand"><img src="/static/img/logo.png" alt="WaveBook logo">Wave<span>Book</span></a>
       <nav class="nav-links"><a href="/">Home</a></nav>
     </div>
   </div>
@@ -30,10 +30,10 @@
           <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 16px;">
             Subscriptions are activated on the WaveBook website. After subscribing, your premium features unlock automatically in the app.
           </p>
-          <button id="checkout-btn" class="btn" style="width:100%;">Subscribe with Stripe</button>
+          <button id="checkout-btn" class="btn" style="width:100%;">Subscribe with Card</button>
           <p id="checkout-error" style="display:none; color: var(--danger); margin-top: 12px; font-size: 0.9rem;"></p>
           <p style="color: var(--muted); font-size: 0.85rem; margin-top: 16px;">
-            Secure payments by Stripe. Cards, Apple Pay and Google Pay accepted.
+            Secure card payments by Flutterwave.
           </p>
         </div>
       </div>
@@ -48,8 +48,7 @@
   </div>
 
   <script>
-    // Demo mode: no Stripe configured yet — show a friendly message.
-    // When STRIPE_PRICE_ID_MONTHLY is set, this calls the checkout API instead.
+    // Calls the checkout API and redirects to the Flutterwave payment page.
     document.getElementById('checkout-btn').addEventListener('click', async function () {
       const errorEl = document.getElementById('checkout-error');
       errorEl.style.display = 'none';
@@ -60,13 +59,13 @@
           credentials: 'include'
         });
         if (res.status === 503) {
-          errorEl.textContent = 'Stripe checkout is not configured yet. This is the demo page — the subscription flow will be enabled when Stripe keys are added.';
+          errorEl.textContent = 'Card checkout is not configured yet. This is the demo page — the subscription flow will be enabled when Flutterwave keys are added.';
           errorEl.style.display = 'block';
           return;
         }
         const data = await res.json();
-        if (data.checkout_url) {
-          window.location.href = data.checkout_url;
+        if (data.payment_link) {
+          window.location.href = data.payment_link;
         } else {
           errorEl.textContent = 'Could not start checkout. Please try again.';
           errorEl.style.display = 'block';

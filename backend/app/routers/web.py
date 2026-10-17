@@ -8,7 +8,9 @@ from fastapi.templating import Jinja2Templates
 from ..config import settings
 from ..database import get_connection, row_to_dict, rows_to_dicts
 from ..phone import validate_uk_phone
+from ..routers.payments import verify_payment as verify_booking_payment
 from ..security import create_admin_token, decode_admin_token
+from ..services import flutterwave
 from ..services.slots import (
     DAY_LABELS,
     blocked_dates_json,
@@ -111,6 +113,65 @@ def subscribe_success(request: Request):
 @router.get("/subscribe/cancel", response_class=HTMLResponse)
 def subscribe_cancel(request: Request):
     return templates.TemplateResponse(request, "subscribe_cancel.html", {})
+
+
+@router.get("/subscribe/verify", response_class=HTMLResponse)
+def subscribe_verify(request: Request, tx_ref: str = "", transaction_id: str = ""):
+    """Flutterwave redirect handler for subscription payments."""
+    if not tx_ref or not transaction_id:
+        return templates.TemplateResponse(request, "subscribe_cancel.html", {})
+    try:
+        data = flutterwave.verify_transaction(transaction_id)
+    except HTTPException:
+        return templates.TemplateResponse(request, "subscribe_cancel.html", {})
+    if data.get("status") != "successful" or data.get("tx_ref") != tx_ref:
+        return templates.TemplateResponse(request, "subscribe_cancel.html", {})
+
+    business_id = 0
+    if tx_ref.startswith("WB-SUB-"):
+        try:
+            business_id = int(tx_ref.split("-")[1])
+        except (IndexError, ValueError):
+            business_id = 0
+    if not business_id:
+        return templates.TemplateResponse(request, "subscribe_cancel.html", {})
+
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE businesses SET subscription_status = 'active' WHERE id = ?",
+            (business_id,),
+        )
+        conn.execute(
+            "INSERT INTO subscriptions (business_id, stripe_subscription_id, status, plan, amount) "
+            "VALUES (?, ?, 'active', 'monthly', ?)",
+            (business_id, tx_ref, settings.SUBSCRIPTION_PRICE_GBP),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return templates.TemplateResponse(request, "subscribe_success.html", {})
+
+
+@router.get("/pay/verify")
+def pay_verify(request: Request, tx_ref: str = "", transaction_id: str = ""):
+    """Flutterwave redirect handler for booking deposits — then show the success page."""
+    try:
+        result = verify_booking_payment(tx_ref=tx_ref, transaction_id=transaction_id)
+    except HTTPException:
+        return RedirectResponse(url="/", status_code=303)
+    booking_id = result["booking_id"]
+    conn = get_connection()
+    try:
+        booking = conn.execute("SELECT * FROM bookings WHERE id = ?", (booking_id,)).fetchone()
+        if not booking:
+            return RedirectResponse(url="/", status_code=303)
+        slug = conn.execute(
+            "SELECT slug FROM businesses WHERE id = ?", (booking["business_id"],)
+        ).fetchone()["slug"]
+    finally:
+        conn.close()
+    return RedirectResponse(url=f"/t/{slug}/booking/{booking_id}/paid", status_code=303)
 
 
 # ---- Owner admin dashboard ----
@@ -787,7 +848,6 @@ async def tenant_booking_submit(
             "business": business,
             "booking": booking,
             "deposit_amount": min(float(business["deposit_amount"] or 0), float(service["price"] or 0)),
-            "stripe_publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
             "format_price": _format_price,
         },
     )
@@ -795,7 +855,7 @@ async def tenant_booking_submit(
 
 @router.get("/t/{slug}/booking/{booking_id}/paid")
 def tenant_booking_paid(request: Request, slug: str, booking_id: int):
-    """Landing page after a successful Stripe deposit payment."""
+    """Landing page after a successful Flutterwave deposit payment."""
     business = _get_business_by_slug(slug)
     if not business:
         raise HTTPException(status_code=404, detail="Business not found")
@@ -816,7 +876,6 @@ def tenant_booking_paid(request: Request, slug: str, booking_id: int):
             "business": business,
             "booking": row_to_dict(booking),
             "deposit_amount": 0.0,
-            "stripe_publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
             "format_price": _format_price,
         },
     )

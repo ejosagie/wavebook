@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Booking Submitted — {{ business.name }}</title>
   <link rel="stylesheet" href="/static/css/style.css">
-  {% if deposit_amount > 0 and booking.payment_status != 'paid' %}
-  <script src="https://js.stripe.com/v3/"></script>
-  {% endif %}
 </head>
 <body class="tenant-theme">
   <div class="navbar tenant-nav">
@@ -16,7 +13,7 @@
         {% if business.logo_path %}
           <img src="{{ business.logo_path }}" alt="{{ business.name }}" style="height:40px;">
         {% else %}
-          <img src="/static/img/logo.svg" alt="logo" style="height:32px;">
+          <img src="/static/img/logo.png" alt="logo" style="height:32px;">
         {% endif %}
         {{ business.name }}
       </div>
@@ -53,13 +50,10 @@
         <p style="color: var(--pink-dark); font-weight:700; font-size:1.2rem; margin-bottom: 12px;">
           Deposit Due Now: {{ format_price(deposit_amount, business.currency) }}
         </p>
-        <div id="payment-element" style="margin-bottom: 16px;">
-          <p style="color: var(--muted);">Loading secure payment…</p>
-        </div>
         <button id="pay-button" class="btn" style="width:100%;">Pay Deposit &amp; Confirm Booking</button>
         <p id="payment-error" style="display:none; color: var(--danger); margin-top: 10px; font-size: 0.9rem;"></p>
         <p style="margin-top: 12px; font-size: 0.85rem; color: var(--muted); text-align:center;">
-          🔒 Secure payment powered by Stripe. Cards, Apple Pay and Google Pay accepted.
+          🔒 Secure card payment powered by Flutterwave.
         </p>
       </div>
 
@@ -101,45 +95,26 @@
     </div>
   </div>
 
-  {% if deposit_amount > 0 and booking.payment_status != 'paid' and stripe_publishable_key %}
+  {% if deposit_amount > 0 and booking.payment_status != 'paid' %}
   <script>
-    const stripe = Stripe({{ stripe_publishable_key | tojson }});
     const bookingId = {{ booking.id }};
-    const slug = {{ business.slug | tojson }};
     const payButton = document.getElementById('pay-button');
     const errorEl = document.getElementById('payment-error');
-    let elements = null;
-
-    fetch('/api/payments/intent', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ booking_id: bookingId })
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) throw new Error(data.detail || 'Could not start payment');
-        elements = stripe.elements({ clientSecret: data.client_secret });
-        const paymentElement = elements.create('payment');
-        paymentElement.mount('#payment-element');
-        payButton.disabled = false;
-      })
-      .catch(err => {
-        errorEl.textContent = err.message;
-        errorEl.style.display = 'block';
-        payButton.disabled = true;
-      });
 
     payButton.addEventListener('click', async () => {
       payButton.disabled = true;
       errorEl.style.display = 'none';
-      const { error } = await stripe.confirmPayment({
-        elements,
-        confirmParams: {
-          return_url: '/t/' + slug + '/booking/' + bookingId + '/paid'
-        }
-      });
-      if (error) {
-        errorEl.textContent = error.message;
+      try {
+        const res = await fetch('/api/payments/init', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ booking_id: bookingId })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Could not start payment');
+        window.location.href = data.payment_link;
+      } catch (err) {
+        errorEl.textContent = err.message;
         errorEl.style.display = 'block';
         payButton.disabled = false;
       }

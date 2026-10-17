@@ -27,6 +27,12 @@ class Settings:
     # Platform admin access (set in .env / server environment)
     ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "")
     ADMIN_ACCESS_TOKEN: str = os.getenv("ADMIN_ACCESS_TOKEN", "")  # ?access=... link on the landing page
+    # Flutterwave (card payments for bookings and subscriptions)
+    FLW_PUBLIC_KEY: str = os.getenv("FLW_PUBLIC_KEY", "")
+    FLW_SECRET_KEY: str = os.getenv("FLW_SECRET_KEY", "")
+    FLW_ENCRYPTION_KEY: str = os.getenv("FLW_ENCRYPTION_KEY", "")
+    FLW_CURRENCY: str = os.getenv("FLW_CURRENCY", "GBP")
+    FLW_COUNTRY: str = os.getenv("FLW_COUNTRY", "GB")
 
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 30  # 30 days
