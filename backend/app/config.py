@@ -39,6 +39,10 @@ class Settings:
     SMTP_USER: str = os.getenv("SMTP_USER", "")
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
     SMTP_FROM: str = os.getenv("SMTP_FROM", "WaveBook <no-reply@getwavebook.com>")
+    # Google Cloud Storage (product/shop images + backups). Leave empty to store
+    # images on the local disk (backend/uploads) instead of GCS.
+    GCS_BUCKET_NAME: str = os.getenv("GCS_BUCKET_NAME", "")  # public bucket for product images
+    GCS_BACKUP_BUCKET: str = os.getenv("GCS_BACKUP_BUCKET", "")  # private bucket for DB + uploads backups
 
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 30  # 30 days
@@ -48,6 +52,8 @@ class Settings:
     SMS_FREE_LIMIT: int = 50  # free SMS per business
     SMS_TOPUP_PRICE_GBP: float = 5.00
     SMS_TOPUP_CREDITS: int = 50  # SMS added per £5 top-up
+    # Storefront order statuses: pending -> paid -> confirmed -> shipped (or cancelled)
+    ORDER_STATUSES: tuple = ("pending", "paid", "confirmed", "shipped", "cancelled")
 
 
 settings = Settings()

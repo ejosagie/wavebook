@@ -6,8 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from ..config import settings
 from ..database import get_connection, row_to_dict, rows_to_dicts
 from ..deps import get_current_business, require_owner
-from ..schemas import ProductCreate, ProductUpdate, StorefrontCheckout
-from ..services import flutterwave
+from ..schemas import OrderUpdate, ProductCreate, ProductUpdate, StorefrontCheckout
+from ..services import flutterwave, gcs
 
 router = APIRouter(tags=["storefront"])
 
@@ -101,10 +101,18 @@ def delete_product(
         if not row:
             raise HTTPException(status_code=404, detail="Product not found")
         if row["image_path"]:
-            try:
-                (_upload_dir() / row["image_path"].split("/")[-1]).unlink(missing_ok=True)
-            except OSError:
-                pass
+            if row["image_path"].startswith("http"):
+                # Stored in GCS — remove from the bucket
+                try:
+                    gcs.delete_shop_image(business["id"], product_id)
+                except Exception:
+                    pass
+            else:
+                # Stored on the local disk
+                try:
+                    (_upload_dir() / row["image_path"].split("/")[-1]).unlink(missing_ok=True)
+                except OSError:
+                    pass
         conn.execute("DELETE FROM products WHERE id = ? AND business_id = ?", (product_id, business["id"]))
         conn.commit()
     finally:
@@ -136,13 +144,22 @@ def upload_product_image(
 
     import uuid
 
-    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "png"
-    filename = f"product_{business['id']}_{product_id}_{uuid.uuid4().hex[:8]}.{ext}"
-    uploads = _upload_dir()
-    uploads.mkdir(parents=True, exist_ok=True)
-    dest = uploads / filename
-    dest.write_bytes(file.file.read())
-    path = f"/uploads/{filename}"
+    data = file.file.read()
+    if gcs.gcs_enabled():
+        # Upload to the public GCS bucket (auto-resized to 800px JPEG)
+        try:
+            url = gcs.upload_shop_image(business["id"], product_id, data)
+        except (ValueError, RuntimeError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        path = url
+    else:
+        ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "png"
+        filename = f"product_{business['id']}_{product_id}_{uuid.uuid4().hex[:8]}.{ext}"
+        uploads = _upload_dir()
+        uploads.mkdir(parents=True, exist_ok=True)
+        dest = uploads / filename
+        dest.write_bytes(data)
+        path = f"/uploads/{filename}"
 
     conn = get_connection()
     try:
@@ -265,3 +282,57 @@ def storefront_checkout(data: StorefrontCheckout):
         "amount": round(total, 2),
         "currency": settings.FLW_CURRENCY.upper(),
     }
+
+
+# ---- Owner order management (app) ----
+
+
+@router.get("/api/orders")
+def list_orders(business: dict = Depends(get_current_business)):
+    """List storefront orders for the business, newest first."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM orders WHERE business_id = ? ORDER BY id DESC",
+            (business["id"],),
+        ).fetchall()
+    finally:
+        conn.close()
+    orders = []
+    for row in rows:
+        order = row_to_dict(row)
+        try:
+            order["items"] = json.loads(order.get("items") or "[]")
+        except json.JSONDecodeError:
+            order["items"] = []
+        orders.append(order)
+    return orders
+
+
+@router.patch("/api/orders/{order_id}")
+def update_order_status(
+    order_id: int,
+    data: OrderUpdate,
+    business: dict = Depends(get_current_business),
+    user: dict = Depends(require_owner),
+):
+    """Update a storefront order status (confirm, mark shipped, cancel)."""
+    if data.status not in settings.ORDER_STATUSES:
+        raise HTTPException(status_code=422, detail="Invalid order status")
+
+    conn = get_connection()
+    try:
+        order = conn.execute(
+            "SELECT * FROM orders WHERE id = ? AND business_id = ?",
+            (order_id, business["id"]),
+        ).fetchone()
+        if not order:
+            raise HTTPException(status_code=404, detail="Order not found")
+        conn.execute(
+            "UPDATE orders SET status = ? WHERE id = ? AND business_id = ?",
+            (data.status, order_id, business["id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True, "status": data.status}

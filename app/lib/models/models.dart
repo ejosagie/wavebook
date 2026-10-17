@@ -173,6 +173,62 @@ class Product {
       );
 }
 
+class OrderItem {
+  final int productId;
+  final String name;
+  final double price;
+  final int quantity;
+
+  OrderItem({
+    required this.productId,
+    required this.name,
+    required this.price,
+    required this.quantity,
+  });
+
+  factory OrderItem.fromJson(Map<String, dynamic> json) => OrderItem(
+        productId: json['product_id'] as int? ?? 0,
+        name: json['name'] as String? ?? '',
+        price: (json['price'] as num?)?.toDouble() ?? 0,
+        quantity: json['quantity'] as int? ?? 1,
+      );
+}
+
+class Order {
+  final int id;
+  final String customerName;
+  final String customerEmail;
+  final String customerPhone;
+  final List<OrderItem> items;
+  final double total;
+  final String status;
+  final String createdAt;
+
+  Order({
+    required this.id,
+    required this.customerName,
+    required this.customerEmail,
+    required this.customerPhone,
+    required this.items,
+    required this.total,
+    required this.status,
+    required this.createdAt,
+  });
+
+  factory Order.fromJson(Map<String, dynamic> json) => Order(
+        id: json['id'] as int,
+        customerName: json['customer_name'] as String? ?? '',
+        customerEmail: json['customer_email'] as String? ?? '',
+        customerPhone: json['customer_phone'] as String? ?? '',
+        items: (json['items'] as List? ?? [])
+            .map((i) => OrderItem.fromJson(i as Map<String, dynamic>))
+            .toList(),
+        total: (json['total'] as num?)?.toDouble() ?? 0,
+        status: json['status'] as String? ?? 'pending',
+        createdAt: json['created_at'] as String? ?? '',
+      );
+}
+
 class SmsBalance {
   final int used;
   final int freeLimit;

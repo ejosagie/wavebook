@@ -78,6 +78,10 @@ class StorefrontCheckout(BaseModel):
     items: list[StorefrontItem]
 
 
+class OrderUpdate(BaseModel):
+    status: str
+
+
 # ---- Services ----
 class ServiceCreate(BaseModel):
     name: str = Field(min_length=1)

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme.dart';
+import '../../storefront/shop_screen.dart';
 import 'customers_tab.dart';
 import 'feedback_tab.dart';
 import 'gallery_tab.dart';
@@ -18,6 +19,13 @@ class MoreTab extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          _MenuCard(
+            icon: Icons.storefront_outlined,
+            color: WaveBookColors.pink,
+            title: 'Online Shop',
+            subtitle: 'Inventory, orders and shipping',
+            onTap: () => _push(context, const ShopScreen()),
+          ),
           _MenuCard(
             icon: Icons.photo_library_outlined,
             color: WaveBookColors.pink,

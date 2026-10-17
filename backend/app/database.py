@@ -191,7 +191,7 @@ CREATE TABLE IF NOT EXISTS orders (
     customer_phone TEXT DEFAULT '',
     items TEXT NOT NULL DEFAULT '[]',
     total REAL NOT NULL DEFAULT 0,
-    status TEXT NOT NULL DEFAULT 'pending',  -- pending | paid | cancelled
+    status TEXT NOT NULL DEFAULT 'pending',  -- pending | paid | confirmed | shipped | cancelled
     payment_ref TEXT DEFAULT '',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
