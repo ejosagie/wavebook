@@ -128,11 +128,13 @@ def create_booking(data: BookingCreate, business: dict = Depends(get_current_bus
         )
         booking_id = cur.lastrowid
 
-        # Upsert into customer profiles
-        if data.customer_email or data.customer_phone:
+        # Upsert into customer profiles (match by phone or email)
+        if data.customer_email or customer_phone:
             existing = conn.execute(
-                "SELECT id FROM customers WHERE business_id = ? AND (email = ? OR phone = ?) AND email != ''",
-                (business["id"], data.customer_email, customer_phone),
+                """SELECT id FROM customers WHERE business_id = ?
+                   AND ((email != '' AND email = ?) OR (phone != '' AND phone = ?))
+                   LIMIT 1""",
+                (business["id"], data.customer_email.strip(), customer_phone),
             ).fetchone()
             if existing:
                 conn.execute(

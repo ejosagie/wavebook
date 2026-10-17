@@ -7,7 +7,10 @@ import 'orders_screen.dart';
 import 'products_screen.dart';
 
 class ShopScreen extends StatefulWidget {
-  const ShopScreen({super.key});
+  const ShopScreen({super.key, this.initialTab = 0});
+
+  /// Which tab to open on first: 0 = Inventory, 1 = Orders.
+  final int initialTab;
 
   @override
   State<ShopScreen> createState() => _ShopScreenState();
@@ -86,6 +89,7 @@ class _ShopScreenState extends State<ShopScreen> {
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 2,
+      initialIndex: widget.initialTab,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Online Shop'),

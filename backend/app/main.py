@@ -52,6 +52,7 @@ app.include_router(feedback.router)
 app.include_router(notifications.router)
 app.include_router(payments.router)
 app.include_router(products.router)
+app.include_router(reports.router)
 app.include_router(staff.router)
 app.include_router(subscription.router)
 

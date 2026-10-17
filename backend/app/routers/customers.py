@@ -14,7 +14,8 @@ def list_customers(business: dict = Depends(get_current_business)):
             conn.execute(
                 """SELECT c.*,
                           (SELECT COUNT(*) FROM bookings b WHERE b.business_id = c.business_id
-                           AND b.customer_email = c.email AND b.customer_email != '') AS booking_count
+                           AND ((b.customer_email != '' AND b.customer_email = c.email)
+                                OR (b.customer_phone != '' AND b.customer_phone = c.phone))) AS booking_count
                    FROM customers c WHERE c.business_id = ? ORDER BY c.created_at DESC""",
                 (business["id"],),
             ).fetchall()
@@ -35,8 +36,11 @@ def customer_bookings(customer_id: int, business: dict = Depends(get_current_bus
             raise HTTPException(status_code=404, detail="Customer not found")
         rows = rows_to_dicts(
             conn.execute(
-                "SELECT * FROM bookings WHERE business_id = ? AND customer_email = ? AND customer_email != '' ORDER BY date DESC",
-                (business["id"], customer["email"]),
+                """SELECT * FROM bookings WHERE business_id = ?
+                   AND ((customer_email != '' AND customer_email = ?)
+                        OR (customer_phone != '' AND customer_phone = ?))
+                   ORDER BY date DESC""",
+                (business["id"], customer["email"], customer["phone"]),
             ).fetchall()
         )
     finally:

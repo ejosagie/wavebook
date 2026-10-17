@@ -81,9 +81,58 @@ class _CustomersTabState extends State<CustomersTab> {
       onRefresh: _load,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: _customers.length,
+        itemCount: _customers.length + 1,
         itemBuilder: (context, i) {
-          final c = _customers[i];
+          if (i == 0) {
+            final totalBookings = _customers.fold<int>(0, (sum, c) => sum + c.bookingCount);
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${_customers.length}',
+                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: WaveBookColors.pink),
+                          ),
+                          const Text('Total customers', style: TextStyle(color: WaveBookColors.muted, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '$totalBookings',
+                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: WaveBookColors.rose),
+                          ),
+                          const Text('Total bookings', style: TextStyle(color: WaveBookColors.muted, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Auto',
+                            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: WaveBookColors.success),
+                          ),
+                          Text('Saved from bookings', style: TextStyle(color: WaveBookColors.muted, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+          final c = _customers[i - 1];
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
             child: ListTile(

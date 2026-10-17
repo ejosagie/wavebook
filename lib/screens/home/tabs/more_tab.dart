@@ -5,9 +5,11 @@ import '../../storefront/shop_screen.dart';
 import 'customers_tab.dart';
 import 'feedback_tab.dart';
 import 'gallery_tab.dart';
+import 'reports_screen.dart';
 import 'settings_tab.dart';
 import 'staff_tab.dart';
 import 'subscription_tab.dart';
+import 'website_screen.dart';
 
 class MoreTab extends StatelessWidget {
   const MoreTab({super.key});
@@ -27,11 +29,25 @@ class MoreTab extends StatelessWidget {
             onTap: () => _push(context, const ShopScreen()),
           ),
           _MenuCard(
+            icon: Icons.public,
+            color: WaveBookColors.pink,
+            title: 'Website',
+            subtitle: 'Your site address and theme colour',
+            onTap: () => _push(context, const WebsiteScreen()),
+          ),
+          _MenuCard(
             icon: Icons.photo_library_outlined,
             color: WaveBookColors.pink,
             title: 'Gallery',
             subtitle: 'Manage your website gallery (up to 8 photos)',
             onTap: () => _push(context, const GalleryTab()),
+          ),
+          _MenuCard(
+            icon: Icons.bar_chart,
+            color: WaveBookColors.rose,
+            title: 'Report',
+            subtitle: 'Bookings, deposits and order income',
+            onTap: () => _push(context, const ReportsScreen()),
           ),
           _MenuCard(
             icon: Icons.group_outlined,

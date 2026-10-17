@@ -7,6 +7,7 @@ import '../../../api/api_client.dart';
 import '../../../models/models.dart';
 import '../../../state/auth_state.dart';
 import '../../../theme.dart';
+import '../../storefront/shop_screen.dart';
 import 'notifications_screen.dart';
 
 /// Current app version — the dashboard compares this against the admin-managed
@@ -30,6 +31,7 @@ class _DashboardTabState extends State<DashboardTab> {
   String? _error;
   int _unread = 0;
   Timer? _unreadTimer;
+  int _pendingOrders = 0;
 
   @override
   void initState() {
@@ -70,6 +72,7 @@ class _DashboardTabState extends State<DashboardTab> {
     try {
       final businessData = await _api.get('/api/business');
       final bookingsData = await _api.get('/api/bookings');
+      final ordersData = await _api.get('/api/orders');
       final servicesData = await _api.get('/api/services');
       AppMeta? appMeta;
       try {
@@ -82,6 +85,10 @@ class _DashboardTabState extends State<DashboardTab> {
       setState(() {
         _business = Business.fromJson(businessData as Map<String, dynamic>);
         _bookings = (bookingsData as List).map((b) => Booking.fromJson(b as Map<String, dynamic>)).toList();
+        final orders = (ordersData as List)
+          .map((o) => Order.fromJson(o as Map<String, dynamic>))
+          .toList();
+        _pendingOrders = orders.where((o) => o.status == 'paid').length;
         _services = (servicesData as List).map((s) => Service.fromJson(s as Map<String, dynamic>)).toList();
         _appMeta = appMeta;
       });
@@ -274,6 +281,24 @@ class _DashboardTabState extends State<DashboardTab> {
             onTap: () => _openWebsite(context, business.slug),
           ),
         ),
+        if (_pendingOrders > 0) ...[
+          const SizedBox(height: 8),
+          Card(
+            color: WaveBookColors.darkSurfaceAlt,
+            child: ListTile(
+              leading: const Icon(Icons.receipt_long_outlined, color: WaveBookColors.pink),
+              title: Text(
+                '$_pendingOrders pending order${_pendingOrders == 1 ? '' : 's'}',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: const Text('Paid — confirm them in Online Shop'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ShopScreen(initialTab: 1)),
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 8),
         Card(
           child: ListTile(

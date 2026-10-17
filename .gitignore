@@ -8,17 +8,17 @@ __pycache__/
 *.pyo
 
 # Flutter / Dart
-app/.dart_tool/
-app/build/
-app/.flutter-plugins
-app/.flutter-plugins-dependencies
-app/.idea/
-app/*.iml
-app/android/.gradle/
-app/android/local.properties
-app/ios/Pods/
-app/ios/.symlinks/
-app/ios/Flutter/ephemeral/
+.dart_tool/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.idea/
+*.iml
+android/.gradle/
+android/local.properties
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/ephemeral/
 
 # Legacy single-tenant prototype (contains hardcoded credentials — do not commit)
 slayinstalls/

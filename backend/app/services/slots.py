@@ -19,7 +19,7 @@ DEFAULT_WORKING_DAYS = {
 }
 
 
-def get_availability_row(row: dict | None) -> dict:
+def get_availability_row(row) -> dict:
     """Normalise an availability DB row into a full availability dict."""
     if row is None:
         return {
@@ -28,6 +28,8 @@ def get_availability_row(row: dict | None) -> dict:
             "blocked_slots": {},
             "slot_interval": 30,
         }
+    if not isinstance(row, dict):
+        row = dict(row)
     working = json_loads(row.get("working_days"), {})
     merged = dict(DEFAULT_WORKING_DAYS)
     merged.update(working or {})
