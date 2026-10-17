@@ -177,19 +177,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Products'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: 'Add product',
-            onPressed: _addProduct,
-          ),
-        ],
-      ),
-      body: _buildBody(),
-    );
+    return _buildBody();
   }
 
   Widget _buildBody() {
@@ -220,55 +208,71 @@ class _ProductsScreenState extends State<ProductsScreen> {
         ),
       );
     }
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _products.length,
-      itemBuilder: (context, index) {
-        final p = _products[index];
-        return Card(
-          child: ListTile(
-            leading: p.imagePath.isNotEmpty
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      '$kApiBaseUrl${p.imagePath}',
-                      width: 48,
-                      height: 48,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const Icon(Icons.image, size: 48),
-                    ),
-                  )
-                : const Icon(Icons.image_outlined, size: 48, color: WaveBookColors.muted),
-            title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text('£${p.price.toStringAsFixed(2)}${p.active ? '' : ' · hidden'}'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.photo_outlined),
-                  tooltip: 'Upload image',
-                  onPressed: () => _uploadImage(p),
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _products.length + 1,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: ElevatedButton.icon(
+                  onPressed: _addProduct,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Product'),
                 ),
-                IconButton(
-                  icon: Icon(p.active ? Icons.visibility : Icons.visibility_off),
-                  tooltip: p.active ? 'Hide product' : 'Show product',
-                  onPressed: () => _toggleActive(p),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined),
-                  tooltip: 'Edit',
-                  onPressed: () => _editProduct(p),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: WaveBookColors.danger),
-                  tooltip: 'Delete',
-                  onPressed: () => _deleteProduct(p),
-                ),
-              ],
+              ),
+            );
+          }
+          final p = _products[index - 1];
+          return Card(
+            child: ListTile(
+              leading: p.imagePath.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        '$kApiBaseUrl${p.imagePath}',
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const Icon(Icons.image, size: 48),
+                      ),
+                    )
+                  : const Icon(Icons.image_outlined, size: 48, color: WaveBookColors.muted),
+              title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text('£${p.price.toStringAsFixed(2)}${p.active ? '' : ' · hidden'}'),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.photo_outlined),
+                    tooltip: 'Upload image',
+                    onPressed: () => _uploadImage(p),
+                  ),
+                  IconButton(
+                    icon: Icon(p.active ? Icons.visibility : Icons.visibility_off),
+                    tooltip: p.active ? 'Hide product' : 'Show product',
+                    onPressed: () => _toggleActive(p),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    tooltip: 'Edit',
+                    onPressed: () => _editProduct(p),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: WaveBookColors.danger),
+                    tooltip: 'Delete',
+                    onPressed: () => _deleteProduct(p),
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

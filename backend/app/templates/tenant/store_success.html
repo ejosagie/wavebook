@@ -5,6 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Order Confirmed — {{ business.name }}</title>
   <link rel="stylesheet" href="/static/css/style.css">
+  {% if business.theme_color and business.theme_color != '#ec4899' %}
+  <style>
+    :root {
+      --pink: {{ business.theme_color }};
+      --pink-dark: {{ business.theme_color_dark }};
+      --pink-light: {{ business.theme_color }};
+      --gradient: linear-gradient(135deg, {{ business.theme_color }}, {{ business.theme_color_dark }});
+    }
+  </style>
+  {% endif %}
 </head>
 <body class="tenant-theme">
   <div class="navbar tenant-nav">

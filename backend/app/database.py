@@ -238,6 +238,7 @@ def init_db() -> None:
         _ensure_column(conn, "businesses", "sms_used", "sms_used INTEGER NOT NULL DEFAULT 0")
         _ensure_column(conn, "businesses", "sms_credits", "sms_credits INTEGER NOT NULL DEFAULT 0")
         _ensure_column(conn, "businesses", "trial_ends_at", "trial_ends_at TEXT DEFAULT ''")
+        _ensure_column(conn, "businesses", "theme_color", "theme_color TEXT DEFAULT '#ec4899'")
         conn.commit()
     finally:
         conn.close()

@@ -55,6 +55,7 @@ class Business {
   final int smsUsed;
   final int smsCredits;
   final String trialEndsAt;
+  final String themeColor;
 
   Business({
     required this.id,
@@ -86,6 +87,7 @@ class Business {
     required this.smsUsed,
     required this.smsCredits,
     required this.trialEndsAt,
+    required this.themeColor,
   });
 
   factory Business.fromJson(Map<String, dynamic> json) => Business(
@@ -118,6 +120,7 @@ class Business {
         smsUsed: json['sms_used'] as int? ?? 0,
         smsCredits: json['sms_credits'] as int? ?? 0,
         trialEndsAt: json['trial_ends_at'] as String? ?? '',
+        themeColor: json['theme_color'] as String? ?? '#ec4899',
       );
 
   Map<String, dynamic> toJson() => {
@@ -140,6 +143,7 @@ class Business {
         'payout_account_name': payoutAccountName,
         'payout_account_number': payoutAccountNumber,
         'payout_sort_code': payoutSortCode,
+        'theme_color': themeColor,
       };
 }
 

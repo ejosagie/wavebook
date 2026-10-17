@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -5,6 +7,7 @@ import '../../../api/api_client.dart';
 import '../../../models/models.dart';
 import '../../../state/auth_state.dart';
 import '../../../theme.dart';
+import 'notifications_screen.dart';
 
 /// Current app version — the dashboard compares this against the admin-managed
 /// `latest_version` from /api/app/meta to show an update banner.
@@ -25,11 +28,38 @@ class _DashboardTabState extends State<DashboardTab> {
   AppMeta? _appMeta;
   bool _loading = true;
   String? _error;
+  int _unread = 0;
+  Timer? _unreadTimer;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _pollUnread();
+    _unreadTimer = Timer.periodic(const Duration(seconds: 30), (_) => _pollUnread());
+  }
+
+  @override
+  void dispose() {
+    _unreadTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _pollUnread() async {
+    try {
+      final data = await _api.get('/api/notifications/unread-count');
+      if (!mounted) return;
+      final count = (data as Map<String, dynamic>)['count'] as int? ?? 0;
+      if (count != _unread) setState(() => _unread = count);
+    } catch (_) {
+      // Silent: badge polling failures shouldn't disturb the user.
+    }
+  }
+
+  void _openNotifications() {
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const NotificationsScreen()))
+        .then((_) => _pollUnread());
   }
 
   Future<void> _load() async {
@@ -69,6 +99,34 @@ class _DashboardTabState extends State<DashboardTab> {
       appBar: AppBar(
         title: Text(_business?.name ?? 'Dashboard'),
         actions: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined),
+                onPressed: _openNotifications,
+                tooltip: 'Notifications',
+              ),
+              if (_unread > 0)
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: WaveBookColors.pink,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(minWidth: 16),
+                    child: Text(
+                      '$_unread',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ),
+            ],
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _load,

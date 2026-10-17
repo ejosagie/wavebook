@@ -15,8 +15,13 @@ class ShopScreen extends StatefulWidget {
 
 class _ShopScreenState extends State<ShopScreen> {
   final _api = ApiClient();
-  Business? _business;
+  final _name = TextEditingController();
+  final _slug = TextEditingController();
+  final _phone = TextEditingController();
+  final _email = TextEditingController();
+  bool _storefrontEnabled = false;
   bool _loading = true;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -24,111 +29,173 @@ class _ShopScreenState extends State<ShopScreen> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _name.dispose();
+    _slug.dispose();
+    _phone.dispose();
+    _email.dispose();
+    super.dispose();
+  }
+
   Future<void> _load() async {
     try {
       final data = await _api.get('/api/business');
       if (!mounted) return;
+      final b = Business.fromJson(data as Map<String, dynamic>);
       setState(() {
-        _business = Business.fromJson(data as Map<String, dynamic>);
+        _name.text = b.name;
+        _slug.text = b.slug;
+        _phone.text = b.contactPhone;
+        _email.text = b.contactEmail;
+        _storefrontEnabled = b.storefrontEnabled;
       });
     } on ApiException {
-      // Non-fatal — the shop screens still work without the banner.
+      // Non-fatal — the tabs still work without the settings card.
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await _api.patch('/api/business', body: {
+        'name': _name.text.trim(),
+        'slug': _slug.text.trim(),
+        'contact_phone': _phone.text.trim(),
+        'contact_email': _email.text.trim(),
+        'storefront_enabled': _storefrontEnabled,
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Shop settings saved')),
+        );
+      }
+      await _load();
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final enabled = _business?.storefrontEnabled ?? false;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Online Shop')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          if (!_loading)
-            Card(
-              color: enabled ? null : WaveBookColors.darkSurfaceAlt,
-              child: ListTile(
-                leading: Icon(
-                  enabled ? Icons.storefront : Icons.storefront_outlined,
-                  color: enabled ? WaveBookColors.pink : WaveBookColors.muted,
-                ),
-                title: Text(
-                  enabled ? 'Your shop is live' : 'Your shop is hidden',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                subtitle: Text(
-                  enabled
-                      ? 'Customers can buy from your booking website.'
-                      : 'Turn on the storefront in Settings to start selling.',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _openSettings(),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Online Shop'),
+          bottom: const TabBar(
+            tabs: [
+              Tab(icon: Icon(Icons.inventory_2_outlined), text: 'Inventory'),
+              Tab(icon: Icon(Icons.receipt_long_outlined), text: 'Orders'),
+            ],
+          ),
+        ),
+        body: Column(
+          children: [
+            if (!_loading) _buildSettingsCard(),
+            Expanded(
+              child: const TabBarView(
+                children: [
+                  ProductsScreen(),
+                  OrdersScreen(),
+                ],
               ),
             ),
-          const SizedBox(height: 12),
-          _ShopCard(
-            icon: Icons.inventory_2_outlined,
-            color: WaveBookColors.pink,
-            title: 'Inventory',
-            subtitle: 'Add, edit and organise the items you sell',
-            onTap: () => _push(const ProductsScreen()),
-          ),
-          const SizedBox(height: 12),
-          _ShopCard(
-            icon: Icons.receipt_long_outlined,
-            color: WaveBookColors.rose,
-            title: 'Orders',
-            subtitle: 'See new orders, confirm them and mark as shipped',
-            onTap: () => _push(const OrdersScreen()),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Customers buy without registering — they just add items to the basket and pay by card. You get paid for each sale and arrange delivery or collection.',
-            style: TextStyle(color: WaveBookColors.muted, fontSize: 13),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  void _push(Widget screen) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
-  }
-
-  void _openSettings() {
-    Navigator.of(context).pop();
-  }
-}
-
-class _ShopCard extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  const _ShopCard({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildSettingsCard() {
+    final slug = _slug.text.trim().isEmpty ? 'your-business' : _slug.text.trim();
     return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color.withValues(alpha: 0.15),
-          child: Icon(icon, color: color),
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Shop Settings',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _name,
+              decoration: const InputDecoration(labelText: 'Business name'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _slug,
+              decoration: const InputDecoration(
+                labelText: 'Website address',
+                helperText: 'Your shop and booking site:',
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '$slug.wab.is',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: WaveBookColors.pink,
+              ),
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _storefrontEnabled,
+              onChanged: (v) => setState(() => _storefrontEnabled = v),
+              title: const Text('Sell products on your website', style: TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text(
+                _storefrontEnabled
+                    ? 'Your shop is live — customers can buy from $slug.wab.is'
+                    : 'Your shop is hidden until you turn it on',
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _phone,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(labelText: 'Phone number'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _email,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(labelText: 'Contact email'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton(
+                onPressed: _saving ? null : _save,
+                child: _saving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Save'),
+              ),
+            ),
+          ],
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: onTap,
       ),
     );
   }

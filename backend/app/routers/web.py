@@ -33,9 +33,27 @@ UPLOADS_DIR = Path(__file__).resolve().parent.parent.parent / "uploads"
 def _get_business_by_slug(slug: str) -> dict | None:
     conn = get_connection()
     try:
-        return row_to_dict(conn.execute("SELECT * FROM businesses WHERE slug = ?", (slug,)).fetchone())
+        business = row_to_dict(conn.execute("SELECT * FROM businesses WHERE slug = ?", (slug,)).fetchone())
     finally:
         conn.close()
+    if business:
+        business["theme_color_dark"] = _darken_hex(business.get("theme_color") or "#ec4899")
+    return business
+
+
+def _darken_hex(hex_color: str) -> str:
+    """Return a darker shade of a #rrggbb color (used for the tenant site theme)."""
+    try:
+        h = hex_color.lstrip("#")
+        if len(h) != 6:
+            return hex_color
+        r, g, b = (int(h[i : i + 2], 16) for i in (0, 2, 4))
+        factor = 0.8
+        return "#{:02x}{:02x}{:02x}".format(
+            int(r * factor), int(g * factor), int(b * factor)
+        )
+    except ValueError:
+        return hex_color
 
 
 def _tenant_slug(request: Request, path_slug: str | None = None) -> str | None:

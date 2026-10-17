@@ -28,6 +28,7 @@ class BusinessCreate(BaseModel):
 
 class BusinessUpdate(BaseModel):
     name: str | None = None
+    slug: str | None = None
     tagline: str | None = None
     about_text: str | None = None
     rules: str | None = None
@@ -46,6 +47,7 @@ class BusinessUpdate(BaseModel):
     payout_account_name: str | None = None
     payout_account_number: str | None = None
     payout_sort_code: str | None = None
+    theme_color: str | None = None
 
 
 # ---- Storefront products ----

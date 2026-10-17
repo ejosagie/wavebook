@@ -72,6 +72,20 @@ def update_business(data: BusinessUpdate, business: dict = Depends(get_current_b
             updates["contact_phone"] = validate_uk_phone(updates["contact_phone"])
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    if "slug" in updates:
+        slug = updates["slug"].lower().strip()
+        if not re.match(r"^[a-z0-9-]{2,63}$", slug):
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid website address")
+        updates["slug"] = slug
+        conn = get_connection()
+        try:
+            taken = conn.execute(
+                "SELECT id FROM businesses WHERE slug = ? AND id != ?", (slug, business["id"])
+            ).fetchone()
+        finally:
+            conn.close()
+        if taken:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="That website address is already taken")
     conn = get_connection()
     try:
         fields = ", ".join(f"{k} = ?" for k in updates)
