@@ -62,6 +62,18 @@ class ApiClient {
     return _handle(res);
   }
 
+  /// Fetch a response as raw text (e.g. .ics calendar files).
+  Future<String> getRaw(String path, {bool auth = true}) async {
+    final res = await http.get(
+      Uri.parse('$kApiBaseUrl$path'),
+      headers: await _headers(auth: auth),
+    );
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return res.body;
+    }
+    throw ApiException(res.statusCode, 'Request failed (${res.statusCode})');
+  }
+
   Future<dynamic> post(String path, {Object? body, bool auth = true}) async {
     final res = await http.post(
       Uri.parse('$kApiBaseUrl$path'),

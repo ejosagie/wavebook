@@ -1,10 +1,12 @@
+import asyncio
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from .config import settings
-from .database import init_db
+from .database import get_connection, init_db, row_to_dict
 from .routers import (
     auth,
     availability,
@@ -15,11 +17,13 @@ from .routers import (
     notifications,
     payments,
     products,
+    reports,
     services,
     staff,
     subscription,
     web,
 )
+from .services.emailer import send_booking_reminder_email
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOADS_DIR = BASE_DIR / "uploads"
@@ -35,10 +39,48 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
 
+async def _reminder_sweep() -> None:
+    """Send reminder emails for confirmed bookings happening within 24 hours."""
+    while True:
+        try:
+            conn = get_connection()
+            try:
+                now = datetime.now()
+                window_end = now + timedelta(hours=24)
+                rows = conn.execute(
+                    "SELECT * FROM bookings WHERE status = 'confirmed' AND reminder_sent = 0 "
+                    "AND customer_email != ''"
+                ).fetchall()
+                for row in rows:
+                    booking = row_to_dict(row)
+                    try:
+                        when = datetime.fromisoformat(f"{booking['date']}T{booking['time']}")
+                    except ValueError:
+                        continue
+                    if now <= when <= window_end:
+                        business = row_to_dict(
+                            conn.execute(
+                                "SELECT * FROM businesses WHERE id = ?", (booking["business_id"],)
+                            ).fetchone()
+                        )
+                        if business:
+                            send_booking_reminder_email(booking, business)
+                            conn.execute(
+                                "UPDATE bookings SET reminder_sent = 1 WHERE id = ?", (booking["id"],)
+                            )
+                conn.commit()
+            finally:
+                conn.close()
+        except Exception:  # pragma: no cover - keep the loop alive
+            pass
+        await asyncio.sleep(60 * 60)
+
+
 @app.on_event("startup")
 def on_startup():
     init_db()
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    asyncio.get_event_loop().create_task(_reminder_sweep())
 
 
 # API routers

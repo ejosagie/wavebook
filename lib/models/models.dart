@@ -329,6 +329,7 @@ class Booking {
   final String notes;
   final String status;
   final String confirmationFile;
+  final String reference;
   final String createdAt;
 
   Booking({
@@ -345,6 +346,7 @@ class Booking {
     required this.notes,
     required this.status,
     required this.confirmationFile,
+    required this.reference,
     required this.createdAt,
   });
 
@@ -362,6 +364,7 @@ class Booking {
         notes: json['notes'] as String? ?? '',
         status: json['status'] as String? ?? 'pending',
         confirmationFile: json['confirmation_file'] as String? ?? '',
+        reference: json['reference'] as String? ?? '',
         createdAt: json['created_at'] as String? ?? '',
       );
 }

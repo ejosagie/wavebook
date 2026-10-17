@@ -57,3 +57,67 @@ def send_welcome_email(to: str, full_name: str, business: dict | None = None) ->
         "© 2026 NeuroWaves Data Systems Ltd"
     )
     return send_email(to, "Welcome to WaveBook — your 14-day free trial is active", body)
+
+
+def _booking_manage_url() -> str:
+    return f"{settings.API_PUBLIC_URL}/booking/manage"
+
+
+def send_booking_confirmation_email(booking: dict, business: dict) -> dict:
+    """Email the customer their booking confirmation with reference and manage link."""
+    to = (booking.get("customer_email") or "").strip()
+    if not to:
+        return {"provider": "none", "status": "skipped", "reason": "no recipient"}
+    reference = booking.get("reference") or ""
+    body = (
+        f"Hi {booking.get('customer_name', '')},\n\n"
+        f"Your booking with {business.get('name', '')} is confirmed:\n"
+        f"  Service: {booking.get('service_name', '')}\n"
+        f"  Date: {booking.get('date', '')}\n"
+        f"  Time: {booking.get('time', '')}\n"
+        f"  Booking reference: {reference}\n\n"
+        "Need to change or cancel? Use your email address and booking reference above at:\n"
+        f"{_booking_manage_url()}\n\n"
+        "We look forward to seeing you!\n"
+        f"{business.get('name', '')}"
+    )
+    return send_email(to, f"Booking confirmed — {booking.get('service_name', '')}", body)
+
+
+def send_booking_received_email(booking: dict, business: dict) -> dict:
+    """Email the customer when their booking request is received (before owner confirmation)."""
+    to = (booking.get("customer_email") or "").strip()
+    if not to:
+        return {"provider": "none", "status": "skipped", "reason": "no recipient"}
+    reference = booking.get("reference") or ""
+    body = (
+        f"Hi {booking.get('customer_name', '')},\n\n"
+        f"We've received your booking request with {business.get('name', '')}:\n"
+        f"  Service: {booking.get('service_name', '')}\n"
+        f"  Date: {booking.get('date', '')}\n"
+        f"  Time: {booking.get('time', '')}\n"
+        f"  Booking reference: {reference}\n\n"
+        "The business will confirm shortly. Need to change or cancel? Use your email "
+        f"address and booking reference above at:\n{_booking_manage_url()}\n\n"
+        f"Thanks,\n{business.get('name', '')}"
+    )
+    return send_email(to, f"Booking received — {booking.get('service_name', '')}", body)
+
+
+def send_booking_reminder_email(booking: dict, business: dict) -> dict:
+    """Reminder email sent ahead of an upcoming appointment."""
+    to = (booking.get("customer_email") or "").strip()
+    if not to:
+        return {"provider": "none", "status": "skipped", "reason": "no recipient"}
+    body = (
+        f"Hi {booking.get('customer_name', '')},\n\n"
+        f"This is a friendly reminder about your upcoming appointment:\n"
+        f"  Service: {booking.get('service_name', '')}\n"
+        f"  Date: {booking.get('date', '')}\n"
+        f"  Time: {booking.get('time', '')}\n"
+        f"  Booking reference: {booking.get('reference', '')}\n\n"
+        "Need to change or cancel? Use your email address and booking reference above at:\n"
+        f"{_booking_manage_url()}\n\n"
+        f"See you soon!\n{business.get('name', '')}"
+    )
+    return send_email(to, f"Reminder — {booking.get('service_name', '')} on {booking.get('date', '')}", body)

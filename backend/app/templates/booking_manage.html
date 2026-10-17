@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Your Booking — WaveBook</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" type="image/png" href="/static/img/logo.png">
+</head>
+<body>
+  <div class="navbar">
+    <div class="container">
+      <a href="/" class="brand"><img src="/static/img/logo.png" alt="WaveBook logo">Wave<span>Book</span></a>
+      <nav class="nav-links"><a href="/">Home</a></nav>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="container">
+      <div class="form-container">
+        <div class="card pricing-card pricing-featured">
+          <h3 style="text-align:center;">Manage your booking</h3>
+          <p style="color: var(--muted); font-size: 0.9rem; text-align:center; margin-bottom: 20px;">
+            Enter the email address and booking reference from your confirmation email to reschedule or cancel.
+          </p>
+
+          {% if error %}
+          <div class="alert" style="background: rgba(239,68,68,0.12); color: var(--danger);">{{ error }}</div>
+          {% endif %}
+          {% if notice %}
+          <div class="alert" style="background: rgba(16,185,129,0.12); color: var(--success);">{{ notice }}</div>
+          {% endif %}
+
+          {% if not booking %}
+          <form method="post" action="/booking/manage" style="text-align:left;">
+            <div class="form-group">
+              <label for="email">Email Address</label>
+              <input type="email" id="email" name="email" required placeholder="you@example.com">
+            </div>
+            <div class="form-group">
+              <label for="reference">Booking Reference</label>
+              <input type="text" id="reference" name="reference" required placeholder="e.g. ABC123" style="text-transform:uppercase;">
+            </div>
+            <button type="submit" class="btn" style="width:100%;">Find My Booking</button>
+          </form>
+          {% else %}
+          <div style="text-align:left; margin-bottom: 20px;">
+            <h4 style="margin-bottom: 10px;">{{ booking.service_name }}</h4>
+            <p style="color: var(--ink); line-height: 1.8;">
+              <strong>Date:</strong> {{ booking.date }}<br>
+              <strong>Time:</strong> {{ booking.time }}<br>
+              <strong>Reference:</strong> {{ booking.reference }}<br>
+              <strong>Status:</strong> {{ booking.status|capitalize }}
+            </p>
+          </div>
+
+          {% if booking.status != 'cancelled' %}
+          <div style="text-align:left; margin-bottom: 20px;">
+            <h4 style="margin-bottom: 10px;">Reschedule</h4>
+            <form method="post" action="/booking/manage/{{ booking.id }}/reschedule" style="margin-bottom: 12px;">
+              <input type="hidden" name="email" value="{{ booking.customer_email }}">
+              <input type="hidden" name="reference" value="{{ booking.reference }}">
+              <div class="form-group">
+                <label for="date">New Date</label>
+                <input type="date" id="date" name="new_date" required min="{{ today }}">
+              </div>
+              <div class="form-group">
+                <label for="time">New Time</label>
+                <select id="time" name="time" required>
+                  <option value="">Choose a date first</option>
+                </select>
+              </div>
+              <button type="submit" class="btn" style="width:100%;">Reschedule</button>
+            </form>
+          </div>
+
+          <form method="post" action="/booking/manage/{{ booking.id }}/cancel"
+                onsubmit="return confirm('Cancel this booking?');">
+            <input type="hidden" name="email" value="{{ booking.customer_email }}">
+            <input type="hidden" name="reference" value="{{ booking.reference }}">
+            <button type="submit" class="btn" style="width:100%; background: rgba(239,68,68,0.12); color: var(--danger); border: 1px solid var(--danger);">Cancel Booking</button>
+          </form>
+          {% endif %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="container">
+      <p>&copy; 2026 NeuroWaves Data Systems Ltd. All rights reserved.</p>
+      <p style="margin-top: 8px;">Support: <a href="mailto:support@getwavebook.com">support@getwavebook.com</a></p>
+    </div>
+  </div>
+
+  {% if booking and booking.status != 'cancelled' %}
+  <script>
+    const dateInput = document.getElementById('date');
+    const timeSelect = document.getElementById('time');
+    const slug = '{{ business.slug }}';
+    const serviceId = {{ booking.service_id or 0 }};
+    dateInput.addEventListener('change', async function () {
+      timeSelect.innerHTML = '<option value="">Loading times…</option>';
+      try {
+        const res = await fetch('/t/' + slug + '/api/slots?date=' + dateInput.value + '&service_id=' + serviceId);
+        const data = await res.json();
+        if (data.blocked || !data.slots || data.slots.length === 0) {
+          timeSelect.innerHTML = '<option value="">No times available</option>';
+          return;
+        }
+        timeSelect.innerHTML = data.slots.map(s => '<option value="' + s + '">' + s + '</option>').join('');
+      } catch (e) {
+        timeSelect.innerHTML = '<option value="">Could not load times</option>';
+      }
+    });
+  </script>
+  {% endif %}
+</body>
+</html>

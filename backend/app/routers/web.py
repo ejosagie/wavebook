@@ -9,10 +9,12 @@ from ..config import settings
 from ..database import get_connection, row_to_dict, rows_to_dicts
 from ..phone import validate_uk_phone
 from ..routers.auth import register_user
+from ..routers.bookings import generate_reference
 from ..routers.payments import verify_payment as verify_booking_payment
 from ..schemas import SignupRequest
 from ..security import create_admin_token, decode_admin_token
 from ..services import flutterwave
+from ..services.emailer import send_booking_received_email
 from ..services.notifier import send_business_sms
 from ..services.slots import (
     DAY_LABELS,
@@ -960,12 +962,12 @@ async def tenant_booking_submit(
         cur = conn.execute(
             """INSERT INTO bookings
                (business_id, customer_name, customer_email, customer_phone, service_id,
-                service_name, service_price, service_duration_minutes, date, time, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                service_name, service_price, service_duration_minutes, date, time, notes, reference)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 business["id"], name.strip(), email.strip(), phone, service["id"],
                 service["name"], service["price"], service["duration_minutes"],
-                date, time, notes.strip(),
+                date, time, notes.strip(), generate_reference(),
             ),
         )
         booking_id = cur.lastrowid
@@ -989,8 +991,11 @@ async def tenant_booking_submit(
             business,
             business["contact_phone"],
             f"New booking: {name.strip()} booked {service['name']} on {date} at {time} "
-            f"({business['name']}). Ref: {booking_id}",
+            f"({business['name']}). Ref: {booking.get('reference', booking_id)}",
         )
+
+    # Email the customer their booking reference and manage link
+    send_booking_received_email(booking, business)
 
     return templates.TemplateResponse(
         request,
@@ -1028,6 +1033,184 @@ def tenant_booking_paid(request: Request, slug: str, booking_id: int):
             "booking": row_to_dict(booking),
             "deposit_amount": 0.0,
             "format_price": _format_price,
+        },
+    )
+
+
+# ---- Customer booking management portal (reschedule / cancel) ----
+
+
+def _lookup_booking(reference: str, email: str) -> tuple[dict | None, dict | None]:
+    """Find a booking by reference + customer email. Returns (booking, business)."""
+    conn = get_connection()
+    try:
+        booking = conn.execute(
+            "SELECT * FROM bookings WHERE reference = ? COLLATE NOCASE AND customer_email = ? COLLATE NOCASE",
+            (reference.strip(), email.strip()),
+        ).fetchone()
+        business = None
+        if booking:
+            business = row_to_dict(
+                conn.execute("SELECT * FROM businesses WHERE id = ?", (booking["business_id"],)).fetchone()
+            )
+        return row_to_dict(booking), business
+    finally:
+        conn.close()
+
+
+@router.get("/booking/manage", response_class=HTMLResponse)
+def booking_manage_page(request: Request):
+    return templates.TemplateResponse(
+        request,
+        "booking_manage.html",
+        {"booking": None, "business": None, "error": None, "slots": [], "today": date.today().isoformat()},
+    )
+
+
+@router.post("/booking/manage")
+def booking_manage_lookup(
+    request: Request,
+    email: str = Form(...),
+    reference: str = Form(...),
+):
+    booking, business = _lookup_booking(reference, email)
+    if not booking:
+        return templates.TemplateResponse(
+            request,
+            "booking_manage.html",
+            {
+                "booking": None,
+                "business": None,
+                "error": "No booking found. Check your email address and booking reference.",
+                "slots": [],
+                "today": date.today().isoformat(),
+            },
+        )
+    return templates.TemplateResponse(
+        request,
+        "booking_manage.html",
+        {"booking": booking, "business": business, "error": None, "slots": [], "today": date.today().isoformat()},
+    )
+
+
+@router.post("/booking/manage/{booking_id}/reschedule")
+def booking_manage_reschedule(
+    request: Request,
+    booking_id: int,
+    email: str = Form(...),
+    reference: str = Form(...),
+    new_date: str = Form(...),
+    time: str = Form(...),
+):
+    booking, business = _lookup_booking(reference, email)
+    if not booking or booking["id"] != booking_id:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking["status"] == "cancelled":
+        raise HTTPException(status_code=400, detail="This booking has been cancelled")
+
+    conn = get_connection()
+    try:
+        service = conn.execute(
+            "SELECT * FROM services WHERE id = ? AND business_id = ?",
+            (booking["service_id"], business["id"]),
+        ).fetchone()
+        if not service:
+            raise HTTPException(status_code=400, detail="Service no longer available")
+        availability = get_availability_row(
+            conn.execute("SELECT * FROM availability WHERE business_id = ?", (business["id"],)).fetchone()
+        )
+        if is_date_blocked(new_date, availability):
+            raise HTTPException(status_code=400, detail="That date is not available")
+        confirmed = conn.execute(
+            "SELECT * FROM bookings WHERE business_id = ? AND date = ? AND status = 'confirmed'",
+            (business["id"], new_date),
+        ).fetchall()
+        slots = get_available_time_slots(
+            new_date,
+            availability,
+            rows_to_dicts(confirmed),
+            int(service["duration_minutes"] or 60),
+            int(business["buffer_minutes"] or 30),
+        )
+        if time not in slots:
+            raise HTTPException(status_code=400, detail="That time slot is no longer available")
+        conn.execute(
+            "UPDATE bookings SET date = ?, time = ?, reminder_sent = 0 WHERE id = ?",
+            (new_date, time, booking_id),
+        )
+        conn.execute(
+            "INSERT INTO notifications (business_id, type, title, message, booking_id) "
+            "VALUES (?, 'booking', ?, ?, ?)",
+            (
+                business["id"],
+                "Booking rescheduled",
+                f"{booking['customer_name']} moved {booking['service_name']} to {new_date} at {time}",
+                booking_id,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    booking["date"] = new_date
+    booking["time"] = time
+    return templates.TemplateResponse(
+        request,
+        "booking_manage.html",
+        {
+            "booking": booking,
+            "business": business,
+            "error": None,
+            "slots": [],
+            "today": date.today().isoformat(),
+            "notice": f"Your booking has been rescheduled to {new_date} at {time}.",
+        },
+    )
+
+
+@router.post("/booking/manage/{booking_id}/cancel")
+def booking_manage_cancel(
+    request: Request,
+    booking_id: int,
+    email: str = Form(...),
+    reference: str = Form(...),
+):
+    booking, business = _lookup_booking(reference, email)
+    if not booking or booking["id"] != booking_id:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking["status"] == "cancelled":
+        return templates.TemplateResponse(
+            request,
+            "booking_manage.html",
+            {"booking": booking, "business": business, "error": None, "slots": [], "today": date.today().isoformat(), "notice": "This booking was already cancelled."},
+        )
+    conn = get_connection()
+    try:
+        conn.execute("UPDATE bookings SET status = 'cancelled' WHERE id = ?", (booking_id,))
+        conn.execute(
+            "INSERT INTO notifications (business_id, type, title, message, booking_id) "
+            "VALUES (?, 'booking', ?, ?, ?)",
+            (
+                business["id"],
+                "Booking cancelled",
+                f"{booking['customer_name']} cancelled {booking['service_name']} on {booking['date']} at {booking['time']}",
+                booking_id,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    booking["status"] = "cancelled"
+    return templates.TemplateResponse(
+        request,
+        "booking_manage.html",
+        {
+            "booking": booking,
+            "business": business,
+            "error": None,
+            "slots": [],
+            "today": date.today().isoformat(),
+            "notice": "Your booking has been cancelled.",
         },
     )
 

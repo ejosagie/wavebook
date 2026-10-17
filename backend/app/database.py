@@ -1,4 +1,5 @@
 import json
+import secrets
 import sqlite3
 from pathlib import Path
 
@@ -239,6 +240,17 @@ def init_db() -> None:
         _ensure_column(conn, "businesses", "sms_credits", "sms_credits INTEGER NOT NULL DEFAULT 0")
         _ensure_column(conn, "businesses", "trial_ends_at", "trial_ends_at TEXT DEFAULT ''")
         _ensure_column(conn, "businesses", "theme_color", "theme_color TEXT DEFAULT '#ec4899'")
+        _ensure_column(conn, "bookings", "reference", "reference TEXT DEFAULT ''")
+        _ensure_column(conn, "bookings", "reminder_sent", "reminder_sent INTEGER NOT NULL DEFAULT 0")
+        # Backfill a reference for bookings created before the column existed
+        missing = conn.execute(
+            "SELECT id FROM bookings WHERE reference = '' OR reference IS NULL"
+        ).fetchall()
+        for row in missing:
+            ref = "".join(
+                secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(6)
+            )
+            conn.execute("UPDATE bookings SET reference = ? WHERE id = ?", (ref, row["id"]))
         conn.commit()
     finally:
         conn.close()

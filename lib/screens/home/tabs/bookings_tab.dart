@@ -1,4 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../api/api_client.dart';
 import '../../../models/models.dart';
@@ -157,6 +161,25 @@ class _BookingsTabState extends State<BookingsTab> {
     }
   }
 
+  Future<void> _addToCalendar(Booking booking) async {
+    try {
+      final ics = await _api.getRaw('/api/bookings/${booking.id}/ics');
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/booking-${booking.reference.isEmpty ? booking.id : booking.reference}.ics');
+      await file.writeAsString(ics);
+      final launched = await launchUrl(Uri.file(file.path));
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open the calendar app')),
+        );
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
   List<Booking> get _filtered {
     if (_filter == 'all') return _bookings;
     return _bookings.where((b) => b.status == _filter).toList();
@@ -221,6 +244,7 @@ class _BookingsTabState extends State<BookingsTab> {
           onCancel: () => _setStatus(bookings[i], 'cancelled'),
           onDelete: () => _delete(bookings[i]),
           onSendSms: () => _sendSms(bookings[i]),
+          onAddToCalendar: () => _addToCalendar(bookings[i]),
         ),
       ),
     );
@@ -233,6 +257,7 @@ class _BookingCard extends StatelessWidget {
   final VoidCallback onCancel;
   final VoidCallback onDelete;
   final VoidCallback onSendSms;
+  final VoidCallback onAddToCalendar;
 
   const _BookingCard({
     required this.booking,
@@ -240,6 +265,7 @@ class _BookingCard extends StatelessWidget {
     required this.onCancel,
     required this.onDelete,
     required this.onSendSms,
+    required this.onAddToCalendar,
   });
 
   @override
@@ -321,6 +347,11 @@ class _BookingCard extends StatelessWidget {
                   icon: const Icon(Icons.sms_outlined, color: WaveBookColors.pink),
                   onPressed: onSendSms,
                   tooltip: 'Send text message',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.calendar_month_outlined, color: WaveBookColors.pink),
+                  onPressed: onAddToCalendar,
+                  tooltip: 'Add to calendar',
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline, color: WaveBookColors.danger),

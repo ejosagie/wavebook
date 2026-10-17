@@ -1,14 +1,28 @@
+import secrets
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
 
 from ..database import get_connection, row_to_dict, rows_to_dicts
 from ..deps import get_current_business, require_owner
 from ..phone import validate_uk_phone
 from ..routers.notifications import add_notification
 from ..schemas import BookingCreate, BookingStatusUpdate
+from ..services.emailer import (
+    send_booking_confirmation_email,
+    send_booking_received_email,
+    send_booking_reminder_email,
+)
+from ..services.ics import build_booking_ics
 from ..services.notifier import send_booking_confirmation_sms
 from ..services.slots import get_availability_row, get_available_time_slots, is_date_blocked
 
 router = APIRouter(prefix="/api/bookings", tags=["bookings"])
+
+
+def generate_reference() -> str:
+    """A short, human-friendly booking reference (avoids ambiguous characters)."""
+    return "".join(secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(6))
 
 
 @router.get("")
@@ -110,8 +124,8 @@ def create_booking(data: BookingCreate, business: dict = Depends(get_current_bus
         cur = conn.execute(
             """INSERT INTO bookings
                (business_id, customer_name, customer_email, customer_phone, service_id,
-                service_name, service_price, service_duration_minutes, date, time, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                service_name, service_price, service_duration_minutes, date, time, notes, reference)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 business["id"],
                 data.customer_name.strip(),
@@ -124,6 +138,7 @@ def create_booking(data: BookingCreate, business: dict = Depends(get_current_bus
                 data.date,
                 data.time,
                 data.notes.strip(),
+                generate_reference(),
             ),
         )
         booking_id = cur.lastrowid
@@ -158,6 +173,8 @@ def create_booking(data: BookingCreate, business: dict = Depends(get_current_bus
         conn.commit()
     finally:
         conn.close()
+    # Email the customer their booking reference and manage link
+    send_booking_received_email(booking, business)
     return booking
 
 
@@ -187,8 +204,60 @@ def update_booking_status(
     sms = None
     if data.status == "confirmed" and booking.get("customer_phone"):
         sms = send_booking_confirmation_sms(booking, business)
+    if data.status == "confirmed":
+        send_booking_confirmation_email(booking, business)
 
     return {**booking, "sms": sms}
+
+
+@router.get("/{booking_id}/ics")
+def booking_ics(
+    booking_id: int,
+    business: dict = Depends(get_current_business),
+    user: dict = Depends(require_owner),
+):
+    """Export a booking as an .ics file for iOS/Google calendar import."""
+    conn = get_connection()
+    try:
+        booking = conn.execute(
+            "SELECT * FROM bookings WHERE id = ? AND business_id = ?", (booking_id, business["id"])
+        ).fetchone()
+    finally:
+        conn.close()
+    if not booking:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found")
+    booking = row_to_dict(booking)
+    ics = build_booking_ics(booking, business)
+    return Response(
+        content=ics,
+        media_type="text/calendar",
+        headers={
+            "Content-Disposition": f'attachment; filename="booking-{booking["reference"] or booking["id"]}.ics"'
+        },
+    )
+
+
+@router.post("/{booking_id}/remind")
+def remind_booking(
+    booking_id: int,
+    business: dict = Depends(get_current_business),
+    user: dict = Depends(require_owner),
+):
+    """Send the customer a reminder email for an upcoming booking now."""
+    conn = get_connection()
+    try:
+        booking = conn.execute(
+            "SELECT * FROM bookings WHERE id = ? AND business_id = ?", (booking_id, business["id"])
+        ).fetchone()
+        if booking:
+            conn.execute("UPDATE bookings SET reminder_sent = 1 WHERE id = ?", (booking_id,))
+            conn.commit()
+    finally:
+        conn.close()
+    if not booking:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found")
+    result = send_booking_reminder_email(row_to_dict(booking), business)
+    return {**row_to_dict(booking), "email": result}
 
 
 @router.delete("/{booking_id}")
