@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../theme.dart';
 import '../../storefront/shop_screen.dart';
@@ -83,6 +84,13 @@ class MoreTab extends StatelessWidget {
             title: 'Subscription',
             subtitle: 'Manage your £9.99/month plan',
             onTap: () => _push(context, const SubscriptionTab()),
+          ),
+          _MenuCard(
+            icon: Icons.support_agent_outlined,
+            color: WaveBookColors.rose,
+            title: 'Contact Support',
+            subtitle: 'Email support@getwavebook.com',
+            onTap: () => launchUrl(Uri.parse('mailto:support@getwavebook.com')),
           ),
         ],
       ),
