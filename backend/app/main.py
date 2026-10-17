@@ -28,7 +28,7 @@ from .services.emailer import send_booking_reminder_email
 BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOADS_DIR = BASE_DIR / "uploads"
 
-app = FastAPI(title="WaveBook API", version="0.2.1")
+app = FastAPI(title="WaveBook API", version="0.2.2")
 
 # Wire upload dir into the business and products routers
 business.UPLOAD_DIR = UPLOADS_DIR
@@ -108,4 +108,4 @@ app.include_router(web.router)
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "app": "WaveBook", "version": "0.2.1"}
+    return {"status": "ok", "app": "WaveBook", "version": "0.2.2"}
