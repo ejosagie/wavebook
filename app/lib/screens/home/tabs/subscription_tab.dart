@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -42,6 +44,20 @@ class _SubscriptionTabState extends State<SubscriptionTab> {
 
   Future<void> _startCheckout() async {
     try {
+      // iOS: App Store policy — subscriptions must be purchased on the website.
+      if (Platform.isIOS) {
+        final opened = await launchUrl(
+          Uri.parse('https://getwavebook.com/subscribe'),
+          mode: LaunchMode.externalApplication,
+        );
+        if (mounted && !opened) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open the subscription page.')),
+          );
+        }
+        return;
+      }
+
       final data = await _api.post('/api/subscription/checkout');
       final url = data['payment_link'] as String?;
       if (url != null) {
