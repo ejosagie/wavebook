@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../state/auth_state.dart';
 import '../../theme.dart';
@@ -105,14 +107,20 @@ class _LoginScreenState extends State<LoginScreen> {
                           : const Text('Sign In'),
                     ),
                     const SizedBox(height: 16),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const SignupScreen()),
-                        );
-                      },
-                      child: const Text('New to WaveBook? Create an account'),
-                    ),
+                    if (defaultTargetPlatform == TargetPlatform.iOS)
+                      TextButton(
+                        onPressed: () => launchUrl(Uri.parse('https://getwavebook.com')),
+                        child: const Text('New to WaveBook? Visit getwavebook.com to get started'),
+                      )
+                    else
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const SignupScreen()),
+                          );
+                        },
+                        child: const Text('New to WaveBook? Create an account'),
+                      ),
                   ],
                 ),
               ),
