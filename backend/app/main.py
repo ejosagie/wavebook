@@ -28,7 +28,7 @@ from .services.emailer import send_booking_reminder_email
 BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOADS_DIR = BASE_DIR / "uploads"
 
-app = FastAPI(title="WaveBook API", version="0.1.0")
+app = FastAPI(title="WaveBook API", version="0.2.0")
 
 # Wire upload dir into the business and products routers
 business.UPLOAD_DIR = UPLOADS_DIR
@@ -58,6 +58,13 @@ async def _reminder_sweep() -> None:
                     except ValueError:
                         continue
                     if now <= when <= window_end:
+                        # Claim the row first so concurrent workers never double-send
+                        claimed = conn.execute(
+                            "UPDATE bookings SET reminder_sent = 1 WHERE id = ? AND reminder_sent = 0",
+                            (booking["id"],),
+                        ).rowcount
+                        if not claimed:
+                            continue
                         business = row_to_dict(
                             conn.execute(
                                 "SELECT * FROM businesses WHERE id = ?", (booking["business_id"],)
@@ -65,9 +72,6 @@ async def _reminder_sweep() -> None:
                         )
                         if business:
                             send_booking_reminder_email(booking, business)
-                            conn.execute(
-                                "UPDATE bookings SET reminder_sent = 1 WHERE id = ?", (booking["id"],)
-                            )
                 conn.commit()
             finally:
                 conn.close()
@@ -104,4 +108,4 @@ app.include_router(web.router)
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "app": "WaveBook", "version": "0.1.0"}
+    return {"status": "ok", "app": "WaveBook", "version": "0.2.0"}
