@@ -38,16 +38,19 @@ def send_email(to: str, subject: str, body_text: str) -> dict:
     return {"provider": "dev-log", "status": "queued"}
 
 
-def send_welcome_email(to: str, full_name: str) -> dict:
+def send_welcome_email(to: str, full_name: str, business: dict | None = None) -> dict:
     """Welcome email sent to a business owner when they register."""
+    site = f"https://{business['slug']}.wab.is" if business else "your booking website"
     body = (
         f"Hi {full_name},\n\n"
         "Welcome to WaveBook! Your account is ready and your 14-day free trial "
         "has started — every feature is included.\n\n"
+        f"Your business is set up and your booking website is live at:\n{site}\n\n"
         "Next steps:\n"
-        "1. Open the WaveBook app and set up your business (name + website address).\n"
-        "2. Add your services, opening hours and deposit settings.\n"
-        "3. Share your booking website with customers to start receiving bookings.\n\n"
+        "1. Download the WaveBook app from the App Store (iPhone) or Google Play Store (Android).\n"
+        "2. Open the app and log in with the email and password you just created.\n"
+        "3. Add your services, opening hours and deposit settings.\n"
+        "4. Share your booking website with customers to start receiving bookings.\n\n"
         "After the trial you can subscribe for £9.99/month on getwavebook.com/subscribe.\n\n"
         "Need help? Reply to this email or contact support@getwavebook.com.\n\n"
         "Best regards,\nThe WaveBook Team\n"

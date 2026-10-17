@@ -7,6 +7,8 @@ class SignupRequest(BaseModel):
     password: str = Field(min_length=8)
     full_name: str = Field(min_length=1)
     phone: str = Field(min_length=10)
+    business_name: str | None = None
+    slug: str | None = None
 
 
 class LoginRequest(BaseModel):

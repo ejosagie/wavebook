@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Your Account — WaveBook</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" type="image/png" href="/static/img/logo.png">
+</head>
+<body>
+  <div class="navbar">
+    <div class="container">
+      <a href="/" class="brand"><img src="/static/img/logo.png" alt="WaveBook logo">Wave<span>Book</span></a>
+      <nav class="nav-links">
+        <a href="/">Home</a>
+        <a href="/subscribe">Subscribe</a>
+      </nav>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="container">
+      <div class="form-container">
+        <div class="card pricing-card pricing-featured" style="text-align:center;">
+          <h3>Create your account</h3>
+          <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 20px;">
+            Start your 14-day free trial. Set up your business now — then download the app and log in.
+          </p>
+          {% if error %}
+          <div class="alert" style="background: rgba(239,68,68,0.12); color: var(--danger);">{{ error }}</div>
+          {% endif %}
+          <form method="post" action="/signup" style="text-align:left;">
+            <div class="form-group">
+              <label for="full_name">Full Name</label>
+              <input type="text" id="full_name" name="full_name" required placeholder="e.g. Jane Smith">
+            </div>
+            <div class="form-group">
+              <label for="email">Email</label>
+              <input type="email" id="email" name="email" required placeholder="you@example.com">
+            </div>
+            <div class="form-group">
+              <label for="phone">Mobile Number</label>
+              <input type="tel" id="phone" name="phone" required placeholder="e.g. 07123 456789">
+            </div>
+            <div class="form-group">
+              <label for="password">Password</label>
+              <input type="password" id="password" name="password" required minlength="8" placeholder="At least 8 characters">
+            </div>
+            <div class="form-group">
+              <label for="business_name">Business Name</label>
+              <input type="text" id="business_name" name="business_name" required placeholder="e.g. Jane's Beauty Studio">
+            </div>
+            <div class="form-group">
+              <label for="slug">Your Website Address</label>
+              <input type="text" id="slug" name="slug" required pattern="[a-z0-9-]{2,63}" placeholder="e.g. janesbeauty">
+              <p style="color: var(--muted); font-size: 0.85rem; margin-top: 6px;">
+                Your booking website will be: <strong id="slug-preview" style="color: var(--pink);">yourbusiness.wab.is</strong>
+              </p>
+            </div>
+            <button type="submit" class="btn" style="width:100%;">Create Account</button>
+          </form>
+          <p style="color: var(--muted); font-size: 0.85rem; margin-top: 16px;">
+            Already have an account? <a href="/subscribe">Subscribe here</a> or log in from the app.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="container">
+      <p>&copy; 2026 NeuroWaves Data Systems Ltd. All rights reserved.</p>
+      <p style="margin-top: 8px;">Support: <a href="mailto:support@getwavebook.com">support@getwavebook.com</a></p>
+    </div>
+  </div>
+
+  <script>
+    const slugInput = document.getElementById('slug');
+    const preview = document.getElementById('slug-preview');
+    slugInput.addEventListener('input', function () {
+      const value = slugInput.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+      preview.textContent = (value || 'yourbusiness') + '.wab.is';
+    });
+  </script>
+</body>
+</html>

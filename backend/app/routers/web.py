@@ -8,7 +8,9 @@ from fastapi.templating import Jinja2Templates
 from ..config import settings
 from ..database import get_connection, row_to_dict, rows_to_dicts
 from ..phone import validate_uk_phone
+from ..routers.auth import register_user
 from ..routers.payments import verify_payment as verify_booking_payment
+from ..schemas import SignupRequest
 from ..security import create_admin_token, decode_admin_token
 from ..services import flutterwave
 from ..services.notifier import send_business_sms
@@ -97,6 +99,51 @@ def _set_admin_cookie(response, request: Request) -> None:
 
 
 # ---- Landing page ----
+
+
+@router.get("/signup", response_class=HTMLResponse)
+def signup_page(request: Request):
+    return templates.TemplateResponse(request, "signup.html", {"error": None})
+
+
+@router.post("/signup")
+def signup_submit(
+    request: Request,
+    full_name: str = Form(...),
+    email: str = Form(...),
+    phone: str = Form(...),
+    password: str = Form(...),
+    business_name: str = Form(default=""),
+    slug: str = Form(default=""),
+):
+    """Create the account and business from the landing page, then show download instructions."""
+    try:
+        data = SignupRequest(
+            email=email,
+            password=password,
+            full_name=full_name,
+            phone=phone,
+            business_name=business_name or None,
+            slug=slug or None,
+        )
+        register_user(data)
+    except HTTPException as exc:
+        return templates.TemplateResponse(
+            request, "signup.html", {"error": exc.detail}, status_code=exc.status_code
+        )
+    except Exception:
+        return templates.TemplateResponse(
+            request,
+            "signup.html",
+            {"error": "Something went wrong. Please try again."},
+            status_code=400,
+        )
+    return RedirectResponse(url="/signup/success", status_code=303)
+
+
+@router.get("/signup/success", response_class=HTMLResponse)
+def signup_success(request: Request):
+    return templates.TemplateResponse(request, "signup_success.html", {})
 
 
 @router.get("/", response_class=HTMLResponse)
