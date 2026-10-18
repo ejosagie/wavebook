@@ -16,6 +16,8 @@ class WaveBookColors {
 
   // Neutrals
   static const ink = Color(0xFF1C1917);
+  static const lightBg = Color(0xFFFFF5F9);
+  static const lightBorder = Color(0xFFF0D3E2);
   static const muted = Color(0xFF8B8494);
   static const white = Color(0xFFFFFFFF);
   static const bgSoft = Color(0xFFF5F0F4);
@@ -44,9 +46,9 @@ ThemeData buildWaveBookTheme({Brightness brightness = Brightness.dark}) {
     useMaterial3: true,
     brightness: brightness,
     colorScheme: scheme,
-    scaffoldBackgroundColor: isDark ? WaveBookColors.darkBg : Colors.white,
+    scaffoldBackgroundColor: isDark ? WaveBookColors.darkBg : WaveBookColors.lightBg,
     appBarTheme: AppBarTheme(
-      backgroundColor: isDark ? WaveBookColors.darkBg : Colors.white,
+      backgroundColor: isDark ? WaveBookColors.darkBg : WaveBookColors.lightBg,
       foregroundColor: isDark ? Colors.white : WaveBookColors.ink,
       elevation: 0,
       centerTitle: false,
@@ -80,11 +82,11 @@ ThemeData buildWaveBookTheme({Brightness brightness = Brightness.dark}) {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: isDark ? WaveBookColors.darkBorder : const Color(0xFFE5D5E0)),
+        borderSide: BorderSide(color: isDark ? WaveBookColors.darkBorder : WaveBookColors.lightBorder),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: isDark ? WaveBookColors.darkBorder : const Color(0xFFE5D5E0)),
+        borderSide: BorderSide(color: isDark ? WaveBookColors.darkBorder : WaveBookColors.lightBorder),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
@@ -97,21 +99,22 @@ ThemeData buildWaveBookTheme({Brightness brightness = Brightness.dark}) {
       color: isDark ? WaveBookColors.darkSurface : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: isDark ? WaveBookColors.darkBorder : const Color(0xFFEADCE6)),
+        side: BorderSide(color: isDark ? WaveBookColors.darkBorder : WaveBookColors.lightBorder),
       ),
     ),
     chipTheme: ChipThemeData(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      side: BorderSide(color: isDark ? WaveBookColors.darkBorder : const Color(0xFFEADCE6)),
+      side: BorderSide(color: isDark ? WaveBookColors.darkBorder : WaveBookColors.lightBorder),
     ),
     navigationBarTheme: NavigationBarThemeData(
+      height: 64,
       backgroundColor: isDark ? WaveBookColors.darkSurface : Colors.white,
       indicatorColor: WaveBookColors.pink.withValues(alpha: 0.18),
       labelTextStyle: WidgetStateProperty.all(
-        const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
       ),
     ),
-    dividerColor: isDark ? WaveBookColors.darkBorder : const Color(0xFFEADCE6),
+    dividerColor: isDark ? WaveBookColors.darkBorder : WaveBookColors.lightBorder,
     textTheme: TextTheme(
       bodyMedium: TextStyle(color: isDark ? Colors.white : WaveBookColors.ink),
       bodySmall: TextStyle(color: isDark ? WaveBookColors.muted : const Color(0xFF6B6470)),

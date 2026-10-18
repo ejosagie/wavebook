@@ -1,7 +1,28 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
 import '../models/models.dart';
+import '../theme.dart';
+
+Future<void> confirmAndLogout(BuildContext context) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Log out?'),
+      content: const Text('You will need to sign in again to manage your business.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Log out', style: TextStyle(color: WaveBookColors.danger)),
+        ),
+      ],
+    ),
+  );
+  if (ok != true || !context.mounted) return;
+  await context.read<AuthState>().logout();
+}
 
 class AuthState extends ChangeNotifier {
   final ApiClient api = ApiClient();

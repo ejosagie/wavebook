@@ -62,10 +62,14 @@ class _SignupScreenState extends State<SignupScreen> {
                   children: [
                     const Icon(Icons.waves, size: 56, color: WaveBookColors.pink),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Start your free trial',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: WaveBookColors.white),
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     const Text(

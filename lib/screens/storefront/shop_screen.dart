@@ -9,7 +9,7 @@ import 'products_screen.dart';
 class ShopScreen extends StatefulWidget {
   const ShopScreen({super.key, this.initialTab = 0});
 
-  /// Which tab to open on first: 0 = Inventory, 1 = Orders.
+  /// Which tab to open on first: 0 = Shop Settings, 1 = Products, 2 = Orders.
   final int initialTab;
 
   @override
@@ -88,29 +88,26 @@ class _ShopScreenState extends State<ShopScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       initialIndex: widget.initialTab,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Online Shop'),
           bottom: const TabBar(
             tabs: [
-              Tab(icon: Icon(Icons.inventory_2_outlined), text: 'Inventory'),
+              Tab(icon: Icon(Icons.settings_outlined), text: 'Shop Settings'),
+              Tab(icon: Icon(Icons.inventory_2_outlined), text: 'Products'),
               Tab(icon: Icon(Icons.receipt_long_outlined), text: 'Orders'),
             ],
           ),
         ),
-        body: Column(
+        body: TabBarView(
           children: [
-            if (!_loading) _buildSettingsCard(),
-            Expanded(
-              child: const TabBarView(
-                children: [
-                  ProductsScreen(),
-                  OrdersScreen(),
-                ],
-              ),
-            ),
+            _loading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView(children: [_buildSettingsCard()]),
+            const ProductsScreen(),
+            const OrdersScreen(),
           ],
         ),
       ),

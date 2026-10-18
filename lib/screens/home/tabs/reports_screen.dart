@@ -103,7 +103,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           Card(
-            color: WaveBookColors.darkSurfaceAlt,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(

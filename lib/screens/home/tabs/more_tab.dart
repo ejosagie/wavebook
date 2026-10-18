@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../services/app_update.dart';
+import '../../../state/auth_state.dart';
+import '../../../state/theme_state.dart';
 import '../../../theme.dart';
 import '../../storefront/shop_screen.dart';
 import 'customers_tab.dart';
@@ -17,16 +21,27 @@ class MoreTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.watch<ThemeState>();
     return Scaffold(
       appBar: AppBar(title: const Text('More')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: SwitchListTile(
+              secondary: const Icon(Icons.light_mode_outlined, color: WaveBookColors.pink),
+              title: const Text('Light theme', style: TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: const Text('White background with light pink accents'),
+              value: theme.isLight,
+              onChanged: (v) => context.read<ThemeState>().setLight(v),
+            ),
+          ),
           _MenuCard(
             icon: Icons.storefront_outlined,
             color: WaveBookColors.pink,
             title: 'Online Shop',
-            subtitle: 'Inventory, orders and shipping',
+            subtitle: 'Shop settings, products and orders',
             onTap: () => _push(context, const ShopScreen()),
           ),
           _MenuCard(
@@ -91,6 +106,26 @@ class MoreTab extends StatelessWidget {
             title: 'Contact Support',
             subtitle: 'Email support@getwavebook.com',
             onTap: () => launchUrl(Uri.parse('mailto:support@getwavebook.com')),
+          ),
+          _MenuCard(
+            icon: Icons.system_update_alt,
+            color: WaveBookColors.pink,
+            title: 'Check for updates',
+            subtitle: 'You have version $kAppVersion',
+            onTap: () => checkForUpdate(context, manual: true),
+          ),
+          Card(
+            child: ListTile(
+              leading: const CircleAvatar(
+                backgroundColor: Color(0x26F87171),
+                child: Icon(Icons.logout, color: WaveBookColors.danger),
+              ),
+              title: const Text(
+                'Log out',
+                style: TextStyle(fontWeight: FontWeight.w700, color: WaveBookColors.danger),
+              ),
+              onTap: () => confirmAndLogout(context),
+            ),
           ),
         ],
       ),

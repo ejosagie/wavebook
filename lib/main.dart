@@ -6,6 +6,7 @@ import 'screens/home/home_screen.dart';
 import 'screens/setup/business_setup_screen.dart';
 import 'screens/splash_screen.dart';
 import 'state/auth_state.dart';
+import 'state/theme_state.dart';
 import 'theme.dart';
 
 void main() {
@@ -17,15 +18,24 @@ class WaveBookApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthState(),
-      child: MaterialApp(
-        title: 'WaveBook',
-        debugShowCheckedModeBanner: false,
-        theme: buildWaveBookTheme(brightness: Brightness.light),
-        darkTheme: buildWaveBookTheme(brightness: Brightness.dark),
-        themeMode: ThemeMode.dark,
-        home: const SplashScreen(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthState()),
+        ChangeNotifierProvider(create: (_) => ThemeState()..load()),
+      ],
+      child: Consumer<ThemeState>(
+        builder: (context, theme, _) => MaterialApp(
+          title: 'WaveBook',
+          debugShowCheckedModeBanner: false,
+          theme: buildWaveBookTheme(brightness: Brightness.light),
+          darkTheme: buildWaveBookTheme(brightness: Brightness.dark),
+          themeMode: theme.mode,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(0.9)),
+            child: child!,
+          ),
+          home: const SplashScreen(),
+        ),
       ),
     );
   }

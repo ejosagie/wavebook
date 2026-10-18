@@ -126,9 +126,12 @@ class _GalleryTabState extends State<GalleryTab> {
         crossAxisSpacing: 12,
         childAspectRatio: 1,
       ),
-      itemCount: _items.length,
+      itemCount: 8,
       itemBuilder: (context, i) {
-        final item = _items[i];
+        final item = _items.firstWhere(
+          (g) => g.slot == i,
+          orElse: () => GalleryItem(slot: i, path: '', caption: ''),
+        );
         return Card(
           clipBehavior: Clip.antiAlias,
           child: Stack(

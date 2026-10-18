@@ -177,7 +177,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return _buildBody();
+    return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _addProduct,
+        icon: const Icon(Icons.add),
+        label: const Text('Add Product'),
+      ),
+      body: _buildBody(),
+    );
   }
 
   Widget _buildBody() {
@@ -201,9 +208,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
           children: [
             const Icon(Icons.inventory_2_outlined, size: 56, color: WaveBookColors.muted),
             const SizedBox(height: 12),
-            const Text('No products yet. Add your first product to start selling.'),
-            const SizedBox(height: 16),
-            ElevatedButton(onPressed: _addProduct, child: const Text('Add Product')),
+            const Text('No products yet. Tap Add Product to start selling.'),
           ],
         ),
       );
@@ -211,23 +216,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _products.length + 1,
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+        itemCount: _products.length,
         itemBuilder: (context, index) {
-          if (index == 0) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton.icon(
-                  onPressed: _addProduct,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Product'),
-                ),
-              ),
-            );
-          }
-          final p = _products[index - 1];
+          final p = _products[index];
           return Card(
             child: ListTile(
               leading: p.imagePath.isNotEmpty

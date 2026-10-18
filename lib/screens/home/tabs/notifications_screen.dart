@@ -121,7 +121,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         itemBuilder: (context, index) {
           final n = _items[index];
           return Card(
-            color: n.read ? null : WaveBookColors.darkSurfaceAlt,
+            color: n.read ? null : Theme.of(context).colorScheme.surfaceContainerHighest,
             child: ListTile(
               leading: CircleAvatar(
                 backgroundColor: WaveBookColors.pink.withValues(alpha: 0.15),

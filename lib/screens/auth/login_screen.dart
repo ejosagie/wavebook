@@ -55,13 +55,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     Image.asset('assets/logo.png', height: 64),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'WaveBook',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 30,
                         fontWeight: FontWeight.w800,
-                        color: WaveBookColors.white,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 4),

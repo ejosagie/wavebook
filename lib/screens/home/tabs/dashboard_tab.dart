@@ -2,17 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../api/api_client.dart';
 import '../../../models/models.dart';
+import '../../../services/app_update.dart';
 import '../../../state/auth_state.dart';
 import '../../../theme.dart';
 import '../../storefront/shop_screen.dart';
 import 'notifications_screen.dart';
-
-/// Current app version — the dashboard compares this against the admin-managed
-/// `latest_version` from /api/app/meta to show an update banner.
-const String kAppVersion = '1.0.0';
 
 class DashboardTab extends StatefulWidget {
   const DashboardTab({super.key});
@@ -174,7 +172,7 @@ class _DashboardTabState extends State<DashboardTab> {
       children: [
         if (_hasUpdate())
           Card(
-            color: WaveBookColors.darkSurfaceAlt,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             child: ListTile(
               leading: const Icon(Icons.system_update_alt, color: WaveBookColors.pink),
               title: const Text('Update available', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -194,7 +192,7 @@ class _DashboardTabState extends State<DashboardTab> {
         if (_hasUpdate()) const SizedBox(height: 8),
         if (business.subscriptionStatus == 'trial')
           Card(
-            color: WaveBookColors.darkSurfaceAlt,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             child: ListTile(
               leading: const Icon(Icons.rocket_launch, color: WaveBookColors.pink),
               title: const Text('Free trial active', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -284,7 +282,7 @@ class _DashboardTabState extends State<DashboardTab> {
         if (_pendingOrders > 0) ...[
           const SizedBox(height: 8),
           Card(
-            color: WaveBookColors.darkSurfaceAlt,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             child: ListTile(
               leading: const Icon(Icons.receipt_long_outlined, color: WaveBookColors.pink),
               title: Text(
@@ -294,7 +292,7 @@ class _DashboardTabState extends State<DashboardTab> {
               subtitle: const Text('Paid — confirm them in Online Shop'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ShopScreen(initialTab: 1)),
+                MaterialPageRoute(builder: (_) => const ShopScreen(initialTab: 2)),
               ),
             ),
           ),
@@ -304,7 +302,7 @@ class _DashboardTabState extends State<DashboardTab> {
           child: ListTile(
             leading: const Icon(Icons.logout, color: WaveBookColors.danger),
             title: const Text('Sign out', style: TextStyle(color: WaveBookColors.danger)),
-            onTap: () => context.read<AuthState>().logout(),
+            onTap: () => confirmAndLogout(context),
           ),
         ),
       ],
@@ -314,19 +312,7 @@ class _DashboardTabState extends State<DashboardTab> {
   bool _hasUpdate() {
     final meta = _appMeta;
     if (meta == null || meta.latestVersion.isEmpty) return false;
-    return _versionCompare(meta.latestVersion, kAppVersion) > 0;
-  }
-
-  int _versionCompare(String a, String b) {
-    final pa = a.split('.').map((s) => int.tryParse(s) ?? 0).toList();
-    final pb = b.split('.').map((s) => int.tryParse(s) ?? 0).toList();
-    final len = pa.length > pb.length ? pa.length : pb.length;
-    for (var i = 0; i < len; i++) {
-      final va = i < pa.length ? pa[i] : 0;
-      final vb = i < pb.length ? pb[i] : 0;
-      if (va != vb) return va - vb;
-    }
-    return 0;
+    return compareVersions(meta.latestVersion, kAppVersion) > 0;
   }
 
   String _trialNotice(Business business) {
@@ -341,9 +327,7 @@ class _DashboardTabState extends State<DashboardTab> {
   }
 
   void _openUrl(String url) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Open $url in your browser to update the app.')),
-    );
+    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
 
   String _today() {

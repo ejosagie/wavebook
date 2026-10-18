@@ -180,10 +180,15 @@ def upload_gallery_image(
 
     conn = get_connection()
     try:
-        conn.execute(
+        cur = conn.execute(
             "UPDATE gallery SET path = ?, caption = ? WHERE business_id = ? AND slot = ?",
             (path, "", business["id"], slot),
         )
+        if cur.rowcount == 0:
+            conn.execute(
+                "INSERT INTO gallery (business_id, slot, path, caption) VALUES (?, ?, ?, '')",
+                (business["id"], slot, path),
+            )
         conn.commit()
     finally:
         conn.close()

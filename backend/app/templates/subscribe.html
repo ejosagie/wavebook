@@ -17,36 +17,84 @@
 
   <section class="section">
     <div class="container">
-      <div class="form-container">
-        <div class="card pricing-card pricing-featured" style="text-align:center;">
-          <h3>WaveBook Subscription</h3>
-          <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 20px;">
-            Choose your plan and billing period, then enter the email you signed up with.
-            After subscribing, your premium features unlock automatically in the app.
-          </p>
-          <form id="checkout-form" style="text-align:left;">
-            <div class="form-group">
-              <label for="plan">Plan &amp; Billing Period</label>
-              <select id="plan" name="plan" required>
-                {% for key, plan in plans.items() %}
-                <option value="{{ key }}"{% if key == 'basic_monthly' %} selected{% endif %}>
-                  {%- if plan.tier == 'premium' %}WaveBook Premium{% elif plan.tier == 'shop' %}WaveBook + Shop{% else %}WaveBook Basic{% endif %}
-                  — {{ interval_labels[plan.interval] }} — £{{ '%.2f'|format(plan.price) }}
-                </option>
-                {% endfor %}
-              </select>
+      <div class="plan-wrap">
+        <h2 style="margin-bottom:8px;">Choose your WaveBook plan</h2>
+        <p>Pick a plan, choose how often you pay, then enter the email you signed up with. Your features unlock automatically in the app.</p>
+        <form id="checkout-form">
+          <div class="plan-picker">
+            <div class="plan-option">
+              <input type="radio" name="tier" id="tier-basic" value="basic" checked>
+              <label for="tier-basic">
+                <span class="plan-name">WaveBook Basic</span>
+                <span class="plan-price"><span data-amount></span><small data-suffix></small></span>
+                <ul class="plan-features">
+                  <li>All booking features included</li>
+                  <li>Unlimited bookings &amp; services</li>
+                  <li>Secure card payments</li>
+                  <li class="hl">Online store, up to 5 products</li>
+                  <li class="hl">50 free SMS reminders</li>
+                  <li>Email &amp; WhatsApp reminders</li>
+                  <li>Self-service rescheduling</li>
+                  <li>VAT-friendly receipts</li>
+                </ul>
+              </label>
             </div>
+            <div class="plan-option">
+              <input type="radio" name="tier" id="tier-shop" value="shop">
+              <label for="tier-shop">
+                <span class="plan-name">WaveBook + Shop</span>
+                <span class="plan-price"><span data-amount></span><small data-suffix></small></span>
+                <ul class="plan-features">
+                  <li>Everything in Basic</li>
+                  <li class="hl">Unlimited store products</li>
+                  <li>Sell products with card checkout</li>
+                  <li>Order tracking &amp; customer receipts</li>
+                  <li class="hl">50 free SMS reminders</li>
+                  <li>Email &amp; WhatsApp reminders</li>
+                  <li>Self-service rescheduling</li>
+                  <li>VAT-friendly receipts</li>
+                </ul>
+              </label>
+            </div>
+            <div class="plan-option">
+              <input type="radio" name="tier" id="tier-premium" value="premium">
+              <label for="tier-premium">
+                <span class="plan-name">WaveBook Premium</span>
+                <span class="plan-price"><span data-amount></span><small data-suffix></small></span>
+                <ul class="plan-features">
+                  <li>Everything in WaveBook + Shop</li>
+                  <li class="hl">Unlimited store products</li>
+                  <li class="hl">80 free SMS reminders</li>
+                  <li>Order tracking &amp; customer receipts</li>
+                  <li>Email &amp; WhatsApp reminders</li>
+                  <li>Priority support</li>
+                  <li>Cancel anytime</li>
+                </ul>
+              </label>
+            </div>
+          </div>
+
+          <div class="duration-picker">
+            {% for key, label in interval_labels.items() %}
+            <div class="duration-option">
+              <input type="radio" name="interval" id="interval-{{ key }}" value="{{ key }}"{% if key == 'monthly' %} checked{% endif %}>
+              <label for="interval-{{ key }}">{{ label }}</label>
+            </div>
+            {% endfor %}
+          </div>
+
+          <div class="plan-checkout">
+            <p class="plan-summary" id="plan-summary" style="text-align:center;"></p>
+            <input type="hidden" id="plan" name="plan" value="basic_monthly">
             <div class="form-group">
               <label for="email">Account Email</label>
               <input type="email" id="email" name="email" required placeholder="you@example.com">
             </div>
-            <button id="checkout-btn" type="submit" class="btn" style="width:100%;">Subscribe with Card</button>
-          </form>
-          <p id="checkout-error" style="display:none; color: var(--danger); margin-top: 12px; font-size: 0.9rem;"></p>
-          <p style="color: var(--muted); font-size: 0.85rem; margin-top: 16px;">
-            Secure card payments by Flutterwave.
-          </p>
-        </div>
+            <button id="checkout-btn" type="submit" class="btn">Subscribe with Card</button>
+          </div>
+        </form>
+        <p id="checkout-error" style="display:none; color: var(--danger); margin-top: 12px; font-size: 0.9rem;"></p>
+        <p style="font-size: 0.85rem; margin-top: 16px;">Secure card payments by Flutterwave.</p>
       </div>
     </div>
   </section>
@@ -59,6 +107,29 @@
   </div>
 
   <script>
+    // Plan selector: the chosen tier and billing period build the plan key sent to checkout.
+    const PRICES = { {% for key, plan in plans.items() %}'{{ key }}': {{ plan.price }}, {% endfor %} };
+    const INTERVAL_LABELS = { {% for key, label in interval_labels.items() %}'{{ key }}': '{{ label }}', {% endfor %} };
+    const INTERVAL_SUFFIX = { monthly: '/month', quarterly: '/3 months', biannual: '/6 months', yearly: '/year' };
+    const TIER_NAMES = { basic: 'WaveBook Basic', shop: 'WaveBook + Shop', premium: 'WaveBook Premium' };
+    function refreshPlanSelector() {
+      const tier = document.querySelector('input[name="tier"]:checked').value;
+      const interval = document.querySelector('input[name="interval"]:checked').value;
+      const key = tier + '_' + interval;
+      document.getElementById('plan').value = key;
+      document.getElementById('plan-summary').textContent = TIER_NAMES[tier] + ' · ' + INTERVAL_LABELS[interval] + ' · £' + PRICES[key].toFixed(2);
+      document.querySelectorAll('.plan-price').forEach(function (el) {
+        const amount = el.querySelector('[data-amount]');
+        const tierKey = amount.closest('.plan-option').querySelector('input[name="tier"]').value;
+        amount.textContent = '£' + PRICES[tierKey + '_' + interval].toFixed(2);
+        el.querySelector('[data-suffix]').textContent = INTERVAL_SUFFIX[interval];
+      });
+    }
+    document.querySelectorAll('input[name="tier"], input[name="interval"]').forEach(function (input) {
+      input.addEventListener('change', refreshPlanSelector);
+    });
+    refreshPlanSelector();
+
     // Calls the checkout API and redirects to the Flutterwave payment page.
     document.getElementById('checkout-form').addEventListener('submit', async function (e) {
       e.preventDefault();

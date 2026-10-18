@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../services/app_update.dart';
 import '../../services/notification_service.dart';
 import 'tabs/availability_tab.dart';
 import 'tabs/bookings_tab.dart';
@@ -37,6 +38,9 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       },
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) checkForUpdate(context);
+    });
   }
 
   @override
@@ -51,6 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: IndexedStack(index: _index, children: _tabs),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Dashboard'),
