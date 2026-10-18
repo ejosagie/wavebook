@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Subscribe — WaveBook</title>
   <link rel="stylesheet" href="/static/css/style.css">
-  <link rel="icon" type="image/png" href="/static/img/logo.png">
+  <link rel="icon" type="image/png" href="/static/img/icon.png">
 </head>
 <body>
   <div class="navbar">
     <div class="container">
-      <a href="/" class="brand"><img src="/static/img/logo.png" alt="WaveBook logo">Wave<span>Book</span></a>
+      <a href="/" class="brand"><img src="/static/img/icon.png" alt="WaveBook" class="brand-icon"></a>
       <nav class="nav-links"><a href="/">Home</a></nav>
     </div>
   </div>
@@ -29,8 +29,8 @@
               <label for="plan">Plan &amp; Billing Period</label>
               <select id="plan" name="plan" required>
                 {% for key, plan in plans.items() %}
-                <option value="{{ key }}"{% if key == 'standard_monthly' %} selected{% endif %}>
-                  {%- if plan.tier == 'shop' %}WaveBook + Shop{% else %}WaveBook{% endif %}
+                <option value="{{ key }}"{% if key == 'basic_monthly' %} selected{% endif %}>
+                  {%- if plan.tier == 'premium' %}WaveBook Premium{% elif plan.tier == 'shop' %}WaveBook + Shop{% else %}WaveBook Basic{% endif %}
                   — {{ interval_labels[plan.interval] }} — £{{ '%.2f'|format(plan.price) }}
                 </option>
                 {% endfor %}

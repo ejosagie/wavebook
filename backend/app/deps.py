@@ -1,6 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from .config import settings
 from .database import get_connection, row_to_dict
 from .security import decode_access_token
 
@@ -43,4 +44,29 @@ def get_current_business(user: dict = Depends(get_current_user)) -> dict:
 def require_owner(user: dict = Depends(get_current_user)) -> dict:
     if user.get("role") not in ("owner", "admin"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner access required")
+
+
+def get_business_plan(business_id: int) -> tuple[str | None, dict | None]:
+    """Return (plan_key, plan) for the business's latest active subscription."""
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT plan FROM subscriptions WHERE business_id = ? AND status = 'active' "
+            "ORDER BY id DESC LIMIT 1",
+            (business_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+    key = settings.LEGACY_PLAN_KEYS.get(row["plan"], row["plan"]) if row else None
+    plan = settings.SUBSCRIPTION_PLANS.get(key) if key else None
+    return (key, plan) if plan else (None, None)
+
+
+def business_tier_features(business: dict) -> dict:
+    """Feature limits for the business's current tier (non-active subs get trial features)."""
+    if business.get("subscription_status") == "active":
+        _, plan = get_business_plan(business["id"])
+        if plan:
+            return settings.TIER_FEATURES[plan["tier"]]
+    return settings.TIER_FEATURES["trial"]
     return user

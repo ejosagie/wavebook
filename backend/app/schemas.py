@@ -55,7 +55,7 @@ class BusinessUpdate(BaseModel):
 # ---- Subscription ----
 class SubscriptionCheckoutRequest(BaseModel):
     email: EmailStr | None = None  # required for website visitors (no session)
-    plan: str = "standard_monthly"
+    plan: str = "basic_monthly"
 
 
 # ---- Storefront products ----

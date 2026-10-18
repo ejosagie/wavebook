@@ -6,7 +6,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 
 from ..config import settings
 from ..database import get_connection, row_to_dict
-from ..deps import bearer_scheme, get_current_business
+from ..deps import bearer_scheme, get_business_plan, get_current_business
 from ..schemas import SubscriptionCheckoutRequest
 from ..security import decode_access_token
 from ..services import flutterwave
@@ -24,17 +24,9 @@ def get_subscription(business: dict = Depends(get_current_business)):
             trial_days_left = max(0, (end - date.today()).days)
         except ValueError:
             trial_days_left = 0
-    conn = get_connection()
-    try:
-        latest = conn.execute(
-            "SELECT plan FROM subscriptions WHERE business_id = ? AND status = 'active' "
-            "ORDER BY id DESC LIMIT 1",
-            (business["id"],),
-        ).fetchone()
-    finally:
-        conn.close()
-    plan_key = latest["plan"] if latest else ""
-    plan = settings.SUBSCRIPTION_PLANS.get(plan_key, {})
+    plan_key, plan = get_business_plan(business["id"])
+    plan_key = plan_key or ""
+    plan = plan or {}
     return {
         "status": business["subscription_status"],
         "plan": plan_key,
@@ -59,7 +51,7 @@ def create_checkout(
     (no web session exists) identify their account by email instead.
     Subscription activation happens on the website only (App Store compliant).
     """
-    plan_key = (payload.plan if payload else None) or "standard_monthly"
+    plan_key = (payload.plan if payload else None) or "basic_monthly"
     plan = settings.SUBSCRIPTION_PLANS.get(plan_key)
     if plan is None:
         raise HTTPException(status_code=400, detail="Unknown plan")
@@ -99,7 +91,7 @@ def create_checkout(
     if business is None:
         raise HTTPException(status_code=404, detail="Business not found")
 
-    tier = "WaveBook + Shop" if plan["tier"] == "shop" else "WaveBook"
+    tier = settings.TIER_LABELS.get(plan["tier"], "WaveBook")
     interval_label = settings.INTERVAL_LABELS.get(plan["interval"], plan["interval"].title())
     tx_ref = f"WB-SUB-{business['id']}-{plan_key}-{secrets.token_hex(4)}"
     payment_link = flutterwave.create_payment_link(

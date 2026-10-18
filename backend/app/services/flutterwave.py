@@ -48,7 +48,7 @@ def create_payment_link(
         "customizations": {
             "title": title,
             "description": description,
-            "logo": f"{settings.API_PUBLIC_URL}/static/img/logo.png",
+            "logo": f"{settings.API_PUBLIC_URL}/static/img/icon.png",
         },
     }
     try:

@@ -47,25 +47,49 @@ class Settings:
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 30  # 30 days
     SUBSCRIPTION_PRICE_GBP: float = 9.99
-    # Subscription plans: 'standard' = booking platform, 'shop' = + online store.
+    # Subscription plans: tier x billing interval.
+    # basic = booking + store (5 products), shop = unlimited products,
+    # premium = unlimited products + 80 free SMS.
     # Keys must not contain '-' (hyphens are used in tx_ref parsing).
     SUBSCRIPTION_PLANS: dict = {
-        "standard_monthly":   {"tier": "standard", "interval": "monthly",   "price": 9.99},
-        "standard_quarterly": {"tier": "standard", "interval": "quarterly", "price": 27.99},
-        "standard_biannual":  {"tier": "standard", "interval": "biannual",  "price": 54.99},
-        "standard_yearly":    {"tier": "standard", "interval": "yearly",    "price": 99.99},
-        "shop_monthly":       {"tier": "shop", "interval": "monthly",   "price": 12.99},
-        "shop_quarterly":     {"tier": "shop", "interval": "quarterly", "price": 36.99},
-        "shop_biannual":      {"tier": "shop", "interval": "biannual",  "price": 69.99},
-        "shop_yearly":        {"tier": "shop", "interval": "yearly",    "price": 129.99},
+        "basic_monthly":     {"tier": "basic",   "interval": "monthly",   "price": 9.99},
+        "basic_quarterly":   {"tier": "basic",   "interval": "quarterly", "price": 27.99},
+        "basic_biannual":    {"tier": "basic",   "interval": "biannual",  "price": 54.99},
+        "basic_yearly":      {"tier": "basic",   "interval": "yearly",    "price": 99.99},
+        "shop_monthly":      {"tier": "shop",    "interval": "monthly",   "price": 12.99},
+        "shop_quarterly":    {"tier": "shop",    "interval": "quarterly", "price": 36.99},
+        "shop_biannual":     {"tier": "shop",    "interval": "biannual",  "price": 69.99},
+        "shop_yearly":       {"tier": "shop",    "interval": "yearly",    "price": 129.99},
+        "premium_monthly":   {"tier": "premium", "interval": "monthly",   "price": 14.99},
+        "premium_quarterly": {"tier": "premium", "interval": "quarterly", "price": 42.99},
+        "premium_biannual":  {"tier": "premium", "interval": "biannual",  "price": 79.99},
+        "premium_yearly":    {"tier": "premium", "interval": "yearly",    "price": 149.99},
     }
     INTERVAL_LABELS: dict = {
         "monthly": "Monthly", "quarterly": "Quarterly (3 months)",
         "biannual": "6 Months", "yearly": "Yearly",
     }
+    TIER_LABELS: dict = {
+        "basic": "WaveBook Basic", "shop": "WaveBook + Shop",
+        "premium": "WaveBook Premium",
+    }
+    # Per-tier feature limits. max_products None = unlimited.
+    TIER_FEATURES: dict = {
+        "trial":   {"storefront": True, "max_products": None, "free_sms": 50},
+        "basic":   {"storefront": True, "max_products": 5,    "free_sms": 50},
+        "shop":    {"storefront": True, "max_products": None, "free_sms": 50},
+        "premium": {"storefront": True, "max_products": None, "free_sms": 80},
+    }
+    # Plan keys from before the 3-tier rename -> current keys.
+    LEGACY_PLAN_KEYS: dict = {
+        "standard_monthly": "basic_monthly",
+        "standard_quarterly": "basic_quarterly",
+        "standard_biannual": "basic_biannual",
+        "standard_yearly": "basic_yearly",
+    }
     MAX_STAFF: int = 5
     TRIAL_DAYS: int = 14
-    SMS_FREE_LIMIT: int = 50  # free SMS per business
+    SMS_FREE_LIMIT: int = 50  # default free SMS per business (plan tiers may override)
     SMS_TOPUP_PRICE_GBP: float = 5.00
     SMS_TOPUP_CREDITS: int = 50  # SMS added per £5 top-up
     # Storefront order statuses: pending -> paid -> confirmed -> shipped (or cancelled)

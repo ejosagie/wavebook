@@ -200,7 +200,7 @@ def subscribe_verify(request: Request, tx_ref: str = "", transaction_id: str = "
         return templates.TemplateResponse(request, "subscribe_cancel.html", {})
 
     business_id = 0
-    plan_key = (data.get("meta") or {}).get("plan") or "standard_monthly"
+    plan_key = (data.get("meta") or {}).get("plan") or "basic_monthly"
     if tx_ref.startswith("WB-SUB-"):
         parts = tx_ref.split("-")
         try:
@@ -210,8 +210,9 @@ def subscribe_verify(request: Request, tx_ref: str = "", transaction_id: str = "
         # Older refs lack the plan segment; meta is authoritative when present
         if plan_key not in settings.SUBSCRIPTION_PLANS and len(parts) > 3:
             plan_key = parts[3]
+    plan_key = settings.LEGACY_PLAN_KEYS.get(plan_key, plan_key)
     if plan_key not in settings.SUBSCRIPTION_PLANS:
-        plan_key = "standard_monthly"
+        plan_key = "basic_monthly"
     plan = settings.SUBSCRIPTION_PLANS[plan_key]
     if not business_id:
         return templates.TemplateResponse(request, "subscribe_cancel.html", {})
@@ -228,16 +229,11 @@ def subscribe_verify(request: Request, tx_ref: str = "", transaction_id: str = "
         ).fetchone()
         if existing:
             return templates.TemplateResponse(request, "subscribe_success.html", {})
-        if plan["tier"] == "shop":
-            conn.execute(
-                "UPDATE businesses SET subscription_status = 'active', storefront_enabled = 1 WHERE id = ?",
-                (business_id,),
-            )
-        else:
-            conn.execute(
-                "UPDATE businesses SET subscription_status = 'active' WHERE id = ?",
-                (business_id,),
-            )
+        # Every paid plan includes the storefront; product caps differ by tier.
+        conn.execute(
+            "UPDATE businesses SET subscription_status = 'active', storefront_enabled = 1 WHERE id = ?",
+            (business_id,),
+        )
         conn.execute(
             "INSERT INTO subscriptions (business_id, stripe_subscription_id, status, plan, amount) "
             "VALUES (?, ?, 'active', ?, ?)",

@@ -49,7 +49,7 @@ a:hover { text-decoration: underline; }
 }
 .navbar .container { display: flex; align-items: center; justify-content: space-between; height: 68px; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.35rem; color: var(--ink); }
-.brand img { height: 36px; width: 36px; }
+.brand img { height: 40px; width: 40px; border-radius: 10px; }
 .brand span { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .nav-links { display: flex; align-items: center; gap: 24px; }
 .nav-links a { color: var(--muted); font-weight: 600; font-size: 0.95rem; }
@@ -203,8 +203,28 @@ th { background: var(--surface-alt); font-weight: 700; }
 .badge-past_due { background: rgba(248, 113, 113, 0.15); color: var(--danger); }
 
 @media (max-width: 640px) {
-  .hero h1 { font-size: 2.1rem; }
+  .container { padding: 0 16px; }
+  .navbar .container { height: 60px; }
+  .brand { font-size: 1.1rem; gap: 8px; }
+  .brand img { height: 34px; width: 34px; }
   .nav-links { gap: 12px; }
+  .nav-links a { font-size: 0.88rem; }
+  .hero { padding: 64px 0 96px; }
+  .hero h1 { font-size: 2rem; }
+  .hero p { font-size: 1.05rem; }
+  .section { padding: 48px 0; }
+  .section h2 { font-size: 1.6rem; }
+  .card { padding: 20px; }
+  .pricing-card .price { font-size: 2.4rem; }
+  .form-container { padding: 0 8px; }
+  th, td { padding: 10px 8px; font-size: 0.85rem; }
+  body.tenant-theme .tenant-hero { padding: 48px 0; }
+  body.tenant-theme .tenant-hero h1 { font-size: 1.8rem; }
   .about-table, .about-table tbody, .about-table tr, .about-table td { display: block; width: 100%; }
   .about-image-cell { width: 100%; text-align: center; }
+}
+
+/* On very small screens, drop same-page anchor links so real links + CTA always fit */
+@media (max-width: 560px) {
+  .nav-links a[href^="#"] { display: none; }
 }

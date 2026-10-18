@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 
 from ..config import settings
 from ..database import get_connection, row_to_dict, rows_to_dicts
-from ..deps import get_current_business, require_owner
+from ..deps import business_tier_features, get_current_business, require_owner
 from ..schemas import OrderUpdate, ProductCreate, ProductUpdate, StorefrontCheckout
 from ..services import flutterwave, gcs
 
@@ -44,6 +44,17 @@ def create_product(
 ):
     conn = get_connection()
     try:
+        max_products = business_tier_features(business)["max_products"]
+        if max_products is not None:
+            count = conn.execute(
+                "SELECT COUNT(*) AS c FROM products WHERE business_id = ?",
+                (business["id"],),
+            ).fetchone()["c"]
+            if count >= max_products:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Your plan allows up to {max_products} products. Upgrade for unlimited products.",
+                )
         cur = conn.execute(
             "INSERT INTO products (business_id, name, description, price, sort_order) VALUES (?, ?, ?, ?, ?)",
             (business["id"], data.name.strip(), data.description.strip(), data.price, data.sort_order),

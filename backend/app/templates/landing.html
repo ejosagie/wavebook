@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>WaveBook — Simple Booking for Solo Owners &amp; Small Teams</title>
-  <meta name="description" content="WaveBook is a simple, affordable booking and scheduling platform for solo business owners and small teams. £9.99/month, all features included.">
+  <meta name="description" content="WaveBook is a simple, affordable booking and scheduling platform for solo business owners and small teams. Plans from £9.99/month.">
   <link rel="stylesheet" href="/static/css/style.css">
-  <link rel="icon" type="image/png" href="/static/img/logo.png">
+  <link rel="icon" type="image/png" href="/static/img/icon.png">
 </head>
 <body>
   <div class="navbar">
     <div class="container">
-      <a href="/" class="brand"><img src="/static/img/logo.png" alt="WaveBook logo">Wave<span>Book</span></a>
+      <a href="/" class="brand"><img src="/static/img/icon.png" alt="WaveBook" class="brand-icon"></a>
       <nav class="nav-links">
         <a href="#features">Features</a>
         <a href="#pricing">Pricing</a>
@@ -52,38 +52,55 @@
     <div class="container">
       <h2>Simple, predictable pricing</h2>
       <p class="subtitle">Monthly, quarterly, 6-month or yearly billing — bigger savings on longer plans.</p>
-      <div class="grid-3" style="max-width: 780px; margin: 0 auto;">
-        <div class="card pricing-card pricing-featured">
-          <h3>WaveBook</h3>
-          <div class="price">£{{ price_gbp }}<small>/month</small></div>
+      <div class="grid-3">
+        <div class="card pricing-card">
+          <h3>WaveBook Basic</h3>
+          <div class="price">£9.99<small>/month</small></div>
           <ul>
             <li>All booking features included</li>
             <li>Up to {{ max_staff }} staff members</li>
             <li>Unlimited bookings &amp; services</li>
             <li>Secure card payments</li>
-            <li>Add bookings to your calendar</li>
-            <li>Email, SMS &amp; WhatsApp reminders</li>
+            <li>Online store — up to 5 products</li>
+            <li>50 free SMS reminders</li>
+            <li>Email &amp; WhatsApp reminders</li>
             <li>Self-service rescheduling</li>
             <li>VAT-friendly receipts</li>
             <li>Cancel anytime</li>
           </ul>
-          <a href="/signup" class="btn" style="width:100%;">Start Free Trial</a>
+          <a href="/subscribe" class="btn btn-outline" style="width:100%;">Choose Basic</a>
         </div>
-        <div class="card pricing-card">
+        <div class="card pricing-card pricing-featured">
           <h3>WaveBook + Shop</h3>
           <div class="price">£12.99<small>/month</small></div>
           <ul>
-            <li>Everything in WaveBook</li>
-            <li>Online store on your booking site</li>
+            <li>Everything in Basic</li>
+            <li>Unlimited store products</li>
             <li>Sell products with card checkout</li>
             <li>Order tracking &amp; customer receipts</li>
-            <li>Unlimited bookings &amp; services</li>
-            <li>Email, SMS &amp; WhatsApp reminders</li>
+            <li>50 free SMS reminders</li>
+            <li>Email &amp; WhatsApp reminders</li>
             <li>Self-service rescheduling</li>
             <li>VAT-friendly receipts</li>
             <li>Cancel anytime</li>
           </ul>
-          <a href="/signup" class="btn" style="width:100%;">Start Free Trial</a>
+          <a href="/subscribe" class="btn" style="width:100%;">Choose + Shop</a>
+        </div>
+        <div class="card pricing-card">
+          <h3>WaveBook Premium</h3>
+          <div class="price">£14.99<small>/month</small></div>
+          <ul>
+            <li>Everything in + Shop</li>
+            <li>Unlimited store products</li>
+            <li>80 free SMS reminders</li>
+            <li>Order tracking &amp; customer receipts</li>
+            <li>Email &amp; WhatsApp reminders</li>
+            <li>Self-service rescheduling</li>
+            <li>VAT-friendly receipts</li>
+            <li>Priority support</li>
+            <li>Cancel anytime</li>
+          </ul>
+          <a href="/subscribe" class="btn btn-outline" style="width:100%;">Choose Premium</a>
         </div>
       </div>
     </div>
@@ -126,7 +143,7 @@
 
   <div class="footer">
     <div class="container">
-      <div class="brand"><img src="/static/img/logo.png" alt="WaveBook logo">Wave<span>Book</span></div>
+      <div class="brand"><img src="/static/img/icon.png" alt="WaveBook" class="brand-icon"></div>
       <p>&copy; 2026 NeuroWaves Data Systems Ltd. All rights reserved.</p>
       <p style="margin-top: 8px;">Support: <a href="mailto:support@getwavebook.com">support@getwavebook.com</a></p>
     </div>

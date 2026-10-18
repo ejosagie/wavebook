@@ -14,6 +14,7 @@ import requests
 
 from ..config import settings
 from ..database import get_connection, row_to_dict
+from ..deps import business_tier_features
 from ..phone import normalise_uk_number
 
 logger = logging.getLogger("wavebook")
@@ -94,10 +95,10 @@ def send_sms(to: str, message: str) -> dict:
 
 
 def sms_balance(business: dict) -> dict:
-    """Return the SMS credit balance for a business (50 free, then purchased)."""
+    """Return the SMS credit balance for a business (free allowance per plan, then purchased)."""
     used = int(business.get("sms_used") or 0)
     credits = int(business.get("sms_credits") or 0)
-    free_limit = settings.SMS_FREE_LIMIT
+    free_limit = business_tier_features(business)["free_sms"]
     free_remaining = max(0, free_limit - used)
     return {
         "used": used,
