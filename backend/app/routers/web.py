@@ -154,6 +154,16 @@ def support_page(request: Request):
     return templates.TemplateResponse(request, "support.html", {})
 
 
+@router.get("/privacy", response_class=HTMLResponse)
+def privacy_page(request: Request):
+    return templates.TemplateResponse(request, "privacy.html", {})
+
+
+@router.get("/copyright", response_class=HTMLResponse)
+def copyright_page(request: Request):
+    return templates.TemplateResponse(request, "copyright.html", {})
+
+
 @router.get("/", response_class=HTMLResponse)
 def landing(request: Request, access: str | None = None):
     if access and settings.ADMIN_ACCESS_TOKEN and access == settings.ADMIN_ACCESS_TOKEN:
