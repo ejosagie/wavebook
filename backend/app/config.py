@@ -33,12 +33,10 @@ class Settings:
     FLW_ENCRYPTION_KEY: str = os.getenv("FLW_ENCRYPTION_KEY", "")
     FLW_CURRENCY: str = os.getenv("FLW_CURRENCY", "GBP")
     FLW_COUNTRY: str = os.getenv("FLW_COUNTRY", "GB")
-    # SMTP (email notifications — leave empty to log instead)
-    SMTP_HOST: str = os.getenv("SMTP_HOST", "")
-    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
-    SMTP_USER: str = os.getenv("SMTP_USER", "")
-    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
-    SMTP_FROM: str = os.getenv("SMTP_FROM", "WaveBook <no-reply@getwavebook.com>")
+    # Email relay: the VPS POSTs emails to this PHP endpoint on the NeuroWaves hosting,
+    # which sends them with mail(). Leave NOTIFY_TOKEN empty to log emails instead.
+    NOTIFY_URL: str = os.getenv("NOTIFY_URL", "https://neurowavesdatasystems.ng/notification/notification.php")
+    NOTIFY_TOKEN: str = os.getenv("NOTIFY_TOKEN", "")
     # Google Cloud Storage (product/shop images + backups). Leave empty to store
     # images on the local disk (backend/uploads) instead of GCS.
     GCS_BUCKET_NAME: str = os.getenv("GCS_BUCKET_NAME", "")  # public bucket for product images

@@ -1,11 +1,12 @@
-"""Email delivery via SMTP.
+"""Email delivery via the PHP relay on the NeuroWaves hosting.
 
-Uses SMTP settings when configured; otherwise falls back to a console log so
-the platform keeps working during development and testing.
+The VPS POSTs JSON to NOTIFY_URL with the NOTIFY_TOKEN header; the PHP script
+sends the mail with the hosting's mail(). When NOTIFY_TOKEN is not set, emails
+are logged instead so the platform keeps working during development and testing.
 """
+import json
 import logging
-import smtplib
-from email.message import EmailMessage
+import urllib.request
 
 from ..config import settings
 
@@ -17,22 +18,25 @@ def send_email(to: str, subject: str, body_text: str) -> dict:
     if not to:
         return {"provider": "none", "status": "skipped", "reason": "no recipient"}
 
-    if settings.SMTP_HOST:
-        msg = EmailMessage()
-        msg["Subject"] = subject
-        msg["From"] = settings.SMTP_FROM or "WaveBook <no-reply@getwavebook.com>"
-        msg["To"] = to
-        msg.set_content(body_text)
+    if settings.NOTIFY_TOKEN:
+        payload = json.dumps({"to": to, "subject": subject, "body": body_text}).encode("utf-8")
+        req = urllib.request.Request(
+            settings.NOTIFY_URL,
+            data=payload,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "X-Notify-Token": settings.NOTIFY_TOKEN,
+                "User-Agent": "WaveBook/1.0",
+            },
+        )
         try:
-            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as server:
-                if settings.SMTP_USER:
-                    server.starttls()
-                    server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-                server.send_message(msg)
-            return {"provider": "smtp", "status": "sent", "to": to}
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                result = json.loads(resp.read().decode("utf-8") or "{}")
+            return {"provider": "php-relay", "status": result.get("status", "sent"), "to": to}
         except Exception as exc:  # pragma: no cover
-            logger.error("[email] send failed: %s", exc)
-            return {"provider": "smtp", "status": "error", "error": str(exc)}
+            logger.error("[email] relay send failed: %s", exc)
+            return {"provider": "php-relay", "status": "error", "error": str(exc)}
 
     logger.info("[email dev-mode] To: %s | Subject: %s | %s", to, subject, body_text)
     return {"provider": "dev-log", "status": "queued"}
