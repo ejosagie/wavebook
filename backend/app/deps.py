@@ -1,4 +1,5 @@
 import re
+from datetime import date, datetime
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -48,6 +49,7 @@ def get_current_business(user: dict = Depends(get_current_user)) -> dict:
         conn.close()
     if business is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Business not found")
+    business["subscription_status"] = effective_subscription_status(business)
     return business
 
 
@@ -72,13 +74,32 @@ def get_business_plan(business_id: int) -> tuple[str | None, dict | None]:
     return (key, plan) if plan else (None, None)
 
 
+def _trial_end_date(value: str | None) -> date | None:
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def effective_subscription_status(business: dict) -> str:
+    """A trial ends on its trial_ends_at date; from then on the business is 'expired'."""
+    status = business.get("subscription_status")
+    if status == "trial":
+        end = _trial_end_date(business.get("trial_ends_at"))
+        if end is not None and date.today() >= end:
+            return "expired"
+    return status
+
+
 def business_tier_features(business: dict) -> dict:
     """Feature limits for the business's current tier.
 
     Active subs get their plan's features; trials get trial features;
     cancelled/past_due subs get the locked-down 'expired' tier.
     """
-    status = business.get("subscription_status")
+    status = effective_subscription_status(business)
     if status == "active":
         _, plan = get_business_plan(business["id"])
         if plan:

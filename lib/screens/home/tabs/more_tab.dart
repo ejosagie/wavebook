@@ -98,7 +98,7 @@ class MoreTab extends StatelessWidget {
             icon: Icons.workspace_premium_outlined,
             color: WaveBookColors.pink,
             title: 'Subscription',
-            subtitle: 'Manage your £9.99/month plan',
+            subtitle: 'Plans, billing and trial status',
             onTap: () => _push(context, const SubscriptionTab()),
           ),
           _MenuCard(

@@ -22,6 +22,7 @@ class _BookingsTabState extends State<BookingsTab> {
   String? _error;
   String _filter = 'all';
   List<StaffMember> _staff = [];
+  bool _canAssign = false;
 
   @override
   void initState() {
@@ -41,14 +42,19 @@ class _BookingsTabState extends State<BookingsTab> {
         _bookings = (data as List).map((b) => Booking.fromJson(b as Map<String, dynamic>)).toList();
       });
       try {
-        final staffData = await _api.get('/api/staff');
-        if (mounted) {
-          setState(() {
-            _staff = (staffData as List).map((s) => StaffMember.fromJson(s as Map<String, dynamic>)).toList();
-          });
+        final sub = SubscriptionInfo.fromJson(await _api.get('/api/subscription') as Map<String, dynamic>);
+        final canAssign = sub.maxStaff > 0;
+        if (canAssign) {
+          final staffData = await _api.get('/api/staff');
+          if (mounted) {
+            setState(() {
+              _staff = (staffData as List).map((s) => StaffMember.fromJson(s as Map<String, dynamic>)).toList();
+            });
+          }
         }
+        if (mounted) setState(() => _canAssign = canAssign);
       } on ApiException {
-        _staff = [];
+        if (mounted) setState(() => _canAssign = false);
       }
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -299,6 +305,7 @@ class _BookingsTabState extends State<BookingsTab> {
           onSendSms: () => _sendSms(bookings[i]),
           onAddToCalendar: () => _addToCalendar(bookings[i]),
           onAssign: () => _assign(bookings[i]),
+          canAssign: _canAssign,
         ),
       ),
     );
@@ -313,6 +320,7 @@ class _BookingCard extends StatelessWidget {
   final VoidCallback onSendSms;
   final VoidCallback onAddToCalendar;
   final VoidCallback onAssign;
+  final bool canAssign;
 
   const _BookingCard({
     required this.booking,
@@ -322,6 +330,7 @@ class _BookingCard extends StatelessWidget {
     required this.onSendSms,
     required this.onAddToCalendar,
     required this.onAssign,
+    required this.canAssign,
   });
 
   @override
@@ -406,11 +415,12 @@ class _BookingCard extends StatelessWidget {
                   onPressed: onSendSms,
                   tooltip: 'Send text message',
                 ),
-                IconButton(
-                  icon: const Icon(Icons.person_add_alt_1_outlined, color: WaveBookColors.pink),
-                  onPressed: onAssign,
-                  tooltip: 'Assign to staff',
-                ),
+                if (canAssign)
+                  IconButton(
+                    icon: const Icon(Icons.person_add_alt_1_outlined, color: WaveBookColors.pink),
+                    onPressed: onAssign,
+                    tooltip: 'Assign to staff',
+                  ),
                 IconButton(
                   icon: const Icon(Icons.calendar_month_outlined, color: WaveBookColors.pink),
                   onPressed: onAddToCalendar,

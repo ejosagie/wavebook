@@ -42,40 +42,15 @@ class _SubscriptionTabState extends State<SubscriptionTab> {
     }
   }
 
-  Future<void> _startCheckout() async {
-    try {
-      // iOS: App Store policy — subscriptions must be purchased on the website.
-      if (Platform.isIOS) {
-        final opened = await launchUrl(
-          Uri.parse('https://getwavebook.com/subscribe'),
-          mode: LaunchMode.externalApplication,
-        );
-        if (mounted && !opened) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not open the subscription page.')),
-          );
-        }
-        return;
-      }
-
-      final data = await _api.post('/api/subscription/checkout');
-      final url = data['payment_link'] as String?;
-      if (url != null) {
-        final opened = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-        if (mounted && !opened) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not open the payment page.')),
-          );
-        }
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not start checkout.')),
-        );
-      }
-    } on ApiException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
-      }
+  Future<void> _openSubscribePage() async {
+    final opened = await launchUrl(
+      Uri.parse('https://getwavebook.com/subscribe'),
+      mode: LaunchMode.externalApplication,
+    );
+    if (mounted && !opened) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open getwavebook.com/subscribe')),
+      );
     }
   }
 
@@ -104,6 +79,8 @@ class _SubscriptionTabState extends State<SubscriptionTab> {
     final info = _info!;
     final active = info.status == 'active';
     final trial = info.status == 'trial';
+    final expired = info.status == 'expired';
+    final ios = Platform.isIOS;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -119,15 +96,15 @@ class _SubscriptionTabState extends State<SubscriptionTab> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  active ? 'Subscription Active' : 'Free Trial',
+                  active ? 'Subscription Active' : (expired ? 'Free Trial Ended' : 'Free Trial'),
                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '£${info.priceGbp.toStringAsFixed(2)}/month · all features included',
+                  'WaveBook Premium · £${info.priceGbp.toStringAsFixed(2)}/month · all features included',
                   style: const TextStyle(color: WaveBookColors.muted),
                 ),
-                if (trial) ...[
+                if (trial || expired) ...[
                   const SizedBox(height: 8),
                   Text(
                     info.trialDaysLeft > 0
@@ -140,12 +117,16 @@ class _SubscriptionTabState extends State<SubscriptionTab> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 16),
-                const Text(
-                  'Subscriptions are activated on the WaveBook website (getwavebook.com/subscribe) to comply with App Store policies. Premium features unlock automatically in the app after subscribing.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13, color: WaveBookColors.muted),
-                ),
+                if (!active) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    ios
+                        ? 'To manage your subscription status, visit getwavebook.com.'
+                        : 'Choose a plan at getwavebook.com to keep using WaveBook. Your plan unlocks automatically in the app after you subscribe.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 13, color: WaveBookColors.muted),
+                  ),
+                ],
               ],
             ),
           ),
@@ -155,14 +136,14 @@ class _SubscriptionTabState extends State<SubscriptionTab> {
           child: ListTile(
             leading: const Icon(Icons.group_outlined, color: WaveBookColors.pink),
             title: const Text('Staff members', style: TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text('Up to ${info.maxStaff} included'),
+            subtitle: Text(info.maxStaff > 0 ? 'Up to ${info.maxStaff} included' : 'Available on WaveBook Premium'),
           ),
         ),
         const SizedBox(height: 24),
-        if (!active)
+        if (!active && !ios)
           ElevatedButton(
-            onPressed: _startCheckout,
-            child: Text(Platform.isIOS ? 'Manage Subscription on Website' : 'Subscribe Now'),
+            onPressed: _openSubscribePage,
+            child: const Text('Subscribe Now'),
           ),
       ],
     );

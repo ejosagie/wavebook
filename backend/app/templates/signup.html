@@ -24,7 +24,7 @@
         <div class="card pricing-card pricing-featured" style="text-align:center;">
           <h3>Create your account</h3>
           <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 20px;">
-            Start your 14-day free trial. Set up your business now — then download the app and log in.
+            Start your {{ trial_days() }}-day free trial. Set up your business now — then download the app and log in.
           </p>
           {% if error %}
           <div class="alert" style="background: rgba(239,68,68,0.12); color: var(--danger);">{{ error }}</div>

@@ -3,8 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from ..config import settings
-from ..database import get_connection, row_to_dict
+from ..database import get_connection, get_trial_days, row_to_dict
 from ..deps import get_current_user
 from ..phone import validate_uk_phone
 from ..schemas import ChangePasswordRequest, LoginRequest, SignupRequest, TokenResponse
@@ -45,7 +44,7 @@ def register_user(data: SignupRequest) -> dict:
         user_id = cur.lastrowid
         business = None
         if slug:
-            trial_ends = (datetime.utcnow() + timedelta(days=settings.TRIAL_DAYS)).strftime("%Y-%m-%d")
+            trial_ends = (datetime.utcnow() + timedelta(days=get_trial_days())).strftime("%Y-%m-%d")
             bcur = conn.execute(
                 "INSERT INTO businesses (slug, name, trial_ends_at) VALUES (?, ?, ?)",
                 (slug, data.business_name.strip(), trial_ends),

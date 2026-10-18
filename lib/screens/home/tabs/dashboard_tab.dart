@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -190,17 +191,22 @@ class _DashboardTabState extends State<DashboardTab> {
             ),
           ),
         if (_hasUpdate()) const SizedBox(height: 8),
-        if (business.subscriptionStatus == 'trial')
+        if (business.subscriptionStatus == 'trial' || business.subscriptionStatus == 'expired')
           Card(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             child: ListTile(
               leading: const Icon(Icons.rocket_launch, color: WaveBookColors.pink),
-              title: const Text('Free trial active', style: TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text(_trialNotice(business)),
-              trailing: TextButton(
-                onPressed: () => _openSubscription(context),
-                child: const Text('Subscribe'),
+              title: Text(
+                business.subscriptionStatus == 'expired' ? 'Free trial ended' : 'Free trial active',
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
+              subtitle: Text(_trialNotice(business)),
+              trailing: Platform.isIOS
+                  ? null
+                  : TextButton(
+                      onPressed: () => _openUrl('https://getwavebook.com/subscribe'),
+                      child: const Text('Subscribe'),
+                    ),
             ),
           ),
         const SizedBox(height: 8),
@@ -316,14 +322,21 @@ class _DashboardTabState extends State<DashboardTab> {
   }
 
   String _trialNotice(Business business) {
-    if (business.trialEndsAt.isEmpty) return 'Subscribe for £9.99/month to unlock everything.';
+    final ios = Platform.isIOS;
+    final cta = ios
+        ? 'Visit getwavebook.com to manage your subscription status.'
+        : 'Choose a plan at getwavebook.com to unlock everything.';
+    if (business.subscriptionStatus == 'expired') {
+      return ios ? cta : 'Your free trial has ended. $cta';
+    }
+    if (business.trialEndsAt.isEmpty) return cta;
     final parts = business.trialEndsAt.split('-');
-    if (parts.length != 3) return 'Subscribe for £9.99/month to unlock everything.';
+    if (parts.length != 3) return cta;
     final end = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
     final days = end.difference(DateTime.now()).inDays;
-    if (days <= 0) return 'Your free trial has ended. Subscribe for £9.99/month to keep using WaveBook.';
-    if (days == 1) return 'Your free trial ends tomorrow. Subscribe for £9.99/month to keep everything.';
-    return '$days days left in your free trial. Subscribe for £9.99/month to unlock everything.';
+    if (days <= 0) return ios ? cta : 'Your free trial has ended. $cta';
+    if (days == 1) return 'Your free trial ends tomorrow. $cta';
+    return '$days days left in your free trial. $cta';
   }
 
   void _openUrl(String url) {
@@ -333,14 +346,6 @@ class _DashboardTabState extends State<DashboardTab> {
   String _today() {
     final now = DateTime.now();
     return '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-  }
-
-  void _openSubscription(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Subscriptions are activated on the WaveBook website: getwavebook.com/subscribe'),
-      ),
-    );
   }
 
   void _openWebsite(BuildContext context, String slug) {

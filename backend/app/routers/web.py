@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from ..config import settings
-from ..database import get_connection, row_to_dict, rows_to_dicts
+from ..database import TRIAL_DAYS_KEY, get_connection, get_trial_days, row_to_dict, rows_to_dicts
 from ..phone import validate_uk_phone
 from ..routers.auth import register_user
 from ..routers.bookings import generate_reference
@@ -28,6 +28,7 @@ router = APIRouter(tags=["web"])
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+templates.env.globals["trial_days"] = get_trial_days
 
 UPLOADS_DIR = Path(__file__).resolve().parent.parent.parent / "uploads"
 
@@ -335,6 +336,26 @@ def admin_update_app_meta(
     return RedirectResponse(url="/admin", status_code=303)
 
 
+@router.post("/admin/trial-days")
+def admin_update_trial_days(request: Request, trial_days: int = Form(...)):
+    blocked = _admin_or_login(request)
+    if blocked:
+        return blocked
+    if not 1 <= trial_days <= 90:
+        return RedirectResponse(url="/admin", status_code=303)
+    conn = get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO app_meta (key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (TRIAL_DAYS_KEY, str(trial_days)),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse(url="/admin", status_code=303)
+
+
 # ---- Owner admin dashboard ----
 
 ADMIN_COOKIE = "wavebook_admin"
@@ -376,6 +397,7 @@ def admin_dashboard(request: Request):
             "total_businesses": total_businesses,
             "active_subs": active_subs,
             "app_meta": meta,
+            "trial_days": get_trial_days(),
         },
     )
 

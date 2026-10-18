@@ -44,7 +44,7 @@ class Settings:
 
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 30  # 30 days
-    SUBSCRIPTION_PRICE_GBP: float = 9.99
+    SUBSCRIPTION_PRICE_GBP: float = 19.99
     # Subscription plans: tier x billing interval.
     # basic = booking + store (5 products), shop = unlimited products,
     # premium = unlimited products + 80 free SMS.
@@ -58,7 +58,7 @@ class Settings:
         "shop_quarterly":    {"tier": "shop",    "interval": "quarterly", "price": 36.99},
         "shop_biannual":     {"tier": "shop",    "interval": "biannual",  "price": 69.99},
         "shop_yearly":       {"tier": "shop",    "interval": "yearly",    "price": 129.99},
-        "premium_monthly":   {"tier": "premium", "interval": "monthly",   "price": 14.99},
+        "premium_monthly":   {"tier": "premium", "interval": "monthly",   "price": 19.99},
         "premium_quarterly": {"tier": "premium", "interval": "quarterly", "price": 42.99},
         "premium_biannual":  {"tier": "premium", "interval": "biannual",  "price": 79.99},
         "premium_yearly":    {"tier": "premium", "interval": "yearly",    "price": 149.99},
@@ -87,7 +87,7 @@ class Settings:
         "standard_biannual": "basic_biannual",
         "standard_yearly": "basic_yearly",
     }
-    TRIAL_DAYS: int = 14
+    TRIAL_DAYS: int = 7  # default; admins can change it from the admin dashboard
     SMS_FREE_LIMIT: int = 50  # default free SMS per business (plan tiers may override)
     SMS_TOPUP_PRICE_GBP: float = 5.00
     SMS_TOPUP_CREDITS: int = 50  # SMS added per £5 top-up

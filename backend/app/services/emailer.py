@@ -9,7 +9,7 @@ import logging
 import urllib.request
 
 from ..config import settings
-from ..database import get_connection
+from ..database import get_connection, get_trial_days
 
 logger = logging.getLogger("wavebook")
 
@@ -48,7 +48,7 @@ def send_welcome_email(to: str, full_name: str, business: dict | None = None) ->
     site = f"https://{business['slug']}.wab.is" if business else "your booking website"
     body = (
         f"Hi {full_name},\n\n"
-        "Welcome to WaveBook! Your account is ready and your 14-day free trial "
+        f"Welcome to WaveBook! Your account is ready and your {get_trial_days()}-day free trial "
         "has started — every feature is included.\n\n"
         f"Your business is set up and your booking website is live at:\n{site}\n\n"
         "Next steps:\n"
@@ -56,12 +56,12 @@ def send_welcome_email(to: str, full_name: str, business: dict | None = None) ->
         "2. Open the app and log in with the email and password you just created.\n"
         "3. Add your services, opening hours and deposit settings.\n"
         "4. Share your booking website with customers to start receiving bookings.\n\n"
-        "After the trial you can subscribe for £9.99/month on getwavebook.com/subscribe.\n\n"
+        "After the trial, choose a plan at getwavebook.com/subscribe.\n\n"
         "Need help? Reply to this email or contact support@getwavebook.com.\n\n"
         "Best regards,\nThe WaveBook Team\n"
         "© 2026 NeuroWaves Data Systems Ltd"
     )
-    return send_email(to, "Welcome to WaveBook — your 14-day free trial is active", body)
+    return send_email(to, f"Welcome to WaveBook — your {get_trial_days()}-day free trial is active", body)
 
 
 def _booking_manage_url() -> str:

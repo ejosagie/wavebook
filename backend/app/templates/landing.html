@@ -123,7 +123,7 @@
         </div>
         <div class="card pricing-card">
           <h3>WaveBook Premium</h3>
-          <div class="price">£14.99<small>/month</small></div>
+          <div class="price">£19.99<small>/month</small></div>
           <ul>
             <li>Everything in + Shop</li>
             <li class="hl">Up to {{ max_staff }} staff accounts</li>
@@ -159,12 +159,12 @@
       <h2>Frequently asked questions</h2>
       <p class="subtitle">Everything you need to know before you start.</p>
       <div class="grid-3" style="text-align:left;">
-        <div class="card"><h3>How does the 14-day free trial work?</h3><p>Sign up in under a minute and every feature is unlocked for 14 days — no card required. When the trial ends you can subscribe for £{{ price_gbp }}/month or take a break.</p></div>
+        <div class="card"><h3>How does the {{ trial_days() }}-day free trial work?</h3><p>Sign up in under a minute and every feature is unlocked for {{ trial_days() }} days — no card required. When the trial ends you can choose a plan or take a break.</p></div>
         <div class="card"><h3>Do I need a website to use WaveBook?</h3><p>No. Every business gets a free booking website at <strong>yourname.wab.is</strong> that you can share on Instagram, WhatsApp or Google. You can also link it from your existing site.</p></div>
         <div class="card"><h3>How do my customers pay?</h3><p>Customers pay securely by card for deposits, full payments and online shop orders. You can also accept cash or bank transfer in person — WaveBook tracks everything.</p></div>
         <div class="card"><h3>Can my customers reschedule or cancel?</h3><p>Yes. Every confirmation email includes a booking reference, and customers can reschedule or cancel online using their email and reference — no phone calls needed.</p></div>
         <div class="card"><h3>How do reminders work?</h3><p>Customers get confirmation and reminder emails automatically, and you can send SMS or WhatsApp texts from the app. Reminders are sent up to 24 hours before each appointment.</p></div>
-        <div class="card"><h3>Is there a contract or setup fee?</h3><p>No contracts, no setup fees, no hidden costs. One flat £{{ price_gbp }}/month after your trial, and you can cancel anytime.</p></div>
+        <div class="card"><h3>Is there a contract or setup fee?</h3><p>No contracts, no setup fees, no hidden costs. Plans start at £9.99/month for Basic, with Premium at £{{ price_gbp }}/month. Choose after your trial, and cancel anytime.</p></div>
       </div>
     </div>
   </section>
@@ -173,7 +173,7 @@
     <div class="container" style="text-align:center;">
       <h2>Ready to take your first booking?</h2>
       <p class="subtitle">Set up in minutes. Your booking website goes live the moment you sign up.</p>
-      <a href="/signup" class="btn">Start Your 14-Day Free Trial</a>
+      <a href="/signup" class="btn">Start Your {{ trial_days() }}-Day Free Trial</a>
     </div>
   </section>
 

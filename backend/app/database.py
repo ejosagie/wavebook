@@ -287,3 +287,22 @@ def json_loads(value: str, default=None):
         return default
     except (json.JSONDecodeError, TypeError):
         return default
+
+
+TRIAL_DAYS_KEY = "trial_days"
+
+
+def get_trial_days() -> int:
+    """Free trial length in days. Set by the platform admin; falls back to settings.TRIAL_DAYS."""
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT value FROM app_meta WHERE key = ?", (TRIAL_DAYS_KEY,)).fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        return settings.TRIAL_DAYS
+    try:
+        days = int(row["value"])
+    except (TypeError, ValueError):
+        return settings.TRIAL_DAYS
+    return days if days > 0 else settings.TRIAL_DAYS

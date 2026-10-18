@@ -115,6 +115,20 @@
           <button type="submit" class="btn btn-sm">Save Update Notice</button>
         </form>
       </div>
+
+      <h2 style="text-align:left; margin: 32px 0 16px;">Free Trial</h2>
+      <div class="card" style="max-width: 640px; padding: 20px;">
+        <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 12px;">
+          Length of the free trial for new businesses, in days. Existing trials keep their original end date.
+        </p>
+        <form method="post" action="/admin/trial-days">
+          <div class="form-group">
+            <label>Trial length (days)</label>
+            <input type="number" name="trial_days" min="1" max="90" value="{{ trial_days }}" required>
+          </div>
+          <button type="submit" class="btn btn-sm">Save Trial Length</button>
+        </form>
+      </div>
     </div>
   </section>
 

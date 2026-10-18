@@ -513,9 +513,9 @@ class SubscriptionInfo {
 
   factory SubscriptionInfo.fromJson(Map<String, dynamic> json) => SubscriptionInfo(
         status: json['status'] as String? ?? 'trial',
-        priceGbp: (json['price_gbp'] as num?)?.toDouble() ?? 9.99,
+        priceGbp: (json['price_gbp'] as num?)?.toDouble() ?? 19.99,
         maxStaff: json['max_staff'] as int? ?? 5,
-        trialDays: json['trial_days'] as int? ?? 14,
+        trialDays: json['trial_days'] as int? ?? 7,
         trialEndsAt: json['trial_ends_at'] as String? ?? '',
         trialDaysLeft: json['trial_days_left'] as int? ?? 0,
       );
