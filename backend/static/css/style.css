@@ -115,6 +115,12 @@ a:hover { text-decoration: underline; }
   background: var(--gradient); color: #fff; font-size: 0.7rem; font-weight: 800;
   padding: 4px 12px; border-radius: 20px; letter-spacing: 0.05em;
 }
+/* Rows that differ between plans */
+.pricing-card li.hl { color: var(--pink); font-weight: 700; }
+.pricing-card li.hl::before { content: "\2605  "; color: var(--pink); }
+
+/* ---------- Hamburger menu (mobile, opt-in via .has-menu) ---------- */
+.nav-toggle, .nav-toggle-label { display: none; }
 
 /* ---------- Footer ---------- */
 .footer { background: var(--ink); color: #9d8f9a; padding: 40px 0; text-align: center; font-size: 0.9rem; }
@@ -209,6 +215,20 @@ th { background: var(--surface-alt); font-weight: 700; }
   .brand img { height: 34px; width: 34px; }
   .nav-links { gap: 12px; }
   .nav-links a { font-size: 0.88rem; }
+  /* Hamburger: collapse nav into a tappable dropdown */
+  .has-menu .nav-toggle-label {
+    display: flex; align-items: center; font-size: 1.7rem; line-height: 1;
+    cursor: pointer; color: var(--ink); padding: 4px 6px; user-select: none;
+  }
+  .has-menu .nav-links {
+    display: none; position: absolute; top: 60px; right: 12px;
+    flex-direction: column; align-items: stretch; gap: 4px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 10px; min-width: 200px; box-shadow: var(--shadow); z-index: 60;
+  }
+  .has-menu .nav-toggle:checked ~ .nav-links { display: flex; }
+  .has-menu .nav-links a { padding: 10px 12px; font-size: 0.95rem; }
+  .has-menu .nav-links a.btn { margin-top: 6px; text-align: center; }
   .hero { padding: 64px 0 96px; }
   .hero h1 { font-size: 2rem; }
   .hero p { font-size: 1.05rem; }
@@ -222,9 +242,4 @@ th { background: var(--surface-alt); font-weight: 700; }
   body.tenant-theme .tenant-hero h1 { font-size: 1.8rem; }
   .about-table, .about-table tbody, .about-table tr, .about-table td { display: block; width: 100%; }
   .about-image-cell { width: 100%; text-align: center; }
-}
-
-/* On very small screens, drop same-page anchor links so real links + CTA always fit */
-@media (max-width: 560px) {
-  .nav-links a[href^="#"] { display: none; }
 }

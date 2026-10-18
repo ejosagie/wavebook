@@ -9,10 +9,12 @@
   <link rel="icon" type="image/png" href="/static/img/icon.png">
 </head>
 <body>
-  <div class="navbar">
+  <div class="navbar has-menu">
     <div class="container">
       <a href="/" class="brand"><img src="/static/img/icon.png" alt="WaveBook" class="brand-icon"></a>
-      <nav class="nav-links">
+      <input type="checkbox" id="nav-toggle" class="nav-toggle">
+      <label for="nav-toggle" class="nav-toggle-label" aria-label="Open menu">☰</label>
+      <nav class="nav-links" onclick="document.getElementById('nav-toggle').checked=false">
         <a href="#features">Features</a>
         <a href="#pricing">Pricing</a>
         <a href="#faq">FAQ</a>
@@ -61,8 +63,8 @@
             <li>Up to {{ max_staff }} staff members</li>
             <li>Unlimited bookings &amp; services</li>
             <li>Secure card payments</li>
-            <li>Online store — up to 5 products</li>
-            <li>50 free SMS reminders</li>
+            <li class="hl">Online store — up to 5 products</li>
+            <li class="hl">50 free SMS reminders</li>
             <li>Email &amp; WhatsApp reminders</li>
             <li>Self-service rescheduling</li>
             <li>VAT-friendly receipts</li>
@@ -75,10 +77,10 @@
           <div class="price">£12.99<small>/month</small></div>
           <ul>
             <li>Everything in Basic</li>
-            <li>Unlimited store products</li>
+            <li class="hl">Unlimited store products</li>
             <li>Sell products with card checkout</li>
             <li>Order tracking &amp; customer receipts</li>
-            <li>50 free SMS reminders</li>
+            <li class="hl">50 free SMS reminders</li>
             <li>Email &amp; WhatsApp reminders</li>
             <li>Self-service rescheduling</li>
             <li>VAT-friendly receipts</li>
@@ -91,8 +93,8 @@
           <div class="price">£14.99<small>/month</small></div>
           <ul>
             <li>Everything in + Shop</li>
-            <li>Unlimited store products</li>
-            <li>80 free SMS reminders</li>
+            <li class="hl">Unlimited store products</li>
+            <li class="hl">80 free SMS reminders</li>
             <li>Order tracking &amp; customer receipts</li>
             <li>Email &amp; WhatsApp reminders</li>
             <li>Self-service rescheduling</li>
@@ -108,10 +110,10 @@
 
   <section class="section">
     <div class="container">
-      <h2>Simpler than Acuity. Cheaper than the rest.</h2>
+      <h2>Simpler than existing platforms — which are also more expensive.</h2>
       <p class="subtitle">Built for the UK, USA and Canada — with a clean experience and predictable pricing for everyday business owners.</p>
       <div class="grid-3">
-        <div class="card"><h3>🌊 Simpler</h3><p>No tiered pricing, no calendar-based charges, no enterprise overhead.</p></div>
+        <div class="card"><h3>🌊 Simpler</h3><p>No calendar-based charges, no enterprise overhead — pick a plan and everything in it just works.</p></div>
         <div class="card"><h3>🇬🇧 UK-Centric</h3><p>UK bank holidays, VAT-friendly receipts and local payment methods.</p></div>
         <div class="card"><h3>⚡ Modern</h3><p>Fast Flutter app for iOS, Android and web with real-time updates.</p></div>
       </div>
