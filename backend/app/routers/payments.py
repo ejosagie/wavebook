@@ -9,7 +9,7 @@ from ..deps import get_current_business, require_owner
 from ..routers.notifications import add_notification
 from ..schemas import PaymentIntentCreate
 from ..services import flutterwave
-from ..services.emailer import send_order_paid_emails
+from ..services.emailer import send_booking_confirmation_email, send_order_paid_emails
 from ..services.notifier import send_booking_confirmation_sms
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
@@ -146,10 +146,13 @@ def _verify_booking(tx_ref: str, data: dict) -> dict:
             type_="payment",
         )
         conn.commit()
+        booking_data = row_to_dict(booking)
+        business_data = row_to_dict(business)
         # Send the customer a confirmation text
-        send_booking_confirmation_sms(row_to_dict(booking), row_to_dict(business))
+        send_booking_confirmation_sms(booking_data, business_data)
     finally:
         conn.close()
+    send_booking_confirmation_email(booking_data, business_data)
     return {"status": "paid", "booking_id": booking_id}
 
 

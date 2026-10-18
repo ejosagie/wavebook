@@ -1,10 +1,12 @@
+import secrets
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from ..config import settings
 from ..database import get_connection, row_to_dict, rows_to_dicts
-from ..deps import get_current_business, require_owner
+from ..deps import business_tier_features, get_current_business, require_owner
 from ..schemas import StaffInvite, StaffUpdate
 from ..security import hash_password
+from ..services.emailer import send_staff_invite_email
 
 router = APIRouter(prefix="/api/staff", tags=["staff"])
 
@@ -32,17 +34,24 @@ def invite_staff(
     business: dict = Depends(get_current_business),
     user: dict = Depends(require_owner),
 ):
+    max_staff = business_tier_features(business)["max_staff"]
+    if max_staff == 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Staff accounts are available on WaveBook Premium",
+        )
     conn = get_connection()
     try:
         count = conn.execute(
             "SELECT COUNT(*) AS c FROM staff WHERE business_id = ?", (business["id"],)
         ).fetchone()["c"]
-        if count >= settings.MAX_STAFF:
+        if count >= max_staff:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Maximum of {settings.MAX_STAFF} staff members allowed",
+                detail=f"Maximum of {max_staff} staff members allowed",
             )
 
+        temp_password = None
         existing_user = conn.execute(
             "SELECT * FROM users WHERE email = ?", (data.email.lower(),)
         ).fetchone()
@@ -56,10 +65,10 @@ def invite_staff(
             )
         else:
             # Temporary password; staff set their own on first login (flow added later)
-            temp_pass = hash_password("wavebook-" + data.email.lower().split("@")[0])
+            temp_password = secrets.token_urlsafe(9)
             cur = conn.execute(
                 "INSERT INTO users (email, password_hash, full_name, phone, role, business_id) VALUES (?, ?, ?, ?, 'staff', ?)",
-                (data.email.lower(), temp_pass, data.full_name, data.phone, business["id"]),
+                (data.email.lower(), hash_password(temp_password), data.full_name, data.phone, business["id"]),
             )
             user_id = cur.lastrowid
 
@@ -77,6 +86,7 @@ def invite_staff(
         )
     finally:
         conn.close()
+    send_staff_invite_email(data.email.lower(), data.full_name, business["name"], temp_password)
     return staff
 
 

@@ -71,13 +71,14 @@ class Settings:
         "basic": "WaveBook Basic", "shop": "WaveBook + Shop",
         "premium": "WaveBook Premium",
     }
+    MAX_STAFF: int = 5
     # Per-tier feature limits. max_products None = unlimited.
     TIER_FEATURES: dict = {
-        "trial":   {"storefront": True, "max_products": None, "free_sms": 50},
-        "basic":   {"storefront": True, "max_products": 5,    "free_sms": 50},
-        "shop":    {"storefront": True, "max_products": None, "free_sms": 50},
-        "premium": {"storefront": True, "max_products": None, "free_sms": 80},
-        "expired": {"storefront": False, "max_products": 0, "free_sms": 0},
+        "trial":   {"storefront": True, "max_products": None, "free_sms": 50, "max_staff": MAX_STAFF},
+        "basic":   {"storefront": True, "max_products": 5,    "free_sms": 50, "max_staff": 0},
+        "shop":    {"storefront": True, "max_products": None, "free_sms": 50, "max_staff": 0},
+        "premium": {"storefront": True, "max_products": None, "free_sms": 80, "max_staff": MAX_STAFF},
+        "expired": {"storefront": False, "max_products": 0, "free_sms": 0, "max_staff": 0},
     }
     # Plan keys from before the 3-tier rename -> current keys.
     LEGACY_PLAN_KEYS: dict = {
@@ -86,7 +87,6 @@ class Settings:
         "standard_biannual": "basic_biannual",
         "standard_yearly": "basic_yearly",
     }
-    MAX_STAFF: int = 5
     TRIAL_DAYS: int = 14
     SMS_FREE_LIMIT: int = 50  # default free SMS per business (plan tiers may override)
     SMS_TOPUP_PRICE_GBP: float = 5.00

@@ -212,3 +212,24 @@ def send_order_paid_emails(order: dict, business: dict) -> None:
                 "Manage it in the WaveBook app.\n\nWaveBook"
             ),
         )
+
+
+def send_staff_invite_email(to: str, full_name: str, business_name: str, temp_password: str | None) -> dict:
+    """Tell a staff member they were added to a business, with login details for new accounts."""
+    if temp_password:
+        login = (
+            f"Your login details:\n"
+            f"  Email: {to}\n"
+            f"  Temporary password: {temp_password}\n\n"
+            "Sign in and keep this password private.\n\n"
+        )
+    else:
+        login = "Sign in with your existing WaveBook email and password.\n\n"
+    body = (
+        f"Hi {full_name},\n\n"
+        f"{business_name} has added you as a staff member on WaveBook.\n\n"
+        f"{login}"
+        "Download the WaveBook app from the App Store or Google Play and sign in.\n\n"
+        "WaveBook"
+    )
+    return send_email(to, f"You've been added to {business_name} on WaveBook", body)

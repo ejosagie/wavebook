@@ -6,7 +6,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 
 from ..config import settings
 from ..database import get_connection, row_to_dict
-from ..deps import bearer_scheme, get_business_plan, get_current_business
+from ..deps import bearer_scheme, business_tier_features, get_business_plan, get_current_business
 from ..schemas import SubscriptionCheckoutRequest
 from ..security import decode_access_token
 from ..services import flutterwave
@@ -33,7 +33,7 @@ def get_subscription(business: dict = Depends(get_current_business)):
         "plan_tier": plan.get("tier", ""),
         "plan_interval": plan.get("interval", ""),
         "price_gbp": settings.SUBSCRIPTION_PRICE_GBP,
-        "max_staff": settings.MAX_STAFF,
+        "max_staff": business_tier_features(business)["max_staff"],
         "trial_days": settings.TRIAL_DAYS,
         "trial_ends_at": trial_ends,
         "trial_days_left": trial_days_left,
