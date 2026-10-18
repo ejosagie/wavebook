@@ -149,6 +149,11 @@ def signup_success(request: Request):
     return templates.TemplateResponse(request, "signup_success.html", {})
 
 
+@router.get("/support", response_class=HTMLResponse)
+def support_page(request: Request):
+    return templates.TemplateResponse(request, "support.html", {})
+
+
 @router.get("/", response_class=HTMLResponse)
 def landing(request: Request, access: str | None = None):
     if access and settings.ADMIN_ACCESS_TOKEN and access == settings.ADMIN_ACCESS_TOKEN:
