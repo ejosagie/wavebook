@@ -159,6 +159,15 @@ class StaffUpdate(BaseModel):
     active: bool | None = None
 
 
+class AssignBookingRequest(BaseModel):
+    staff_id: int | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=8)
+
+
 # ---- Feedback ----
 class FeedbackCreate(BaseModel):
     slug: str = Field(min_length=2)

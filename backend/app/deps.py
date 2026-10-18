@@ -1,4 +1,6 @@
-from fastapi import Depends, HTTPException, status
+import re
+
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .config import settings
@@ -6,6 +8,14 @@ from .database import get_connection, row_to_dict
 from .security import decode_access_token
 
 bearer_scheme = HTTPBearer(auto_error=False)
+
+STAFF_ALLOWED_ROUTES = (
+    ("GET", re.compile(r"^/api/(auth/me|app/meta|health)$")),
+    ("POST", re.compile(r"^/api/auth/(login|signup|change-password)$")),
+)
+STAFF_BOOKING_ROUTES = (
+    ("GET", re.compile(r"^/api/bookings/mine$")),
+)
 
 
 def get_current_user(
@@ -76,3 +86,47 @@ def business_tier_features(business: dict) -> dict:
     if status == "trial":
         return settings.TIER_FEATURES["trial"]
     return settings.TIER_FEATURES["expired"]
+
+
+def _route_matches(method: str, path: str, rules) -> bool:
+    return any(method == rule_method and pattern.match(path) for rule_method, pattern in rules)
+
+
+def enforce_staff_access(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> None:
+    """Staff accounts only reach their assigned bookings and their own account routes.
+
+    Every other API route is owner-only. Staff also lose access if the business is no longer on a plan that includes staff.
+    """
+    path = request.url.path
+    if credentials is None or not path.startswith("/api/"):
+        return
+    user_id = decode_access_token(credentials.credentials)
+    if user_id is None:
+        return
+    conn = get_connection()
+    try:
+        user = row_to_dict(conn.execute("SELECT role, business_id FROM users WHERE id = ?", (user_id,)).fetchone())
+        business = None
+        if user and user["role"] == "staff" and user["business_id"]:
+            business = row_to_dict(
+                conn.execute("SELECT * FROM businesses WHERE id = ?", (user["business_id"],)).fetchone()
+            )
+    finally:
+        conn.close()
+    if not user or user["role"] != "staff":
+        return
+    if _route_matches(request.method, path, STAFF_ALLOWED_ROUTES):
+        return
+    if business is None or business_tier_features(business)["max_staff"] == 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Staff access is not included in this business's plan",
+        )
+    if not _route_matches(request.method, path, STAFF_BOOKING_ROUTES):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Staff accounts can only view their assigned bookings",
+        )

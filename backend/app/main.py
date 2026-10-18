@@ -2,11 +2,12 @@ import asyncio
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .database import get_connection, init_db, row_to_dict
+from .deps import enforce_staff_access
 from .routers import (
     auth,
     availability,
@@ -28,7 +29,7 @@ from .services.emailer import send_booking_reminder_email
 BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOADS_DIR = BASE_DIR / "uploads"
 
-app = FastAPI(title="WaveBook API", version="0.2.2")
+app = FastAPI(title="WaveBook API", version="0.2.2", dependencies=[Depends(enforce_staff_access)])
 
 # Wire upload dir into the business and products routers
 business.UPLOAD_DIR = UPLOADS_DIR

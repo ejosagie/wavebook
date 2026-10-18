@@ -4,11 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 
 from ..database import get_connection, row_to_dict, rows_to_dicts
-from ..deps import get_current_business, require_owner
+from ..deps import business_tier_features, get_current_business, get_current_user, require_owner
 from ..phone import validate_uk_phone
 from ..routers.notifications import add_notification
-from ..schemas import BookingCreate, BookingStatusUpdate
+from ..schemas import AssignBookingRequest, BookingCreate, BookingStatusUpdate
 from ..services.emailer import (
+    send_booking_assigned_email,
     send_booking_confirmation_email,
     send_booking_received_email,
     send_booking_reminder_email,
@@ -32,7 +33,11 @@ def list_bookings(
     date: str | None = Query(default=None),
     status_filter: str | None = Query(default=None, alias="status"),
 ):
-    query = "SELECT * FROM bookings WHERE business_id = ?"
+    query = (
+        "SELECT *, (SELECT u.full_name FROM staff s JOIN users u ON u.id = s.user_id "
+        "WHERE s.id = bookings.assigned_staff_id) AS assigned_staff_name "
+        "FROM bookings WHERE business_id = ?"
+    )
     params: list = [business["id"]]
     if date:
         query += " AND date = ?"
@@ -44,6 +49,29 @@ def list_bookings(
     conn = get_connection()
     try:
         rows = rows_to_dicts(conn.execute(query, params).fetchall())
+    finally:
+        conn.close()
+    return rows
+
+
+@router.get("/mine")
+def my_assigned_bookings(user: dict = Depends(get_current_user)):
+    conn = get_connection()
+    try:
+        staff = conn.execute(
+            "SELECT id FROM staff WHERE user_id = ? AND active = 1", (user["id"],)
+        ).fetchone()
+        if staff is None:
+            return []
+        rows = rows_to_dicts(
+            conn.execute(
+                """SELECT id, customer_name, customer_phone, service_name, service_duration_minutes,
+                          date, time, notes, reference, status
+                   FROM bookings WHERE assigned_staff_id = ? AND status != 'cancelled'
+                   ORDER BY date, time""",
+                (staff["id"],),
+            ).fetchall()
+        )
     finally:
         conn.close()
     return rows
@@ -210,6 +238,51 @@ def update_booking_status(
         send_booking_confirmation_email(booking, business)
 
     return {**booking, "sms": sms}
+
+
+@router.patch("/{booking_id}/assign")
+def assign_booking(
+    booking_id: int,
+    data: AssignBookingRequest,
+    business: dict = Depends(get_current_business),
+    user: dict = Depends(require_owner),
+):
+    if business_tier_features(business)["max_staff"] == 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Assigning bookings to staff is a WaveBook Premium feature",
+        )
+    conn = get_connection()
+    try:
+        existing = row_to_dict(
+            conn.execute(
+                "SELECT * FROM bookings WHERE id = ? AND business_id = ?", (booking_id, business["id"])
+            ).fetchone()
+        )
+        if not existing:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found")
+        staff = None
+        if data.staff_id is not None:
+            staff = row_to_dict(
+                conn.execute(
+                    """SELECT s.id, u.email, u.full_name FROM staff s JOIN users u ON u.id = s.user_id
+                       WHERE s.id = ? AND s.business_id = ? AND s.active = 1""",
+                    (data.staff_id, business["id"]),
+                ).fetchone()
+            )
+            if not staff:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Staff member not found")
+        conn.execute(
+            "UPDATE bookings SET assigned_staff_id = ? WHERE id = ?",
+            (data.staff_id, booking_id),
+        )
+        conn.commit()
+        booking = row_to_dict(conn.execute("SELECT * FROM bookings WHERE id = ?", (booking_id,)).fetchone())
+    finally:
+        conn.close()
+    if staff is not None and staff["id"] != existing["assigned_staff_id"]:
+        send_booking_assigned_email(booking, business, staff["email"], staff["full_name"])
+    return {**booking, "assigned_staff_name": staff["full_name"] if staff else None}
 
 
 @router.get("/{booking_id}/ics")

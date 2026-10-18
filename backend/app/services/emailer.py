@@ -233,3 +233,24 @@ def send_staff_invite_email(to: str, full_name: str, business_name: str, temp_pa
         "WaveBook"
     )
     return send_email(to, f"You've been added to {business_name} on WaveBook", body)
+
+
+def send_booking_assigned_email(booking: dict, business: dict, staff_email: str, staff_name: str) -> dict:
+    """Tell a staff member a booking has been assigned to them."""
+    body = (
+        f"Hi {staff_name},\n\n"
+        f"A booking at {business.get('name', '')} has been assigned to you:\n"
+        f"  Customer: {booking.get('customer_name', '')}\n"
+        f"  Phone: {booking.get('customer_phone', '')}\n"
+        f"  Service: {booking.get('service_name', '')}\n"
+        f"  Date: {booking.get('date', '')}\n"
+        f"  Time: {booking.get('time', '')}\n"
+        f"  Booking reference: {booking.get('reference', '')}\n\n"
+        "Open the WaveBook app to see your assigned bookings.\n\n"
+        "WaveBook"
+    )
+    return send_email(
+        staff_email,
+        f"Booking assigned to you — {booking.get('service_name', '')} on {booking.get('date', '')}",
+        body,
+    )

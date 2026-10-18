@@ -7,7 +7,7 @@ from ..config import settings
 from ..database import get_connection, row_to_dict
 from ..deps import get_current_user
 from ..phone import validate_uk_phone
-from ..schemas import LoginRequest, SignupRequest, TokenResponse
+from ..schemas import ChangePasswordRequest, LoginRequest, SignupRequest, TokenResponse
 from ..security import create_access_token, hash_password, verify_password
 from ..services.emailer import send_welcome_email
 
@@ -114,3 +114,20 @@ def login(data: LoginRequest):
 def me(user: dict = Depends(get_current_user)):
     user.pop("password_hash", None)
     return user
+
+
+@router.post("/change-password")
+def change_password(data: ChangePasswordRequest, user: dict = Depends(get_current_user)):
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT password_hash FROM users WHERE id = ?", (user["id"],)).fetchone()
+        if not verify_password(data.current_password, row["password_hash"]):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
+        conn.execute(
+            "UPDATE users SET password_hash = ? WHERE id = ?",
+            (hash_password(data.new_password), user["id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
