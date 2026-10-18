@@ -34,7 +34,7 @@ def test_new_booking_emails_customer_and_owner(client, make_business, make_servi
     assert recipients["studio@wavebook.com"].startswith("New booking")
 
 
-def test_owner_address_falls_back_to_account_email(make_business):
+def test_owner_address_falls_back_to_account_email(make_business, sent):
     biz = make_business("fallbackco", contact_email="")
     assert emailer._owner_address({"id": biz["id"], "contact_email": ""}) == biz["owner_email"]
 
