@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../api/api_client.dart';
+import '../../../models/models.dart';
 import '../../../services/app_update.dart';
 import '../../account/change_password_screen.dart';
 import '../../../state/auth_state.dart';
@@ -17,8 +19,31 @@ import 'staff_tab.dart';
 import 'subscription_tab.dart';
 import 'website_screen.dart';
 
-class MoreTab extends StatelessWidget {
+class MoreTab extends StatefulWidget {
   const MoreTab({super.key});
+
+  @override
+  State<MoreTab> createState() => _MoreTabState();
+}
+
+class _MoreTabState extends State<MoreTab> {
+  final _api = ApiClient();
+  bool _canManageStaff = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPlan();
+  }
+
+  Future<void> _loadPlan() async {
+    try {
+      final sub = SubscriptionInfo.fromJson(await _api.get('/api/subscription') as Map<String, dynamic>);
+      if (mounted) setState(() => _canManageStaff = sub.maxStaff > 0);
+    } on ApiException {
+      if (mounted) setState(() => _canManageStaff = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,13 +91,14 @@ class MoreTab extends StatelessWidget {
             subtitle: 'Bookings, deposits and order income',
             onTap: () => _push(context, const ReportsScreen()),
           ),
-          _MenuCard(
-            icon: Icons.group_outlined,
-            color: WaveBookColors.rose,
-            title: 'Staff',
-            subtitle: 'Invite up to 5 staff members',
-            onTap: () => _push(context, const StaffTab()),
-          ),
+          if (_canManageStaff)
+            _MenuCard(
+              icon: Icons.group_outlined,
+              color: WaveBookColors.rose,
+              title: 'Staff',
+              subtitle: 'Invite up to 5 staff members',
+              onTap: () => _push(context, const StaffTab()),
+            ),
           _MenuCard(
             icon: Icons.people_outline,
             color: WaveBookColors.pink,

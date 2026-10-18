@@ -59,9 +59,9 @@ class Settings:
         "shop_biannual":     {"tier": "shop",    "interval": "biannual",  "price": 69.99},
         "shop_yearly":       {"tier": "shop",    "interval": "yearly",    "price": 129.99},
         "premium_monthly":   {"tier": "premium", "interval": "monthly",   "price": 19.99},
-        "premium_quarterly": {"tier": "premium", "interval": "quarterly", "price": 42.99},
-        "premium_biannual":  {"tier": "premium", "interval": "biannual",  "price": 79.99},
-        "premium_yearly":    {"tier": "premium", "interval": "yearly",    "price": 149.99},
+        "premium_quarterly": {"tier": "premium", "interval": "quarterly", "price": 56.99},
+        "premium_biannual":  {"tier": "premium", "interval": "biannual",  "price": 109.99},
+        "premium_yearly":    {"tier": "premium", "interval": "yearly",    "price": 199.99},
     }
     INTERVAL_LABELS: dict = {
         "monthly": "Monthly", "quarterly": "Quarterly (3 months)",

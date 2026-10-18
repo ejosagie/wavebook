@@ -88,7 +88,7 @@ def effective_subscription_status(business: dict) -> str:
     status = business.get("subscription_status")
     if status == "trial":
         end = _trial_end_date(business.get("trial_ends_at"))
-        if end is not None and date.today() >= end:
+        if end is None or date.today() >= end:
             return "expired"
     return status
 

@@ -62,6 +62,14 @@ def test_expired_trial_loses_staff_and_assignment(client, make_business, make_bo
     assert client.get("/api/bookings/mine", headers=auth(staff["token"])).status_code == 403
 
 
+def test_trial_without_end_date_is_expired(client, make_business):
+    biz = make_business("noenddate")
+    _set_trial(biz["id"], "trial", "")
+    body = client.get("/api/subscription", headers=auth(biz["owner_token"])).json()
+    assert body["status"] == "expired"
+    assert body["max_staff"] == 0
+
+
 def test_admin_changes_trial_length(client, make_business):
     client.cookies.set("wavebook_admin", create_admin_token())
     res = client.post("/admin/trial-days", data={"trial_days": "10"}, follow_redirects=False)
@@ -101,6 +109,13 @@ def test_landing_page_quotes_trial_length_and_premium_price(client):
 def test_premium_monthly_is_nineteen_ninety_nine():
     assert settings.SUBSCRIPTION_PLANS["premium_monthly"]["price"] == 19.99
     assert settings.SUBSCRIPTION_PRICE_GBP == 19.99
+
+
+def test_premium_intervals_match_monthly_price():
+    plans = settings.SUBSCRIPTION_PLANS
+    assert plans["premium_quarterly"]["price"] == 56.99
+    assert plans["premium_biannual"]["price"] == 109.99
+    assert plans["premium_yearly"]["price"] == 199.99
 
 
 def test_welcome_email_quotes_trial_length(sent):
