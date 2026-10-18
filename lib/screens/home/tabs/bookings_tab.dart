@@ -65,23 +65,14 @@ class _BookingsTabState extends State<BookingsTab> {
 
   Future<void> _setStatus(Booking booking, String status) async {
     try {
-      final data = await _api.patch('/api/bookings/${booking.id}/status', body: {'status': status});
+      await _api.patch('/api/bookings/${booking.id}/status', body: {'status': status});
       await _load();
       if (!mounted) return;
-      if (status == 'confirmed') {
-        final sms = (data as Map<String, dynamic>)['sms'] as Map<String, dynamic>?;
-        final smsStatus = sms?['status'];
-        final message = smsStatus == 'sent'
-            ? 'Booking confirmed — text sent to ${booking.customerName}'
-            : smsStatus == 'queued'
-                ? 'Booking confirmed — text queued (dev mode)'
-                : 'Booking confirmed';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Booking ${status == 'cancelled' ? 'cancelled' : 'updated'}')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Booking ${status == 'confirmed' ? 'confirmed' : status == 'cancelled' ? 'cancelled' : 'updated'}'),
+        ),
+      );
     } on ApiException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
@@ -150,69 +141,6 @@ class _BookingsTabState extends State<BookingsTab> {
     try {
       await _api.delete('/api/bookings/${booking.id}');
       await _load();
-    } on ApiException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
-      }
-    }
-  }
-
-  Future<void> _sendSms(Booking booking) async {
-    final controller = TextEditingController(
-      text: 'Hi ${booking.customerName}, your booking with us is '
-          '${booking.serviceName} on ${booking.date} at ${booking.time}. '
-          'See you soon!',
-    );
-    final message = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Text ${booking.customerName}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: controller,
-              maxLines: 4,
-              decoration: const InputDecoration(labelText: 'Message'),
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'To: ${booking.customerPhone.isEmpty ? 'no phone on file' : booking.customerPhone}',
-                style: const TextStyle(color: WaveBookColors.muted, fontSize: 12),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('Send Text'),
-          ),
-        ],
-      ),
-    );
-    if (message == null || message.trim().isEmpty) return;
-    if (booking.customerPhone.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('This customer has no phone number on file')),
-        );
-      }
-      return;
-    }
-    try {
-      await _api.post('/api/notifications/send-text', body: {
-        'phone': booking.customerPhone,
-        'message': message.trim(),
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Text message sent')),
-        );
-      }
     } on ApiException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
@@ -302,7 +230,6 @@ class _BookingsTabState extends State<BookingsTab> {
           onConfirm: () => _setStatus(bookings[i], 'confirmed'),
           onCancel: () => _setStatus(bookings[i], 'cancelled'),
           onDelete: () => _delete(bookings[i]),
-          onSendSms: () => _sendSms(bookings[i]),
           onAddToCalendar: () => _addToCalendar(bookings[i]),
           onAssign: () => _assign(bookings[i]),
           canAssign: _canAssign,
@@ -317,7 +244,6 @@ class _BookingCard extends StatelessWidget {
   final VoidCallback onConfirm;
   final VoidCallback onCancel;
   final VoidCallback onDelete;
-  final VoidCallback onSendSms;
   final VoidCallback onAddToCalendar;
   final VoidCallback onAssign;
   final bool canAssign;
@@ -327,7 +253,6 @@ class _BookingCard extends StatelessWidget {
     required this.onConfirm,
     required this.onCancel,
     required this.onDelete,
-    required this.onSendSms,
     required this.onAddToCalendar,
     required this.onAssign,
     required this.canAssign,
@@ -381,22 +306,22 @@ class _BookingCard extends StatelessWidget {
             if (booking.confirmationFile.isNotEmpty)
               _InfoRow(icon: Icons.receipt, text: 'Payment evidence uploaded'),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                if (booking.status == 'pending') ...[
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: WaveBookColors.success,
-                        minimumSize: const Size(0, 40),
+            if (booking.status != 'cancelled') ...[
+              Row(
+                children: [
+                  if (booking.status == 'pending') ...[
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: WaveBookColors.success,
+                          minimumSize: const Size(0, 40),
+                        ),
+                        onPressed: onConfirm,
+                        child: const Text('Confirm'),
                       ),
-                      onPressed: onConfirm,
-                      child: const Text('Confirm'),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-                if (booking.status != 'cancelled') ...[
+                    const SizedBox(width: 8),
+                  ],
                   Expanded(
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
@@ -408,13 +333,13 @@ class _BookingCard extends StatelessWidget {
                       child: const Text('Cancel'),
                     ),
                   ),
-                  const SizedBox(width: 8),
                 ],
-                IconButton(
-                  icon: const Icon(Icons.sms_outlined, color: WaveBookColors.pink),
-                  onPressed: onSendSms,
-                  tooltip: 'Send text message',
-                ),
+              ),
+              const SizedBox(height: 4),
+            ],
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
                 if (canAssign)
                   IconButton(
                     icon: const Icon(Icons.person_add_alt_1_outlined, color: WaveBookColors.pink),

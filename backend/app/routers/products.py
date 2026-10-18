@@ -8,6 +8,7 @@ from ..database import get_connection, row_to_dict, rows_to_dicts
 from ..deps import business_tier_features, get_current_business, require_owner
 from ..schemas import OrderUpdate, ProductCreate, ProductUpdate, StorefrontCheckout
 from ..services import flutterwave, gcs
+from ..services.uploads import image_content_type
 
 router = APIRouter(tags=["storefront"])
 
@@ -138,8 +139,7 @@ def upload_product_image(
     business: dict = Depends(get_current_business),
     user: dict = Depends(require_owner),
 ):
-    allowed = {"image/jpeg", "image/png", "image/gif", "image/webp"}
-    if file.content_type not in allowed:
+    if image_content_type(file) is None:
         raise HTTPException(status_code=400, detail="Use JPG, PNG, GIF or WebP")
 
     conn = get_connection()

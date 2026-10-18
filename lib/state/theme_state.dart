@@ -4,13 +4,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ThemeState extends ChangeNotifier {
   static const _key = 'wavebook_light_mode';
 
-  ThemeMode mode = ThemeMode.dark;
+  ThemeMode mode = ThemeMode.light;
 
   bool get isLight => mode == ThemeMode.light;
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
-    mode = (prefs.getBool(_key) ?? false) ? ThemeMode.light : ThemeMode.dark;
+    mode = (prefs.getBool(_key) ?? true) ? ThemeMode.light : ThemeMode.dark;
     notifyListeners();
   }
 

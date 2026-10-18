@@ -30,7 +30,6 @@ class BusinessCreate(BaseModel):
 
 class BusinessUpdate(BaseModel):
     name: str | None = None
-    slug: str | None = None
     tagline: str | None = None
     about_text: str | None = None
     rules: str | None = None
@@ -140,12 +139,6 @@ class BookingStatusUpdate(BaseModel):
 # ---- Payments ----
 class PaymentIntentCreate(BaseModel):
     booking_id: int
-
-
-# ---- Text notifications ----
-class SendTextRequest(BaseModel):
-    phone: str = Field(min_length=5)
-    message: str = Field(min_length=1, max_length=1600)
 
 
 # ---- Staff ----

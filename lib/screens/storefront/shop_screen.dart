@@ -65,7 +65,6 @@ class _ShopScreenState extends State<ShopScreen> {
     try {
       await _api.patch('/api/business', body: {
         'name': _name.text.trim(),
-        'slug': _slug.text.trim(),
         'contact_phone': _phone.text.trim(),
         'contact_email': _email.text.trim(),
         'storefront_enabled': _storefrontEnabled,
@@ -135,9 +134,10 @@ class _ShopScreenState extends State<ShopScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: _slug,
+              readOnly: true,
               decoration: const InputDecoration(
                 labelText: 'Website address',
-                helperText: 'Your shop and booking site:',
+                helperText: 'Chosen during set-up and cannot be changed',
               ),
             ),
             const SizedBox(height: 4),

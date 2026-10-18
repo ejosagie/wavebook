@@ -7,6 +7,7 @@ from ..database import get_connection, get_trial_days, row_to_dict, rows_to_dict
 from ..deps import get_current_business, get_current_user, require_owner
 from ..phone import validate_uk_phone
 from ..schemas import BusinessCreate, BusinessUpdate
+from ..services.uploads import image_content_type
 
 router = APIRouter(prefix="/api/business", tags=["business"])
 
@@ -71,20 +72,6 @@ def update_business(data: BusinessUpdate, business: dict = Depends(get_current_b
             updates["contact_phone"] = validate_uk_phone(updates["contact_phone"])
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
-    if "slug" in updates:
-        slug = updates["slug"].lower().strip()
-        if not re.match(r"^[a-z0-9-]{2,63}$", slug):
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid website address")
-        updates["slug"] = slug
-        conn = get_connection()
-        try:
-            taken = conn.execute(
-                "SELECT id FROM businesses WHERE slug = ? AND id != ?", (slug, business["id"])
-            ).fetchone()
-        finally:
-            conn.close()
-        if taken:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="That website address is already taken")
     conn = get_connection()
     try:
         fields = ", ".join(f"{k} = ?" for k in updates)
@@ -115,8 +102,7 @@ def upload_about_image(
 
 
 def _save_upload(file: UploadFile, business: dict, kind: str) -> dict:
-    allowed = {"image/jpeg", "image/png", "image/gif", "image/webp"}
-    if file.content_type not in allowed:
+    if image_content_type(file) is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Use JPG, PNG, GIF or WebP")
 
     ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "png"
@@ -163,8 +149,7 @@ def upload_gallery_image(
 ):
     if slot < 0 or slot > 7:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Slot must be 0-7")
-    allowed = {"image/jpeg", "image/png", "image/gif", "image/webp"}
-    if file.content_type not in allowed:
+    if image_content_type(file) is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Use JPG, PNG, GIF or WebP")
 
     import uuid

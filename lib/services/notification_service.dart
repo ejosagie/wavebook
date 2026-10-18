@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../api/api_client.dart';
 
@@ -92,6 +93,7 @@ void showBookingNotificationPopup(
   BuildContext context,
   AppNotification notification,
 ) {
+  SystemSound.play(SystemSoundType.alert);
   showDialog(
     context: context,
     barrierDismissible: true,
