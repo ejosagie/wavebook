@@ -14,7 +14,7 @@ def _create_product(client, token):
 
 def test_product_image_accepts_png_sent_as_generic_binary(client, make_business, monkeypatch, tmp_path):
     monkeypatch.setattr(products, "UPLOAD_DIR", tmp_path)
-    biz = make_business("imgco")
+    biz = make_business("imgco", plan="premium_monthly")
     product_id = _create_product(client, biz["owner_token"])
     res = client.post(
         f"/api/products/{product_id}/image",
@@ -28,7 +28,7 @@ def test_product_image_accepts_png_sent_as_generic_binary(client, make_business,
 
 def test_product_image_rejects_non_image_file(client, make_business, monkeypatch, tmp_path):
     monkeypatch.setattr(products, "UPLOAD_DIR", tmp_path)
-    biz = make_business("imgbad")
+    biz = make_business("imgbad", plan="premium_monthly")
     product_id = _create_product(client, biz["owner_token"])
     res = client.post(
         f"/api/products/{product_id}/image",
