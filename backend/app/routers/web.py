@@ -1235,7 +1235,7 @@ def tenant_store(request: Request, slug: str):
     business = _get_business_by_slug(slug)
     if not business:
         raise HTTPException(status_code=404, detail="Business not found")
-    if not business["storefront_enabled"]:
+    if not business["storefront_enabled"] or business["subscription_status"] == "cancelled":
         raise HTTPException(status_code=404, detail="Storefront not enabled")
     conn = get_connection()
     try:

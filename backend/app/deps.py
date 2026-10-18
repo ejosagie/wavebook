@@ -63,10 +63,16 @@ def get_business_plan(business_id: int) -> tuple[str | None, dict | None]:
 
 
 def business_tier_features(business: dict) -> dict:
-    """Feature limits for the business's current tier (non-active subs get trial features)."""
-    if business.get("subscription_status") == "active":
+    """Feature limits for the business's current tier.
+
+    Active subs get their plan's features; trials get trial features;
+    cancelled/past_due subs get the locked-down 'expired' tier.
+    """
+    status = business.get("subscription_status")
+    if status == "active":
         _, plan = get_business_plan(business["id"])
         if plan:
             return settings.TIER_FEATURES[plan["tier"]]
-    return settings.TIER_FEATURES["trial"]
-    return user
+    if status == "trial":
+        return settings.TIER_FEATURES["trial"]
+    return settings.TIER_FEATURES["expired"]

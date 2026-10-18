@@ -79,6 +79,7 @@ class Settings:
         "basic":   {"storefront": True, "max_products": 5,    "free_sms": 50},
         "shop":    {"storefront": True, "max_products": None, "free_sms": 50},
         "premium": {"storefront": True, "max_products": None, "free_sms": 80},
+        "expired": {"storefront": False, "max_products": 0, "free_sms": 0},
     }
     # Plan keys from before the 3-tier rename -> current keys.
     LEGACY_PLAN_KEYS: dict = {
