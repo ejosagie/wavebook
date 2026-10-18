@@ -5,6 +5,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/setup/business_setup_screen.dart';
 import 'screens/splash_screen.dart';
+import 'screens/staff/staff_home_screen.dart';
 import 'state/auth_state.dart';
 import 'state/theme_state.dart';
 import 'theme.dart';
@@ -55,6 +56,9 @@ class RootRouter extends StatelessWidget {
     }
     if (!auth.hasBusiness) {
       return const BusinessSetupScreen();
+    }
+    if (auth.user?.role == 'staff') {
+      return const StaffHomeScreen();
     }
     return const HomeScreen();
   }

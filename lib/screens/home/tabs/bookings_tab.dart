@@ -21,6 +21,7 @@ class _BookingsTabState extends State<BookingsTab> {
   bool _loading = true;
   String? _error;
   String _filter = 'all';
+  List<StaffMember> _staff = [];
 
   @override
   void initState() {
@@ -39,6 +40,16 @@ class _BookingsTabState extends State<BookingsTab> {
       setState(() {
         _bookings = (data as List).map((b) => Booking.fromJson(b as Map<String, dynamic>)).toList();
       });
+      try {
+        final staffData = await _api.get('/api/staff');
+        if (mounted) {
+          setState(() {
+            _staff = (staffData as List).map((s) => StaffMember.fromJson(s as Map<String, dynamic>)).toList();
+          });
+        }
+      } on ApiException {
+        _staff = [];
+      }
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } finally {
@@ -63,6 +74,48 @@ class _BookingsTabState extends State<BookingsTab> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Booking ${status == 'cancelled' ? 'cancelled' : 'updated'}')),
+        );
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
+  Future<void> _assign(Booking booking) async {
+    if (_staff.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invite a staff member first (WaveBook Premium)')),
+      );
+      return;
+    }
+    final choice = await showDialog<({int? staffId})>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Assign to'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, (staffId: null)),
+            child: const Text('Unassigned'),
+          ),
+          for (final member in _staff)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, (staffId: member.id)),
+              child: Text(member.fullName),
+            ),
+        ],
+      ),
+    );
+    if (choice == null) return;
+    try {
+      await _api.patch('/api/bookings/${booking.id}/assign', body: {'staff_id': choice.staffId});
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(choice.staffId == null ? 'Booking unassigned' : 'Booking assigned, staff member emailed'),
+          ),
         );
       }
     } on ApiException catch (e) {
@@ -245,6 +298,7 @@ class _BookingsTabState extends State<BookingsTab> {
           onDelete: () => _delete(bookings[i]),
           onSendSms: () => _sendSms(bookings[i]),
           onAddToCalendar: () => _addToCalendar(bookings[i]),
+          onAssign: () => _assign(bookings[i]),
         ),
       ),
     );
@@ -258,6 +312,7 @@ class _BookingCard extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback onSendSms;
   final VoidCallback onAddToCalendar;
+  final VoidCallback onAssign;
 
   const _BookingCard({
     required this.booking,
@@ -266,6 +321,7 @@ class _BookingCard extends StatelessWidget {
     required this.onDelete,
     required this.onSendSms,
     required this.onAddToCalendar,
+    required this.onAssign,
   });
 
   @override
@@ -311,6 +367,8 @@ class _BookingCard extends StatelessWidget {
             if (booking.customerEmail.isNotEmpty)
               _InfoRow(icon: Icons.email, text: booking.customerEmail),
             if (booking.notes.isNotEmpty) _InfoRow(icon: Icons.notes, text: booking.notes),
+            if (booking.assignedStaffName != null)
+              _InfoRow(icon: Icons.badge_outlined, text: 'Assigned to ${booking.assignedStaffName}'),
             if (booking.confirmationFile.isNotEmpty)
               _InfoRow(icon: Icons.receipt, text: 'Payment evidence uploaded'),
             const SizedBox(height: 12),
@@ -347,6 +405,11 @@ class _BookingCard extends StatelessWidget {
                   icon: const Icon(Icons.sms_outlined, color: WaveBookColors.pink),
                   onPressed: onSendSms,
                   tooltip: 'Send text message',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.person_add_alt_1_outlined, color: WaveBookColors.pink),
+                  onPressed: onAssign,
+                  tooltip: 'Assign to staff',
                 ),
                 IconButton(
                   icon: const Icon(Icons.calendar_month_outlined, color: WaveBookColors.pink),

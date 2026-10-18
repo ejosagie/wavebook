@@ -331,6 +331,8 @@ class Booking {
   final String confirmationFile;
   final String reference;
   final String createdAt;
+  final int? assignedStaffId;
+  final String? assignedStaffName;
 
   Booking({
     required this.id,
@@ -348,6 +350,8 @@ class Booking {
     required this.confirmationFile,
     required this.reference,
     required this.createdAt,
+    this.assignedStaffId,
+    this.assignedStaffName,
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) => Booking(
@@ -366,6 +370,8 @@ class Booking {
         confirmationFile: json['confirmation_file'] as String? ?? '',
         reference: json['reference'] as String? ?? '',
         createdAt: json['created_at'] as String? ?? '',
+        assignedStaffId: json['assigned_staff_id'] as int?,
+        assignedStaffName: json['assigned_staff_name'] as String?,
       );
 }
 

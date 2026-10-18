@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../services/app_update.dart';
+import '../../account/change_password_screen.dart';
 import '../../../state/auth_state.dart';
 import '../../../state/theme_state.dart';
 import '../../../theme.dart';
@@ -99,6 +100,13 @@ class MoreTab extends StatelessWidget {
             title: 'Subscription',
             subtitle: 'Manage your £9.99/month plan',
             onTap: () => _push(context, const SubscriptionTab()),
+          ),
+          _MenuCard(
+            icon: Icons.lock_outline,
+            color: WaveBookColors.rose,
+            title: 'Change password',
+            subtitle: 'Update your WaveBook sign-in password',
+            onTap: () => _push(context, const ChangePasswordScreen()),
           ),
           _MenuCard(
             icon: Icons.support_agent_outlined,
