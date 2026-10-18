@@ -9,6 +9,7 @@ from ..deps import get_current_business, require_owner
 from ..routers.notifications import add_notification
 from ..schemas import PaymentIntentCreate
 from ..services import flutterwave
+from ..services.emailer import send_order_paid_emails
 from ..services.notifier import send_booking_confirmation_sms
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
@@ -191,8 +192,13 @@ def _verify_order(tx_ref: str, data: dict) -> dict:
             type_="payment",
         )
         conn.commit()
+        order_data = row_to_dict(order)
+        business = row_to_dict(
+            conn.execute("SELECT * FROM businesses WHERE id = ?", (order["business_id"],)).fetchone()
+        )
     finally:
         conn.close()
+    send_order_paid_emails(order_data, business)
     return {"status": "paid", "order_id": order_id}
 
 

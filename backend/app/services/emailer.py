@@ -9,6 +9,7 @@ import logging
 import urllib.request
 
 from ..config import settings
+from ..database import get_connection
 
 logger = logging.getLogger("wavebook")
 
@@ -125,3 +126,89 @@ def send_booking_reminder_email(booking: dict, business: dict) -> dict:
         f"See you soon!\n{business.get('name', '')}"
     )
     return send_email(to, f"Reminder — {booking.get('service_name', '')} on {booking.get('date', '')}", body)
+
+
+def _owner_address(business: dict) -> str:
+    """The business contact email, falling back to the owner's account email."""
+    contact = (business.get("contact_email") or "").strip()
+    if contact:
+        return contact
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT email FROM users WHERE business_id = ? AND role = 'owner' ORDER BY id LIMIT 1",
+            (business["id"],),
+        ).fetchone()
+    finally:
+        conn.close()
+    return row["email"] if row else ""
+
+
+def send_owner_new_booking_email(booking: dict, business: dict) -> dict:
+    """Email the business owner when a new booking is received."""
+    to = _owner_address(business)
+    if not to:
+        return {"provider": "none", "status": "skipped", "reason": "no owner email"}
+    body = (
+        f"You have a new booking for {business.get('name', '')}:\n\n"
+        f"  Customer: {booking.get('customer_name', '')}\n"
+        f"  Email: {booking.get('customer_email', '')}\n"
+        f"  Phone: {booking.get('customer_phone', '')}\n"
+        f"  Service: {booking.get('service_name', '')}\n"
+        f"  Date: {booking.get('date', '')}\n"
+        f"  Time: {booking.get('time', '')}\n"
+        f"  Booking reference: {booking.get('reference', '')}\n"
+    )
+    if booking.get("notes"):
+        body += f"  Notes: {booking['notes']}\n"
+    body += "\nManage it in the WaveBook app.\n\nWaveBook"
+    return send_email(
+        to,
+        f"New booking — {booking.get('service_name', '')} on {booking.get('date', '')} at {booking.get('time', '')}",
+        body,
+    )
+
+
+def _order_items(order: dict) -> list:
+    try:
+        return json.loads(order.get("items") or "[]")
+    except json.JSONDecodeError:
+        return []
+
+
+def send_order_paid_emails(order: dict, business: dict) -> None:
+    """Email the customer a receipt and the business owner a new paid order."""
+    name = business.get("name", "")
+    lines = "\n".join(f"  {i.get('name', 'item')} x{i.get('quantity', 1)}" for i in _order_items(order))
+    total = f"£{float(order.get('total') or 0):.2f}"
+    order_no = order.get("id", "")
+    customer_to = (order.get("customer_email") or "").strip()
+    if customer_to:
+        send_email(
+            customer_to,
+            f"Order #{order_no} confirmed — {name}",
+            (
+                f"Hi {order.get('customer_name', '')},\n\n"
+                f"Thank you for your order from {name}. Your payment has been received:\n\n"
+                f"{lines}\n\n"
+                f"  Total: {total}\n"
+                f"  Order number: {order_no}\n\n"
+                f"{name} will be in touch about delivery or collection.\n\n"
+                f"{name}"
+            ),
+        )
+    owner_to = _owner_address(business)
+    if owner_to:
+        send_email(
+            owner_to,
+            f"New paid order #{order_no} — {total}",
+            (
+                f"You have a new paid order for {name}:\n\n"
+                f"  Customer: {order.get('customer_name', '')}\n"
+                f"  Email: {order.get('customer_email', '')}\n"
+                f"  Phone: {order.get('customer_phone', '')}\n\n"
+                f"{lines}\n\n"
+                f"  Total: {total}\n\n"
+                "Manage it in the WaveBook app.\n\nWaveBook"
+            ),
+        )

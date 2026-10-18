@@ -12,6 +12,7 @@ from ..services.emailer import (
     send_booking_confirmation_email,
     send_booking_received_email,
     send_booking_reminder_email,
+    send_owner_new_booking_email,
 )
 from ..services.ics import build_booking_ics
 from ..services.notifier import send_booking_confirmation_sms
@@ -175,6 +176,7 @@ def create_booking(data: BookingCreate, business: dict = Depends(get_current_bus
         conn.close()
     # Email the customer their booking reference and manage link
     send_booking_received_email(booking, business)
+    send_owner_new_booking_email(booking, business)
     return booking
 
 

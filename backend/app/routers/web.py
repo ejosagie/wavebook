@@ -14,7 +14,7 @@ from ..routers.payments import verify_payment as verify_booking_payment
 from ..schemas import SignupRequest
 from ..security import create_admin_token, decode_admin_token
 from ..services import flutterwave
-from ..services.emailer import send_booking_received_email
+from ..services.emailer import send_booking_received_email, send_owner_new_booking_email
 from ..services.notifier import send_business_sms
 from ..services.slots import (
     DAY_LABELS,
@@ -1010,6 +1010,7 @@ async def tenant_booking_submit(
 
     # Email the customer their booking reference and manage link
     send_booking_received_email(booking, business)
+    send_owner_new_booking_email(booking, business)
 
     return templates.TemplateResponse(
         request,
