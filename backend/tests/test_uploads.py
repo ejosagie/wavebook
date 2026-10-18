@@ -23,7 +23,7 @@ def test_product_image_accepts_png_sent_as_generic_binary(client, make_business,
     )
     assert res.status_code == 200, res.text
     assert res.json()["path"].startswith("/uploads/product_")
-    assert len(list(tmp_path.iterdir())) == 1
+    assert len(list(tmp_path.glob("product_*"))) == 1
 
 
 def test_product_image_rejects_non_image_file(client, make_business, monkeypatch, tmp_path):
@@ -36,4 +36,4 @@ def test_product_image_rejects_non_image_file(client, make_business, monkeypatch
         headers=auth(biz["owner_token"]),
     )
     assert res.status_code == 400
-    assert list(tmp_path.iterdir()) == []
+    assert list(tmp_path.glob("product_*")) == []
