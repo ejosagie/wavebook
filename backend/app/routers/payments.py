@@ -127,8 +127,8 @@ def _verify_booking(tx_ref: str, data: dict) -> dict:
             (booking_id,),
         )
         conn.execute(
-            "INSERT INTO payments (business_id, booking_id, stripe_payment_intent_id, amount, currency, status, method) "
-            "VALUES (?, ?, ?, ?, ?, 'paid', 'card')",
+            "INSERT INTO payments (business_id, booking_id, stripe_payment_intent_id, amount, currency, kind, status, method) "
+            "VALUES (?, ?, ?, ?, ?, 'deposit', 'paid', 'card')",
             (
                 booking["business_id"],
                 booking_id,
@@ -176,8 +176,8 @@ def _verify_order(tx_ref: str, data: dict) -> dict:
 
         conn.execute("UPDATE orders SET status = 'paid' WHERE id = ?", (order_id,))
         conn.execute(
-            "INSERT INTO payments (business_id, booking_id, stripe_payment_intent_id, amount, currency, status, method) "
-            "VALUES (?, NULL, ?, ?, ?, 'paid', 'card')",
+            "INSERT INTO payments (business_id, booking_id, stripe_payment_intent_id, amount, currency, kind, status, method) "
+            "VALUES (?, NULL, ?, ?, ?, 'order', 'paid', 'card')",
             (
                 order["business_id"],
                 data.get("id", ""),
@@ -233,8 +233,8 @@ def _verify_sms_topup(tx_ref: str, data: dict) -> dict:
             (settings.SMS_TOPUP_CREDITS, business_id),
         )
         conn.execute(
-            "INSERT INTO payments (business_id, booking_id, stripe_payment_intent_id, amount, currency, status, method) "
-            "VALUES (?, NULL, ?, ?, ?, 'paid', 'card')",
+            "INSERT INTO payments (business_id, booking_id, stripe_payment_intent_id, amount, currency, kind, status, method) "
+            "VALUES (?, NULL, ?, ?, ?, 'sms_topup', 'paid', 'card')",
             (
                 business_id,
                 data.get("id", ""),

@@ -26,7 +26,6 @@ class Settings:
     GOCARDLESS_WEBHOOK_SECRET: str = os.getenv("GOCARDLESS_WEBHOOK_SECRET", "")
     # Platform admin access (set in .env / server environment)
     ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "")
-    ADMIN_ACCESS_TOKEN: str = os.getenv("ADMIN_ACCESS_TOKEN", "")  # ?access=... link on the landing page
     # Flutterwave (card payments for bookings and subscriptions)
     FLW_PUBLIC_KEY: str = os.getenv("FLW_PUBLIC_KEY", "")
     FLW_SECRET_KEY: str = os.getenv("FLW_SECRET_KEY", "")

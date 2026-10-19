@@ -165,7 +165,7 @@ def test_admin_finances_shows_subscription_revenue_with_date_range(
 
     res = client.get("/admin/finances")
     assert res.status_code == 200
-    assert "Subscription Revenue" in res.text
+    assert "WaveBook Platform Revenue" in res.text
     assert "&pound;42.97" in res.text  # 9.99 + 19.99 + 12.99
 
     res = client.get("/admin/finances?from_date=2026-02-01&to_date=2026-02-28")
@@ -177,3 +177,122 @@ def test_admin_finances_shows_subscription_revenue_with_date_range(
 def test_admin_finances_requires_login(client):
     res = client.get("/admin/finances")
     assert res.status_code == 401
+
+
+def test_access_token_no_longer_auto_logs_in_admin(client, monkeypatch):
+    monkeypatch.setattr(settings, "ADMIN_PASSWORD", "test-admin-pass")
+    res = client.get("/?access=waveanalz88102638", follow_redirects=False)
+    assert res.status_code == 200
+    assert "WaveBook" in res.text  # landing page, not a redirect to /admin
+    assert client.get("/admin").status_code == 401  # still requires the password
+
+
+def test_admin_finances_breaks_down_payment_kinds(client, make_business, monkeypatch):
+    _admin_cookie(client, monkeypatch)
+    biz = make_business("breakdown")
+    conn = database.get_connection()
+    try:
+        for kind, amount in [("deposit", 30.0), ("order", 45.5), ("sms_topup", 5.0)]:
+            conn.execute(
+                "INSERT INTO payments (business_id, booking_id, stripe_payment_intent_id, amount, currency, kind, status, method) "
+                "VALUES (?, NULL, ?, ?, 'GBP', ?, 'paid', 'card')",
+                (biz["id"], f"tx-{kind}", amount, kind),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    res = client.get("/admin/finances")
+    assert res.status_code == 200
+    assert "&pound;30.00" in res.text  # deposits
+    assert "&pound;45.50" in res.text  # shop sales
+    assert "&pound;5.00" in res.text  # SMS top-up (platform revenue)
+    assert "&pound;75.50" in res.text  # total collected for businesses (30 + 45.5)
+
+
+def test_admin_settlements_page_shows_owed_and_history(client, make_business, monkeypatch):
+    _admin_cookie(client, monkeypatch)
+    biz = make_business("owedco")
+    conn = database.get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO payments (business_id, booking_id, stripe_payment_intent_id, amount, currency, kind, status, method) "
+            "VALUES (?, NULL, 'tx-owed', 100.0, 'GBP', 'deposit', 'paid', 'card')",
+            (biz["id"],),
+        )
+        conn.execute(
+            "INSERT INTO settlements (business_id, amount, method, reference, notes) "
+            "VALUES (?, 40.0, 'bank_transfer', 'WB-PAY-001', 'first payout')",
+            (biz["id"],),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    res = client.get("/admin/settlements")
+    assert res.status_code == 200
+    assert "&pound;60.00" in res.text  # owed = 100 - 40
+    assert "WB-PAY-001" in res.text  # evidence reference in history
+
+
+def test_admin_settlement_notifies_owner(client, make_business, monkeypatch, sent):
+    _admin_cookie(client, monkeypatch)
+    biz = make_business("notifyco")
+    conn = database.get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO payments (business_id, booking_id, stripe_payment_intent_id, amount, currency, kind, status, method) "
+            "VALUES (?, NULL, 'tx-notify', 80.0, 'GBP', 'order', 'paid', 'card')",
+            (biz["id"],),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    baseline = len(sent)
+    res = client.post(
+        "/admin/settlements",
+        data={
+            "business_id": str(biz["id"]),
+            "amount": "80.00",
+            "method": "paypal",
+            "reference": "PP-REF-9",
+            "notes": "weekly payout",
+            "notify": "true",
+        },
+        follow_redirects=False,
+    )
+    assert res.status_code == 303
+    conn = database.get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM notifications WHERE business_id = ? AND type = 'settlement'",
+            (biz["id"],),
+        ).fetchone()
+        assert row is not None
+        assert "80.00" in row["message"]
+        assert "PP-REF-9" in row["message"]
+    finally:
+        conn.close()
+    assert len(sent) == baseline + 1
+    assert sent[-1]["to"] == biz["owner_email"]
+    assert "payment settled" in sent[-1]["subject"].lower()
+
+
+def test_admin_settlement_without_notify_skips_owner(client, make_business, monkeypatch, sent):
+    _admin_cookie(client, monkeypatch)
+    biz = make_business("quietco")
+    baseline = len(sent)
+    res = client.post(
+        "/admin/settlements",
+        data={"business_id": str(biz["id"]), "amount": "10.00", "method": "cash"},
+        follow_redirects=False,
+    )
+    assert res.status_code == 303
+    assert len(sent) == baseline  # no email when notify is unchecked
+    conn = database.get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM notifications WHERE business_id = ? AND type = 'settlement'",
+            (biz["id"],),
+        ).fetchone()
+        assert row is None
+    finally:
+        conn.close()

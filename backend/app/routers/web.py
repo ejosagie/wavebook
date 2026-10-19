@@ -11,6 +11,7 @@ from ..database import TRIAL_DAYS_KEY, get_connection, get_trial_days, row_to_di
 from ..phone import validate_phone
 from ..routers.auth import register_user
 from ..routers.bookings import generate_reference
+from ..routers.notifications import add_notification
 from ..routers.payments import verify_payment as verify_booking_payment
 from ..schemas import SignupRequest
 from ..security import create_admin_token, decode_admin_token
@@ -18,6 +19,7 @@ from ..services import flutterwave
 from ..services.assistant import build_assistant_response
 from ..services.ics import build_business_feed_ics
 from ..services.emailer import send_booking_received_email, send_owner_new_booking_email
+from ..services import emailer
 from ..services.notifier import send_business_sms
 from ..services.slots import (
     DAY_LABELS,
@@ -189,11 +191,7 @@ def copyright_page(request: Request):
 
 
 @router.get("/", response_class=HTMLResponse)
-def landing(request: Request, access: str | None = None):
-    if access and settings.ADMIN_ACCESS_TOKEN and access == settings.ADMIN_ACCESS_TOKEN:
-        response = RedirectResponse(url="/admin", status_code=303)
-        _set_admin_cookie(response, request)
-        return response
+def landing(request: Request):
     return templates.TemplateResponse(
         request,
         "landing.html",
@@ -743,9 +741,16 @@ def admin_finances(request: Request, from_date: str = "", to_date: str = ""):
         return blocked
     conn = get_connection()
     try:
-        total_collected = conn.execute(
-            "SELECT COALESCE(SUM(amount), 0) AS s FROM payments WHERE status = 'paid'"
-        ).fetchone()["s"]
+        def sum_paid(kind: str) -> float:
+            return conn.execute(
+                "SELECT COALESCE(SUM(amount), 0) AS s FROM payments WHERE status = 'paid' AND kind = ?",
+                (kind,),
+            ).fetchone()["s"]
+
+        deposits_collected = sum_paid("deposit")
+        orders_collected = sum_paid("order")
+        sms_topup_collected = sum_paid("sms_topup")
+        business_collected = round(deposits_collected + orders_collected, 2)
         total_settled = conn.execute(
             "SELECT COALESCE(SUM(amount), 0) AS s FROM settlements"
         ).fetchone()["s"]
@@ -754,7 +759,7 @@ def admin_finances(request: Request, from_date: str = "", to_date: str = ""):
             conn.execute(
                 """SELECT b.id, b.name, b.slug, b.subscription_status,
                           COALESCE((SELECT SUM(p.amount) FROM payments p
-                                    WHERE p.business_id = b.id AND p.status = 'paid'), 0) AS collected,
+                                    WHERE p.business_id = b.id AND p.status = 'paid' AND p.kind IN ('deposit', 'order')), 0) AS collected,
                           COALESCE((SELECT SUM(s.amount) FROM settlements s
                                     WHERE s.business_id = b.id), 0) AS settled
                    FROM businesses b
@@ -807,12 +812,15 @@ def admin_finances(request: Request, from_date: str = "", to_date: str = ""):
             )
     finally:
         conn.close()
-    outstanding = round(total_collected - total_settled, 2)
+    outstanding = round(business_collected - total_settled, 2)
     return templates.TemplateResponse(
         request,
         "admin_finances.html",
         {
-            "total_collected": total_collected,
+            "business_collected": business_collected,
+            "deposits_collected": deposits_collected,
+            "orders_collected": orders_collected,
+            "sms_topup_collected": sms_topup_collected,
             "total_settled": total_settled,
             "outstanding": outstanding,
             "businesses": businesses,
@@ -826,6 +834,42 @@ def admin_finances(request: Request, from_date: str = "", to_date: str = ""):
     )
 
 
+@router.get("/admin/settlements", response_class=HTMLResponse)
+def admin_settlements(request: Request):
+    blocked = _admin_or_login(request)
+    if blocked:
+        return blocked
+    conn = get_connection()
+    try:
+        businesses = rows_to_dicts(
+            conn.execute(
+                """SELECT b.id, b.name, b.slug, b.contact_email,
+                          COALESCE((SELECT SUM(p.amount) FROM payments p
+                                    WHERE p.business_id = b.id AND p.status = 'paid' AND p.kind IN ('deposit', 'order')), 0) AS collected,
+                          COALESCE((SELECT SUM(s.amount) FROM settlements s
+                                    WHERE s.business_id = b.id), 0) AS settled
+                   FROM businesses b
+                   ORDER BY collected DESC"""
+            ).fetchall()
+        )
+        for b in businesses:
+            b["outstanding"] = round(b["collected"] - b["settled"], 2)
+        settlements = rows_to_dicts(
+            conn.execute(
+                """SELECT s.*, b.name AS business_name, b.slug AS business_slug
+                   FROM settlements s JOIN businesses b ON b.id = s.business_id
+                   ORDER BY s.created_at DESC LIMIT 50"""
+            ).fetchall()
+        )
+    finally:
+        conn.close()
+    return templates.TemplateResponse(
+        request,
+        "admin_settlements.html",
+        {"businesses": businesses, "settlements": settlements},
+    )
+
+
 @router.post("/admin/settlements")
 def admin_settlement(
     request: Request,
@@ -834,22 +878,60 @@ def admin_settlement(
     method: str = Form("bank_transfer"),
     reference: str = Form(""),
     notes: str = Form(""),
+    notify: bool = Form(False),
 ):
     if not _is_admin(request):
         return RedirectResponse(url="/admin", status_code=303)
     if amount <= 0:
-        return RedirectResponse(url="/admin/finances", status_code=303)
+        return RedirectResponse(url="/admin/settlements", status_code=303)
     conn = get_connection()
     try:
+        business = conn.execute(
+            "SELECT * FROM businesses WHERE id = ?", (business_id,)
+        ).fetchone()
+        if not business:
+            return RedirectResponse(url="/admin/settlements", status_code=303)
         conn.execute(
             """INSERT INTO settlements (business_id, amount, method, reference, notes)
                VALUES (?, ?, ?, ?, ?)""",
             (business_id, amount, method, reference, notes),
         )
+        if notify:
+            add_notification(
+                conn,
+                business_id,
+                "Payment settled",
+                f"WaveBook paid you {amount:.2f} {business['currency'] or 'GBP'} "
+                f"via {method.replace('_', ' ').title()}"
+                + (f" (reference: {reference})" if reference else ""),
+                type_="settlement",
+            )
         conn.commit()
     finally:
         conn.close()
-    return RedirectResponse(url="/admin/finances", status_code=303)
+    if notify:
+        owner = None
+        conn = get_connection()
+        try:
+            owner = conn.execute(
+                "SELECT email, full_name FROM users WHERE business_id = ? AND role = 'owner' LIMIT 1",
+                (business_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+        if owner:
+            emailer.send_email(
+                owner["email"],
+                "WaveBook — payment settled",
+                f"Hi {owner['full_name']},\n\n"
+                f"We've settled {amount:.2f} {business['currency'] or 'GBP'} to your business "
+                f"({business['name']}) via {method.replace('_', ' ').title()}.\n"
+                + (f"Reference: {reference}\n" if reference else "")
+                + (f"Notes: {notes}\n" if notes else "")
+                + "\nThis money was collected from your customers on your behalf.\n\n"
+                "Thanks,\nThe WaveBook team",
+            )
+    return RedirectResponse(url="/admin/settlements", status_code=303)
 
 
 # ---- Tenant booking sites ----

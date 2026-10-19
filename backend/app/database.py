@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS payments (
     stripe_payment_intent_id TEXT DEFAULT '',
     amount REAL NOT NULL,
     currency TEXT DEFAULT 'GBP',
+    kind TEXT DEFAULT 'deposit',
     status TEXT DEFAULT 'pending',
     method TEXT DEFAULT 'card',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -264,6 +265,9 @@ def init_db() -> None:
         _ensure_column(conn, "users", "last_login_at", "last_login_at TEXT DEFAULT ''")
         _ensure_column(conn, "payments", "stripe_payment_intent_id", "stripe_payment_intent_id TEXT DEFAULT ''")
         _ensure_column(conn, "payments", "currency", "currency TEXT DEFAULT 'GBP'")
+        _ensure_column(conn, "payments", "kind", "kind TEXT DEFAULT 'deposit'")
+        conn.execute("UPDATE payments SET kind = 'deposit' WHERE booking_id IS NOT NULL")
+        conn.execute("UPDATE payments SET kind = 'order' WHERE booking_id IS NULL")
         _ensure_column(conn, "payments", "method", "method TEXT DEFAULT 'card'")
         _ensure_column(conn, "businesses", "storefront_enabled", "storefront_enabled INTEGER NOT NULL DEFAULT 0")
         _ensure_column(conn, "businesses", "currency", "currency TEXT NOT NULL DEFAULT 'GBP'")
