@@ -174,6 +174,31 @@ def test_admin_finances_shows_subscription_revenue_with_date_range(
     assert "&pound;42.97" not in res.text
 
 
+def test_admin_users_shows_registration_and_subscription_dates(
+    client, make_business, monkeypatch
+):
+    _admin_cookie(client, monkeypatch)
+    biz = make_business("userdates")
+    conn = database.get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO subscriptions (business_id, stripe_subscription_id, status, plan, amount, created_at) "
+            "VALUES (?, 'tx-userdates', 'active', 'premium_yearly', 199.99, '2026-03-15 10:00:00')",
+            (biz["id"],),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    res = client.get("/admin/users")
+    assert res.status_code == 200
+    assert "Registered" in res.text
+    assert "Start" in res.text
+    assert "End" in res.text
+    assert "2026-03-15" in res.text  # subscription start
+    assert "2027-03-15" in res.text  # yearly end = +12 months
+    assert "WaveBook Premium" in res.text  # plan label
+
+
 def test_admin_finances_requires_login(client):
     res = client.get("/admin/finances")
     assert res.status_code == 401

@@ -475,11 +475,30 @@ def admin_users(request: Request):
     try:
         users = rows_to_dicts(
             conn.execute(
-                """SELECT u.*, b.name AS business_name, b.slug AS business_slug
-                   FROM users u LEFT JOIN businesses b ON b.id = u.business_id
+                """SELECT u.*, b.name AS business_name, b.slug AS business_slug,
+                          b.subscription_status,
+                          sub.created_at AS sub_start,
+                          sub.plan AS sub_plan,
+                          CASE
+                            WHEN sub.plan LIKE '%_yearly' THEN date(sub.created_at, '+12 months')
+                            WHEN sub.plan LIKE '%_biannual' THEN date(sub.created_at, '+6 months')
+                            WHEN sub.plan LIKE '%_quarterly' THEN date(sub.created_at, '+3 months')
+                            ELSE date(sub.created_at, '+1 month')
+                          END AS sub_end
+                   FROM users u
+                   LEFT JOIN businesses b ON b.id = u.business_id
+                   LEFT JOIN subscriptions sub ON sub.id = (
+                       SELECT id FROM subscriptions s
+                       WHERE s.business_id = u.business_id
+                       ORDER BY s.created_at DESC LIMIT 1
+                   )
                    ORDER BY u.created_at DESC"""
             ).fetchall()
         )
+        for u in users:
+            u["sub_plan_label"] = settings.TIER_LABELS.get(
+                (u.get("sub_plan") or "").rsplit("_", 1)[0], u.get("sub_plan") or ""
+            )
     finally:
         conn.close()
     return templates.TemplateResponse(request, "admin_users.html", {"users": users})

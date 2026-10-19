@@ -41,7 +41,10 @@
             <th>Email</th>
             <th>Role</th>
             <th>Business</th>
-            <th>Created</th>
+            <th>Registered</th>
+            <th>Subscription</th>
+            <th>Start</th>
+            <th>End</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -57,6 +60,15 @@
               {% else %}—{% endif %}
             </td>
             <td>{{ u.created_at[:10] }}</td>
+            <td>
+              {% if u.sub_plan %}
+                <span class="badge badge-{{ u.subscription_status }}">{{ u.sub_plan_label }} ({{ u.subscription_status }})</span>
+              {% else %}
+                <span class="badge badge-trial">trial</span>
+              {% endif %}
+            </td>
+            <td>{% if u.sub_start %}{{ u.sub_start[:10] }}{% else %}—{% endif %}</td>
+            <td>{% if u.sub_end %}{{ u.sub_end }}{% else %}—{% endif %}</td>
             <td>
               <form method="post" action="/admin/users/{{ u.id }}/role" style="display:inline;">
                 <select name="role" onchange="this.form.submit()">
