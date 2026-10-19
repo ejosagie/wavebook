@@ -21,6 +21,9 @@ from ..config import settings
 # The VPS backup bucket (GCS_BACKUP_BUCKET) is separate and private.
 GCS_BUCKET_NAME = settings.GCS_BUCKET_NAME
 
+# Folder inside the bucket (empty means the bucket root)
+BLOB_ROOT = f"{settings.GCS_PREFIX.strip('/')}/" if settings.GCS_PREFIX.strip('/') else ""
+
 # Max file size per image (10 MB) — checked before resize
 MAX_IMAGE_SIZE = 10 * 1024 * 1024
 
@@ -140,7 +143,7 @@ def upload_shop_image(business_id: int, product_id: int, image_data: bytes) -> s
     # Auto-resize and convert to JPEG
     resized_data = _resize_image(image_data)
 
-    blob_name = f"shop-images/{business_id}/{product_id}.{OUTPUT_EXT}"
+    blob_name = f"{BLOB_ROOT}shop-images/{business_id}/{product_id}.{OUTPUT_EXT}"
     gs_path = f"gs://{GCS_BUCKET_NAME}/{blob_name}"
 
     with tempfile.NamedTemporaryFile(suffix=f".{OUTPUT_EXT}", delete=False) as tmp:
@@ -165,7 +168,7 @@ def upload_shop_image(business_id: int, product_id: int, image_data: bytes) -> s
 def delete_shop_image(business_id: int, product_id: int) -> None:
     """Delete a product image from GCS (all legacy extensions)."""
     for ext in ("jpg", "png", "jpeg", "webp", "gif"):
-        blob_name = f"shop-images/{business_id}/{product_id}.{ext}"
+        blob_name = f"{BLOB_ROOT}shop-images/{business_id}/{product_id}.{ext}"
         gs_path = f"gs://{GCS_BUCKET_NAME}/{blob_name}"
         ok, _ = _run_gcloud(["rm", gs_path])
         if ok:
@@ -176,5 +179,5 @@ def build_image_url(business_id: int, product_id: int, ext: str = "jpg") -> str:
     """Build a deterministic GCS public URL for an image."""
     return (
         f"https://storage.googleapis.com/{GCS_BUCKET_NAME}/"
-        f"shop-images/{business_id}/{product_id}.{ext}"
+        f"{BLOB_ROOT}shop-images/{business_id}/{product_id}.{ext}"
     )

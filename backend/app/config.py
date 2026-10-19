@@ -40,6 +40,7 @@ class Settings:
     # Google Cloud Storage (product/shop images + backups). Leave empty to store
     # images on the local disk (backend/uploads) instead of GCS.
     GCS_BUCKET_NAME: str = os.getenv("GCS_BUCKET_NAME", "")  # public bucket for product images
+    GCS_PREFIX: str = os.getenv("GCS_PREFIX", "")  # folder inside GCS_BUCKET_NAME, e.g. wavebook
     GCS_BACKUP_BUCKET: str = os.getenv("GCS_BACKUP_BUCKET", "")  # private bucket for DB + uploads backups
 
     JWT_ALGORITHM: str = "HS256"
