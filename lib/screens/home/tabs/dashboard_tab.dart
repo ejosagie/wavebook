@@ -11,6 +11,7 @@ import '../../../services/app_update.dart';
 import '../../../state/auth_state.dart';
 import '../../../theme.dart';
 import '../../storefront/shop_screen.dart';
+import 'chats_screen.dart';
 import 'notifications_screen.dart';
 
 class DashboardTab extends StatefulWidget {
@@ -29,6 +30,7 @@ class _DashboardTabState extends State<DashboardTab> {
   bool _loading = true;
   String? _error;
   int _unread = 0;
+  int _chatUnread = 0;
   Timer? _unreadTimer;
   int _pendingOrders = 0;
 
@@ -55,6 +57,20 @@ class _DashboardTabState extends State<DashboardTab> {
     } catch (_) {
       // Silent: badge polling failures shouldn't disturb the user.
     }
+    try {
+      final data = await _api.get('/api/chats/unread-count');
+      if (!mounted) return;
+      final count = (data as Map<String, dynamic>)['count'] as int? ?? 0;
+      if (count != _chatUnread) setState(() => _chatUnread = count);
+    } catch (_) {
+      // Silent: badge polling failures shouldn't disturb the user.
+    }
+  }
+
+  void _openChats() {
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const ChatsScreen()))
+        .then((_) => _pollUnread());
   }
 
   void _openNotifications() {
@@ -105,6 +121,34 @@ class _DashboardTabState extends State<DashboardTab> {
       appBar: AppBar(
         title: Text(_business?.name ?? 'Dashboard'),
         actions: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chat_bubble_outline),
+                onPressed: _openChats,
+                tooltip: 'Customer chats',
+              ),
+              if (_chatUnread > 0)
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: WaveBookColors.pink,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(minWidth: 16),
+                    child: Text(
+                      '$_chatUnread',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ),
+            ],
+          ),
           Stack(
             clipBehavior: Clip.none,
             children: [

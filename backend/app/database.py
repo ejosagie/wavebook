@@ -213,6 +213,27 @@ CREATE TABLE IF NOT EXISTS app_meta (
     value TEXT DEFAULT ''
 );
 
+CREATE TABLE IF NOT EXISTS chats (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    business_id INTEGER NOT NULL,
+    token TEXT UNIQUE NOT NULL,
+    customer_name TEXT NOT NULL,
+    customer_phone TEXT DEFAULT '',
+    last_message_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id INTEGER NOT NULL,
+    sender TEXT NOT NULL,  -- customer | owner
+    body TEXT NOT NULL,
+    read INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_feedback_business ON feedback(business_id, approved);
 CREATE INDEX IF NOT EXISTS idx_notifications_business ON notifications(business_id, read);
 CREATE INDEX IF NOT EXISTS idx_bookings_business_date ON bookings(business_id, date);
@@ -220,6 +241,8 @@ CREATE INDEX IF NOT EXISTS idx_payments_booking ON payments(booking_id);
 CREATE INDEX IF NOT EXISTS idx_services_business ON services(business_id);
 CREATE INDEX IF NOT EXISTS idx_users_business ON users(business_id);
 CREATE INDEX IF NOT EXISTS idx_product_images_product ON product_images(product_id);
+CREATE INDEX IF NOT EXISTS idx_chats_business_phone ON chats(business_id, customer_phone);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_chat ON chat_messages(chat_id);
 """
 
 

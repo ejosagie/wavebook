@@ -6,7 +6,7 @@ from fastapi.responses import Response
 
 from ..database import get_connection, row_to_dict, rows_to_dicts
 from ..deps import business_tier_features, get_current_business, get_current_user, require_owner
-from ..phone import validate_uk_phone
+from ..phone import validate_phone
 from ..routers.notifications import add_notification
 from ..schemas import AssignBookingRequest, BookingCreate, BookingStatusUpdate
 from ..services.emailer import (
@@ -124,7 +124,7 @@ def available_slots(
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_booking(data: BookingCreate, business: dict = Depends(get_current_business)):
     try:
-        customer_phone = validate_uk_phone(data.customer_phone)
+        customer_phone = validate_phone(data.customer_phone)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     conn = get_connection()

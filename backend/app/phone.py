@@ -28,3 +28,22 @@ def validate_uk_phone(phone: str) -> str:
     if not re.fullmatch(r"44\d{10}", normalized):
         raise ValueError("Enter a valid UK mobile number, e.g. 07123 456789")
     return normalized
+
+
+def is_uk_number(phone: str) -> bool:
+    """True when the number is a UK mobile in international format (44...)."""
+    return bool(re.fullmatch(r"44\d{10}", normalise_uk_number(phone)))
+
+
+def validate_phone(phone: str) -> str:
+    """Validate and normalise a phone number (UK or international).
+
+    UK mobiles are normalised to international format (07xxx -> 447xxx);
+    other numbers keep their digits. Raises ValueError when the number is
+    too short to be a real phone number.
+    """
+    normalized = normalise_uk_number(phone)
+    digits = re.sub(r"[^0-9]", "", normalized)
+    if len(digits) < 7:
+        raise ValueError("Enter a valid phone number")
+    return normalized

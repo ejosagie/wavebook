@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from ..database import get_connection, get_trial_days, row_to_dict
 from ..deps import get_current_user
-from ..phone import validate_uk_phone
+from ..phone import validate_phone
 from ..schemas import ChangePasswordRequest, LoginRequest, SignupRequest, TokenResponse
 from ..security import create_access_token, hash_password, verify_password
 from ..services.emailer import send_welcome_email
@@ -18,7 +18,7 @@ def register_user(data: SignupRequest) -> dict:
     # Validate everything before touching the database so a failed signup
     # never leaves a partial account behind.
     try:
-        phone = validate_uk_phone(data.phone)
+        phone = validate_phone(data.phone)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     slug = None

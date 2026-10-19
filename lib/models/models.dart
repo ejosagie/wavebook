@@ -583,3 +583,54 @@ class FeedbackItem {
         serviceName: json['service_name'] as String? ?? '',
       );
 }
+
+class Chat {
+  final int id;
+  final String customerName;
+  final String customerPhone;
+  final String lastMessage;
+  final String lastSender;
+  final String lastMessageAt;
+  final int unread;
+
+  Chat({
+    required this.id,
+    required this.customerName,
+    required this.customerPhone,
+    required this.lastMessage,
+    required this.lastSender,
+    required this.lastMessageAt,
+    required this.unread,
+  });
+
+  factory Chat.fromJson(Map<String, dynamic> json) => Chat(
+        id: json['id'] as int,
+        customerName: json['customer_name'] as String? ?? '',
+        customerPhone: json['customer_phone'] as String? ?? '',
+        lastMessage: json['last_message'] as String? ?? '',
+        lastSender: json['last_sender'] as String? ?? '',
+        lastMessageAt: json['last_message_at'] as String? ?? '',
+        unread: json['unread'] as int? ?? 0,
+      );
+}
+
+class ChatMessage {
+  final int id;
+  final String sender;
+  final String body;
+  final String createdAt;
+
+  ChatMessage({
+    required this.id,
+    required this.sender,
+    required this.body,
+    required this.createdAt,
+  });
+
+  factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
+        id: json['id'] as int,
+        sender: json['sender'] as String? ?? '',
+        body: json['body'] as String? ?? '',
+        createdAt: json['created_at'] as String? ?? '',
+      );
+}

@@ -13,6 +13,7 @@ from .routers import (
     availability,
     bookings,
     business,
+    chats,
     customers,
     feedback,
     notifications,
@@ -94,6 +95,7 @@ app.include_router(business.router)
 app.include_router(services.router)
 app.include_router(availability.router)
 app.include_router(bookings.router)
+app.include_router(chats.router)
 app.include_router(customers.router)
 app.include_router(feedback.router)
 app.include_router(notifications.router)

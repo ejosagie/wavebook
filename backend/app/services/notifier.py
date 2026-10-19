@@ -15,7 +15,7 @@ import requests
 from ..config import settings
 from ..database import get_connection, row_to_dict
 from ..deps import business_tier_features
-from ..phone import normalise_uk_number
+from ..phone import is_uk_number, normalise_uk_number
 
 logger = logging.getLogger("wavebook")
 
@@ -54,6 +54,9 @@ def send_sms(to: str, message: str) -> dict:
     """Send an SMS text message via The SMS Works. Returns delivery info."""
     if not to:
         return {"provider": "none", "message_id": "", "status": "skipped", "reason": "no recipient"}
+    if not is_uk_number(to):
+        # Non-UK numbers can't receive SMS Works texts; email is used instead.
+        return {"provider": "none", "message_id": "", "status": "skipped", "reason": "non_uk_phone"}
 
     if settings.SMSWORKS_API_KEY:
         payload = {

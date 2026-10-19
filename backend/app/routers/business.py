@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 
 from ..database import get_connection, get_trial_days, row_to_dict, rows_to_dicts
 from ..deps import get_current_business, get_current_user, require_owner
-from ..phone import validate_uk_phone
+from ..phone import validate_phone
 from ..schemas import BusinessCreate, BusinessUpdate
 from ..services.uploads import image_content_type
 
@@ -70,7 +70,7 @@ def update_business(data: BusinessUpdate, business: dict = Depends(get_current_b
         return business
     if "contact_phone" in updates:
         try:
-            updates["contact_phone"] = validate_uk_phone(updates["contact_phone"])
+            updates["contact_phone"] = validate_phone(updates["contact_phone"])
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     conn = get_connection()

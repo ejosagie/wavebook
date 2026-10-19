@@ -8,7 +8,7 @@ from fastapi.templating import Jinja2Templates
 
 from ..config import settings
 from ..database import TRIAL_DAYS_KEY, get_connection, get_trial_days, row_to_dict, rows_to_dicts
-from ..phone import validate_uk_phone
+from ..phone import validate_phone
 from ..routers.auth import register_user
 from ..routers.bookings import generate_reference
 from ..routers.payments import verify_payment as verify_booking_payment
@@ -1070,7 +1070,7 @@ async def tenant_booking_submit(
         raise HTTPException(status_code=404, detail="Business not found")
 
     try:
-        phone = validate_uk_phone(phone)
+        phone = validate_phone(phone)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
