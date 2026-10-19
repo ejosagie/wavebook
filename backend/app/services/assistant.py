@@ -12,6 +12,7 @@ from .slots import get_available_time_slots, is_date_blocked
 
 WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+STOPWORDS = {"and", "the", "for", "with", "your", "our", "deluxe", "luxury", "classic", "signature", "full", "half"}
 
 
 def _next_weekday(target: int, from_day: date) -> date:
@@ -96,12 +97,14 @@ def match_service(text: str, services: list[dict]) -> dict | None:
         desc = (svc.get("description") or "").lower()
         score = 0
         if name and name in t:
-            score = 10 + len(name)
+            score = 20 + len(name)
         elif desc and desc in t:
-            score = 5
-        words = [w for w in re.split(r"\W+", name) if len(w) > 2]
-        if words and all(w in t for w in words):
-            score = max(score, 8 + len(words))
+            score = 10
+        words = [w for w in re.split(r"\W+", name) if len(w) > 2 and w not in STOPWORDS]
+        hits = [w for w in words if w in t]
+        if hits:
+            # Shorter names win ties: a one-word name is a more precise match.
+            score = max(score, 5 + len(hits) * 3 + (10 - len(words)))
         if score > best_score:
             best_score = score
             best = svc

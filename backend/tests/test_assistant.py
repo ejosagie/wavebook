@@ -72,6 +72,18 @@ def test_assistant_offers_next_available_day_when_no_slots(client, make_business
     assert data["slots"] == []
 
 
+def test_assistant_matches_partial_service_name(client, make_business, make_service, monkeypatch):
+    _open_slots(monkeypatch)
+    biz = make_business("assistpartial")
+    make_service(biz["id"])
+    _rename_service(biz["id"], "Men's Haircut")
+    res = client.post("/t/assistpartial/api/assistant", json={"message": "i need a haircut tomorrow"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["service_id"] is not None
+    assert len(data["slots"]) == 3
+
+
 def test_assistant_handles_business_with_no_services(client, make_business):
     biz = make_business("assistnone")
     res = client.post("/t/assistnone/api/assistant", json={"message": "a haircut tomorrow"})
