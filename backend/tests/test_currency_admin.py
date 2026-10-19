@@ -32,6 +32,23 @@ def _add_subscription(business_id, amount, created_at, plan="basic_monthly"):
 
 # ---- Currency formatting ----
 
+def test_init_db_adds_currency_column_to_existing_businesses(client):
+    """Existing databases (e.g. the VPS) must get the currency column on startup."""
+    conn = database.get_connection()
+    try:
+        conn.execute("ALTER TABLE businesses DROP COLUMN currency")
+        conn.commit()
+    finally:
+        conn.close()
+    database.init_db()
+    conn = database.get_connection()
+    try:
+        cols = [r["name"] for r in conn.execute("PRAGMA table_info(businesses)").fetchall()]
+        assert "currency" in cols
+    finally:
+        conn.close()
+
+
 def test_format_price_uses_currency_symbols():
     assert _format_price(12.5, "GBP") == "£12.50"
     assert _format_price(12.5, "USD") == "$12.50"

@@ -266,6 +266,7 @@ def init_db() -> None:
         _ensure_column(conn, "payments", "currency", "currency TEXT DEFAULT 'GBP'")
         _ensure_column(conn, "payments", "method", "method TEXT DEFAULT 'card'")
         _ensure_column(conn, "businesses", "storefront_enabled", "storefront_enabled INTEGER NOT NULL DEFAULT 0")
+        _ensure_column(conn, "businesses", "currency", "currency TEXT NOT NULL DEFAULT 'GBP'")
         _ensure_column(conn, "businesses", "payout_bank_name", "payout_bank_name TEXT DEFAULT ''")
         _ensure_column(conn, "businesses", "payout_account_name", "payout_account_name TEXT DEFAULT ''")
         _ensure_column(conn, "businesses", "payout_account_number", "payout_account_number TEXT DEFAULT ''")
