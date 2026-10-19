@@ -93,6 +93,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
       );
     }
     final d = _data!;
+    final currency = d['currency']?.toString() ?? 'GBP';
+    final symbol = currencySymbol(currency);
     final bookingsAmount = (d['bookings_amount'] as num).toDouble();
     final depositsAmount = (d['deposits_amount'] as num).toDouble();
     final ordersAmount = (d['orders_amount'] as num).toDouble();
@@ -112,7 +114,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   const Text('Total income', style: TextStyle(color: WaveBookColors.muted, fontSize: 13)),
                   const SizedBox(height: 4),
                   Text(
-                    '£${total.toStringAsFixed(2)}',
+                    '$symbol${total.toStringAsFixed(2)}',
                     style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: WaveBookColors.pink),
                   ),
                 ],
@@ -144,7 +146,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ),
                   ),
                   Text(
-                    '£${bookingsAmount.toStringAsFixed(2)}',
+                    '$symbol${bookingsAmount.toStringAsFixed(2)}',
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: WaveBookColors.pink),
                   ),
                 ],
@@ -158,6 +160,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             title: 'Deposits received',
             count: d['deposits_count'] as int,
             amount: depositsAmount,
+            symbol: symbol,
           ),
           const SizedBox(height: 12),
           _ReportCard(
@@ -166,6 +169,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             title: 'Online orders',
             count: d['orders_count'] as int,
             amount: ordersAmount,
+            symbol: symbol,
           ),
         ],
       ),
@@ -179,6 +183,7 @@ class _ReportCard extends StatelessWidget {
   final String title;
   final int count;
   final double amount;
+  final String symbol;
 
   const _ReportCard({
     required this.icon,
@@ -186,6 +191,7 @@ class _ReportCard extends StatelessWidget {
     required this.title,
     required this.count,
     required this.amount,
+    required this.symbol,
   });
 
   @override
@@ -214,7 +220,7 @@ class _ReportCard extends StatelessWidget {
               ),
             ),
             Text(
-              '£${amount.toStringAsFixed(2)}',
+              '$symbol${amount.toStringAsFixed(2)}',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: WaveBookColors.pink),
             ),
           ],

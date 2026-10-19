@@ -75,8 +75,22 @@ def _tenant_slug(request: Request, path_slug: str | None = None) -> str | None:
     return None
 
 
+CURRENCY_SYMBOLS = {
+    "GBP": "£",
+    "USD": "$",
+    "CAD": "C$",
+    "EUR": "€",
+    "AUD": "A$",
+    "NZD": "NZ$",
+    "NGN": "₦",
+    "KES": "KSh",
+    "ZAR": "R",
+}
+
+
 def _format_price(amount: float, currency: str = "GBP") -> str:
-    symbol = "£" if currency == "GBP" else "$"
+    code = (currency or "GBP").upper()
+    symbol = CURRENCY_SYMBOLS.get(code, f"{code} ")
     return f"{symbol}{amount:,.2f}"
 
 
@@ -121,6 +135,7 @@ def signup_submit(
     password: str = Form(...),
     business_name: str = Form(default=""),
     slug: str = Form(default=""),
+    currency: str = Form(default="GBP"),
 ):
     """Create the account and business from the landing page, then show download instructions."""
     try:
@@ -131,6 +146,7 @@ def signup_submit(
             phone=phone,
             business_name=business_name or None,
             slug=slug or None,
+            currency=currency,
         )
         register_user(data)
     except HTTPException as exc:
@@ -721,7 +737,7 @@ def admin_metrics(request: Request):
 
 
 @router.get("/admin/finances", response_class=HTMLResponse)
-def admin_finances(request: Request):
+def admin_finances(request: Request, from_date: str = "", to_date: str = ""):
     blocked = _admin_or_login(request)
     if blocked:
         return blocked
@@ -762,6 +778,33 @@ def admin_finances(request: Request):
                    ORDER BY s.created_at DESC LIMIT 20"""
             ).fetchall()
         )
+
+        # Subscription revenue (GBP) with optional date range — investor-facing.
+        sub_where = "WHERE sub.status = 'active'"
+        sub_params: list = []
+        if from_date:
+            sub_where += " AND sub.created_at >= ?"
+            sub_params.append(from_date)
+        if to_date:
+            sub_where += " AND sub.created_at <= ?"
+            sub_params.append(to_date + " 23:59:59")
+        sub_total = conn.execute(
+            f"SELECT COALESCE(SUM(sub.amount), 0) AS s FROM subscriptions sub {sub_where}",
+            sub_params,
+        ).fetchone()["s"]
+        subscription_payments = rows_to_dicts(
+            conn.execute(
+                f"""SELECT sub.id, sub.plan, sub.amount, sub.created_at,
+                           b.name AS business_name, b.slug AS business_slug
+                    FROM subscriptions sub JOIN businesses b ON b.id = sub.business_id
+                    {sub_where} ORDER BY sub.created_at DESC LIMIT 200""",
+                sub_params,
+            ).fetchall()
+        )
+        for sp in subscription_payments:
+            sp["plan_label"] = settings.TIER_LABELS.get(
+                sp["plan"].rsplit("_", 1)[0], sp["plan"]
+            )
     finally:
         conn.close()
     outstanding = round(total_collected - total_settled, 2)
@@ -775,6 +818,10 @@ def admin_finances(request: Request):
             "businesses": businesses,
             "recent_payments": recent_payments,
             "settlements": settlements,
+            "sub_total": sub_total,
+            "subscription_payments": subscription_payments,
+            "from_date": from_date,
+            "to_date": to_date,
         },
     )
 

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from ..database import get_connection, get_trial_days, row_to_dict
 from ..deps import get_current_user
 from ..phone import validate_phone
-from ..schemas import ChangePasswordRequest, LoginRequest, SignupRequest, TokenResponse
+from ..schemas import ChangePasswordRequest, LoginRequest, SignupRequest, TokenResponse, SUPPORTED_CURRENCIES
 from ..security import create_access_token, hash_password, verify_password
 from ..services.emailer import send_welcome_email
 
@@ -22,6 +22,9 @@ def register_user(data: SignupRequest) -> dict:
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     slug = None
+    currency = (data.currency or "GBP").upper()
+    if currency not in SUPPORTED_CURRENCIES:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unsupported currency")
     if data.business_name and data.slug:
         slug = data.slug.lower().strip()
         if not re.match(r"^[a-z0-9-]{2,63}$", slug):
@@ -46,8 +49,8 @@ def register_user(data: SignupRequest) -> dict:
         if slug:
             trial_ends = (datetime.utcnow() + timedelta(days=get_trial_days())).strftime("%Y-%m-%d")
             bcur = conn.execute(
-                "INSERT INTO businesses (slug, name, trial_ends_at) VALUES (?, ?, ?)",
-                (slug, data.business_name.strip(), trial_ends),
+                "INSERT INTO businesses (slug, name, trial_ends_at, currency) VALUES (?, ?, ?, ?)",
+                (slug, data.business_name.strip(), trial_ends, currency),
             )
             business_id = bcur.lastrowid
             conn.execute(

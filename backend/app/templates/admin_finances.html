@@ -39,6 +39,43 @@
         <div class="stat-card"><div class="num">&pound;{{ "%.2f"|format(outstanding) }}</div><div class="label">Outstanding</div></div>
       </div>
 
+      <h3 style="text-align:left; margin:24px 0 12px;">Subscription Revenue (GBP)</h3>
+      <form method="get" action="/admin/finances" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
+        <label for="from_date">From</label>
+        <input type="date" id="from_date" name="from_date" value="{{ from_date }}" style="width:auto;">
+        <label for="to_date">To</label>
+        <input type="date" id="to_date" name="to_date" value="{{ to_date }}" style="width:auto;">
+        <button type="submit" class="btn btn-sm">Search</button>
+        {% if from_date or to_date %}<a href="/admin/finances" class="btn btn-sm">Clear</a>{% endif %}
+      </form>
+      <div class="admin-stats">
+        <div class="stat-card"><div class="num">&pound;{{ "%.2f"|format(sub_total) }}</div><div class="label">Subscription revenue{% if from_date or to_date %} (filtered){% endif %}</div></div>
+      </div>
+      {% if subscription_payments %}
+      <table>
+        <thead>
+          <tr>
+            <th>Business</th>
+            <th>Plan</th>
+            <th>Amount (GBP)</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in subscription_payments %}
+          <tr>
+            <td><a href="/t/{{ s.business_slug }}" target="_blank"><strong>{{ s.business_name }}</strong></a></td>
+            <td>{{ s.plan_label }}</td>
+            <td>&pound;{{ "%.2f"|format(s.amount) }}</td>
+            <td>{{ s.created_at[:10] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color: var(--muted);">No subscription payments{% if from_date or to_date %} in this date range{% endif %} yet.</p>
+      {% endif %}
+
       <h3 style="text-align:left; margin:24px 0 12px;">Business Balances</h3>
       {% if businesses %}
       <table>

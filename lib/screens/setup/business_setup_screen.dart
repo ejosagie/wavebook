@@ -17,6 +17,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _slug = TextEditingController();
+  String _currency = 'GBP';
   bool _loading = false;
   String? _error;
 
@@ -39,6 +40,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
       final data = await api.post('/api/business', body: {
         'name': _name.text.trim(),
         'slug': _slug.text.trim().toLowerCase(),
+        'currency': _currency,
       });
       final business = Business.fromJson(data as Map<String, dynamic>);
       auth.refreshUser(User(
@@ -113,6 +115,31 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                         }
                         return null;
                       },
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: _currency,
+                      decoration: const InputDecoration(
+                        labelText: 'Currency',
+                        prefixIcon: Icon(Icons.payments_outlined),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'GBP', child: Text('£ GBP (United Kingdom)')),
+                        DropdownMenuItem(value: 'USD', child: Text(r'$ USD (United States)')),
+                        DropdownMenuItem(value: 'CAD', child: Text(r'C$ CAD (Canada)')),
+                        DropdownMenuItem(value: 'EUR', child: Text('€ EUR (Europe)')),
+                        DropdownMenuItem(value: 'AUD', child: Text(r'A$ AUD (Australia)')),
+                        DropdownMenuItem(value: 'NZD', child: Text(r'NZ$ NZD (New Zealand)')),
+                        DropdownMenuItem(value: 'NGN', child: Text('₦ NGN (Nigeria)')),
+                        DropdownMenuItem(value: 'KES', child: Text('KSh KES (Kenya)')),
+                        DropdownMenuItem(value: 'ZAR', child: Text('R ZAR (South Africa)')),
+                      ],
+                      onChanged: (v) => setState(() => _currency = v ?? 'GBP'),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Prices, deposits and shop prices will be shown in this currency.',
+                      style: TextStyle(color: WaveBookColors.muted, fontSize: 13),
                     ),
                     if (_error != null) ...[
                       const SizedBox(height: 12),

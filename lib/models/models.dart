@@ -137,6 +137,7 @@ class Business {
         'opening_hours': openingHours,
         'deposit_amount': depositAmount,
         'buffer_minutes': bufferMinutes,
+        'currency': currency,
         'sms_instructions': smsInstructions,
         'storefront_enabled': storefrontEnabled,
         'payout_bank_name': payoutBankName,

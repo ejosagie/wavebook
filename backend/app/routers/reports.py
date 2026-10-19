@@ -48,6 +48,7 @@ def financials(
     orders = row_to_dict(order_row)
     return {
         "period": period,
+        "currency": business.get("currency") or "GBP",
         "bookings_count": bookings["count"],
         "bookings_amount": round(bookings["amount"], 2),
         "deposits_count": deposits["count"],

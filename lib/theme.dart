@@ -1,5 +1,29 @@
 import 'package:flutter/material.dart';
 
+/// Currency symbol for a business's display currency (defaults to GBP).
+String currencySymbol(String code) {
+  switch (code.toUpperCase()) {
+    case 'USD':
+      return r'$';
+    case 'CAD':
+      return r'C$';
+    case 'EUR':
+      return '€';
+    case 'AUD':
+      return r'A$';
+    case 'NZD':
+      return r'NZ$';
+    case 'NGN':
+      return '₦';
+    case 'KES':
+      return 'KSh';
+    case 'ZAR':
+      return 'R';
+    default:
+      return '£';
+  }
+}
+
 class WaveBookColors {
   // Pink beauty palette
   static const pink = Color(0xFFEC4899);

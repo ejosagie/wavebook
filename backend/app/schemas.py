@@ -1,5 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field
 
+SUPPORTED_CURRENCIES = {"GBP", "USD", "CAD", "EUR", "AUD", "NZD", "NGN", "KES", "ZAR"}
+
 
 # ---- Auth ----
 class SignupRequest(BaseModel):
@@ -9,6 +11,7 @@ class SignupRequest(BaseModel):
     phone: str = Field(min_length=10)
     business_name: str | None = None
     slug: str | None = None
+    currency: str = "GBP"
 
 
 class LoginRequest(BaseModel):
@@ -26,6 +29,7 @@ class TokenResponse(BaseModel):
 class BusinessCreate(BaseModel):
     name: str = Field(min_length=1)
     slug: str = Field(min_length=2, pattern=r"^[a-z0-9-]+$")
+    currency: str = "GBP"
 
 
 class BusinessUpdate(BaseModel):
@@ -42,6 +46,7 @@ class BusinessUpdate(BaseModel):
     opening_hours: str | None = None
     deposit_amount: float | None = None
     buffer_minutes: int | None = None
+    currency: str | None = None
     sms_instructions: str | None = None
     storefront_enabled: bool | None = None
     payout_bank_name: str | None = None

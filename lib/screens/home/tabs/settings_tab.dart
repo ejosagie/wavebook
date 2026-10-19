@@ -22,6 +22,7 @@ class _SettingsTabState extends State<SettingsTab> {
   bool _loading = true;
   bool _saving = false;
   String? _error;
+  String _currency = 'GBP';
 
   final _name = TextEditingController();
   final _tagline = TextEditingController();
@@ -104,6 +105,7 @@ class _SettingsTabState extends State<SettingsTab> {
         _buffer.text = b.bufferMinutes.toString();
         _smsInstructions.text = b.smsInstructions;
         _storefrontEnabled = b.storefrontEnabled;
+        _currency = b.currency;
         _payoutBankName.text = b.payoutBankName;
         _payoutAccountName.text = b.payoutAccountName;
         _payoutAccountNumber.text = b.payoutAccountNumber;
@@ -134,6 +136,7 @@ class _SettingsTabState extends State<SettingsTab> {
         'opening_hours': _hours.text.trim(),
         'deposit_amount': double.tryParse(_deposit.text) ?? 20.0,
         'buffer_minutes': int.tryParse(_buffer.text) ?? 30,
+        'currency': _currency,
         'sms_instructions': _smsInstructions.text.trim(),
         'storefront_enabled': _storefrontEnabled,
         'payout_bank_name': _payoutBankName.text.trim(),
@@ -394,13 +397,30 @@ class _SettingsTabState extends State<SettingsTab> {
           maxLines: 3,
         ),
         const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          initialValue: _currency,
+          decoration: const InputDecoration(labelText: 'Currency'),
+          items: const [
+            DropdownMenuItem(value: 'GBP', child: Text('£ GBP (United Kingdom)')),
+            DropdownMenuItem(value: 'USD', child: Text(r'$ USD (United States)')),
+            DropdownMenuItem(value: 'CAD', child: Text(r'C$ CAD (Canada)')),
+            DropdownMenuItem(value: 'EUR', child: Text('€ EUR (Europe)')),
+            DropdownMenuItem(value: 'AUD', child: Text(r'A$ AUD (Australia)')),
+            DropdownMenuItem(value: 'NZD', child: Text(r'NZ$ NZD (New Zealand)')),
+            DropdownMenuItem(value: 'NGN', child: Text('₦ NGN (Nigeria)')),
+            DropdownMenuItem(value: 'KES', child: Text('KSh KES (Kenya)')),
+            DropdownMenuItem(value: 'ZAR', child: Text('R ZAR (South Africa)')),
+          ],
+          onChanged: (v) => setState(() => _currency = v ?? 'GBP'),
+        ),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
               child: TextFormField(
                 controller: _deposit,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Deposit (£)'),
+                decoration: InputDecoration(labelText: 'Deposit (${currencySymbol(_currency)})'),
               ),
             ),
             const SizedBox(width: 12),

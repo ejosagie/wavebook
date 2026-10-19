@@ -14,6 +14,7 @@ class OrdersScreen extends StatefulWidget {
 class _OrdersScreenState extends State<OrdersScreen> {
   final _api = ApiClient();
   List<Order> _orders = [];
+  String _currency = 'GBP';
   bool _loading = true;
   String? _error;
 
@@ -30,9 +31,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
     });
     try {
       final data = await _api.get('/api/orders');
+      String currency = 'GBP';
+      try {
+        final biz = await _api.get('/api/business') as Map<String, dynamic>;
+        currency = biz['currency']?.toString() ?? 'GBP';
+      } catch (_) {
+        // Currency is a display nicety; fall back to GBP.
+      }
       if (!mounted) return;
       setState(() {
         _orders = (data as List).map((o) => Order.fromJson(o as Map<String, dynamic>)).toList();
+        _currency = currency;
       });
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -171,7 +180,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '£${order.total.toStringAsFixed(2)} · ${order.createdAt}',
+                    '${currencySymbol(_currency)}${order.total.toStringAsFixed(2)} · ${order.createdAt}',
                     style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                   ),
                   if (order.customerPhone.isNotEmpty)

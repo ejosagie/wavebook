@@ -20,6 +20,7 @@ class ProductsScreen extends StatefulWidget {
 class _ProductsScreenState extends State<ProductsScreen> {
   final _api = ApiClient();
   List<Product> _products = [];
+  String _currency = 'GBP';
   bool _loading = true;
   String? _error;
   final Map<int, double> _uploading = {};
@@ -37,9 +38,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
     });
     try {
       final data = await _api.get('/api/products');
+      String currency = 'GBP';
+      try {
+        final biz = await _api.get('/api/business') as Map<String, dynamic>;
+        currency = biz['currency']?.toString() ?? 'GBP';
+      } catch (_) {
+        // Currency is a display nicety; fall back to GBP.
+      }
       if (!mounted) return;
       setState(() {
         _products = (data as List).map((p) => Product.fromJson(p as Map<String, dynamic>)).toList();
+        _currency = currency;
       });
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -177,7 +186,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   Future<Map<String, dynamic>?> _showProductDialog({Product? product}) {
     return Navigator.of(context).push<Map<String, dynamic>>(
-      MaterialPageRoute(builder: (_) => _ProductFormPage(product: product)),
+      MaterialPageRoute(builder: (_) => _ProductFormPage(product: product, currency: _currency)),
     );
   }
 
@@ -240,7 +249,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 ),
                 ListTile(
                   title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text('£${p.price.toStringAsFixed(2)}${p.active ? '' : ' · hidden'}'),
+                  subtitle: Text('${currencySymbol(_currency)}${p.price.toStringAsFixed(2)}${p.active ? '' : ' · hidden'}'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -497,8 +506,9 @@ class _ImageViewerState extends State<_ImageViewer> {
 
 class _ProductFormPage extends StatefulWidget {
   final Product? product;
+  final String currency;
 
-  const _ProductFormPage({this.product});
+  const _ProductFormPage({this.product, this.currency = 'GBP'});
 
   @override
   State<_ProductFormPage> createState() => _ProductFormPageState();
@@ -531,7 +541,7 @@ class _ProductFormPageState extends State<_ProductFormPage> {
     final p = double.tryParse(_price.text) ?? 0;
     if (_name.text.trim().isEmpty || p <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a product name and a price above £0')),
+        const SnackBar(content: Text('Enter a product name and a price above 0')),
       );
       return;
     }
@@ -575,7 +585,7 @@ class _ProductFormPageState extends State<_ProductFormPage> {
             TextField(
               controller: _price,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Price (£)'),
+              decoration: InputDecoration(labelText: 'Price (${currencySymbol(widget.currency)})'),
             ),
             const SizedBox(height: 24),
             ElevatedButton(onPressed: _save, child: const Text('Save product')),

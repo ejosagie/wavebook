@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-const NOTIFY_TOKEN = 'REPLACE_WITH_NOTIFY_TOKEN';
+const NOTIFY_TOKEN = 'h3r8aa01k6flmrbzzebtuc38pk0v40rb7wvmrzgczn1c0yw2';
 const MAIL_FROM = 'notifications@neurowavesdatasystems.ng';
 const MAIL_FROM_NAME = 'WaveBook';
 const MAX_BODY_BYTES = 100000;

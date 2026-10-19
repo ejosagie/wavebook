@@ -99,6 +99,7 @@
 
   <script>
     const slug = {{ business.slug | tojson }};
+    const currencySymbol = {{ format_price(0, business.currency)[0] | tojson }};
     const basket = new Map();
 
     document.querySelectorAll('.add-to-basket').forEach(btn => {
@@ -127,12 +128,12 @@
       basket.forEach(item => {
         total += item.price * item.qty;
         html += '<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border);">' +
-          '<span>' + item.name + ' × ' + item.qty + '</span>' +
+          '<span> + icurrencySymbol + tem.name + ' × ' + item.qty + '</span>' +
           '<span>£' + (item.price * item.qty).toFixed(2) + ' ' +
           '<button class="btn btn-sm" onclick="changeQty(' + item.id + ', -1)">−</button> ' +
           '<button class="btn btn-sm" onclick="changeQty(' + item.id + ', 1)">+</button></span></div>';
       });
-      container.innerHTML = html;
+      container.innerHTML = html; + currencySymbol
       totalEl.textContent = 'Total: £' + total.toFixed(2);
       totalEl.style.display = 'block';
       form.style.display = 'block';

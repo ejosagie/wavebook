@@ -14,6 +14,7 @@ class ServicesTab extends StatefulWidget {
 class _ServicesTabState extends State<ServicesTab> {
   final _api = ApiClient();
   List<Service> _services = [];
+  String _currency = 'GBP';
   bool _loading = true;
   String? _error;
 
@@ -30,9 +31,17 @@ class _ServicesTabState extends State<ServicesTab> {
     });
     try {
       final data = await _api.get('/api/services');
+      String currency = 'GBP';
+      try {
+        final biz = await _api.get('/api/business') as Map<String, dynamic>;
+        currency = biz['currency']?.toString() ?? 'GBP';
+      } catch (_) {
+        // Currency is a display nicety; fall back to GBP.
+      }
       if (!mounted) return;
       setState(() {
         _services = (data as List).map((s) => Service.fromJson(s as Map<String, dynamic>)).toList();
+        _currency = currency;
       });
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -43,7 +52,7 @@ class _ServicesTabState extends State<ServicesTab> {
 
   Future<void> _openEditor([Service? service]) async {
     final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => ServiceEditorScreen(service: service)),
+      MaterialPageRoute(builder: (_) => ServiceEditorScreen(service: service, currency: _currency)),
     );
     if (result == true) _load();
   }
@@ -128,7 +137,7 @@ class _ServicesTabState extends State<ServicesTab> {
             child: ListTile(
               title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.w700)),
               subtitle: Text(
-                '${s.description}\n£${s.price.toStringAsFixed(2)} · ${_formatDuration(s.durationMinutes)}',
+                '${s.description}\n${currencySymbol(_currency)}${s.price.toStringAsFixed(2)} · ${_formatDuration(s.durationMinutes)}',
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -164,8 +173,9 @@ class _ServicesTabState extends State<ServicesTab> {
 
 class ServiceEditorScreen extends StatefulWidget {
   final Service? service;
+  final String currency;
 
-  const ServiceEditorScreen({super.key, this.service});
+  const ServiceEditorScreen({super.key, this.service, this.currency = 'GBP'});
 
   @override
   State<ServiceEditorScreen> createState() => _ServiceEditorScreenState();
@@ -273,7 +283,10 @@ class _ServiceEditorScreenState extends State<ServiceEditorScreen> {
                 TextFormField(
                   controller: _price,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'Price (£)', prefixText: '£ '),
+                  decoration: InputDecoration(
+                    labelText: 'Price (${currencySymbol(widget.currency)})',
+                    prefixText: '${currencySymbol(widget.currency)} ',
+                  ),
                   validator: (v) {
                     final val = double.tryParse(v ?? '');
                     return (val == null || val < 0) ? 'Enter a valid price' : null;

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from ..database import get_connection, get_trial_days, row_to_dict, rows_to_dicts
 from ..deps import get_current_business, get_current_user, require_owner
 from ..phone import validate_phone
-from ..schemas import BusinessCreate, BusinessUpdate
+from ..schemas import BusinessCreate, BusinessUpdate, SUPPORTED_CURRENCIES
 from ..services.uploads import image_content_type
 
 router = APIRouter(prefix="/api/business", tags=["business"])
@@ -27,6 +27,9 @@ def create_business(data: BusinessCreate, user: dict = Depends(get_current_user)
     slug = data.slug.lower().strip()
     if not re.match(r"^[a-z0-9-]{2,63}$", slug):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid slug")
+    currency = (data.currency or "GBP").upper()
+    if currency not in SUPPORTED_CURRENCIES:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unsupported currency")
 
     conn = get_connection()
     try:
@@ -36,8 +39,8 @@ def create_business(data: BusinessCreate, user: dict = Depends(get_current_user)
 
         trial_ends = (datetime.utcnow() + timedelta(days=get_trial_days())).strftime("%Y-%m-%d")
         cur = conn.execute(
-            "INSERT INTO businesses (slug, name, trial_ends_at) VALUES (?, ?, ?)",
-            (slug, data.name.strip(), trial_ends),
+            "INSERT INTO businesses (slug, name, trial_ends_at, currency) VALUES (?, ?, ?, ?)",
+            (slug, data.name.strip(), trial_ends, currency),
         )
         business_id = cur.lastrowid
         conn.execute(
@@ -73,6 +76,10 @@ def update_business(data: BusinessUpdate, business: dict = Depends(get_current_b
             updates["contact_phone"] = validate_phone(updates["contact_phone"])
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    if "currency" in updates:
+        updates["currency"] = (updates["currency"] or "GBP").upper()
+        if updates["currency"] not in SUPPORTED_CURRENCIES:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unsupported currency")
     conn = get_connection()
     try:
         fields = ", ".join(f"{k} = ?" for k in updates)
