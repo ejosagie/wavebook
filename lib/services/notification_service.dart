@@ -1,7 +1,7 @@
 import 'dart:async';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../api/api_client.dart';
 
@@ -88,12 +88,14 @@ class NotificationService {
   }
 }
 
-/// Shows the booking popup dialog.
+final AudioPlayer _bookingPlayer = AudioPlayer();
+
+/// Shows the booking popup dialog and plays the booking chime.
 void showBookingNotificationPopup(
   BuildContext context,
   AppNotification notification,
 ) {
-  SystemSound.play(SystemSoundType.alert);
+  unawaited(_bookingPlayer.play(AssetSource('sounds/new_booking.wav')));
   showDialog(
     context: context,
     barrierDismissible: true,
