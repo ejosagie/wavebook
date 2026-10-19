@@ -15,6 +15,59 @@
     }
   </style>
   {% endif %}
+  <style>
+    #assistant-fab {
+      position: fixed; bottom: 24px; right: 24px; z-index: 90;
+      width: 58px; height: 58px; border-radius: 50%; border: none; cursor: pointer;
+      background: var(--gradient); color: #fff; font-size: 26px;
+      box-shadow: 0 8px 24px rgba(190, 24, 93, 0.35);
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.15s;
+    }
+    #assistant-fab:hover { transform: translateY(-2px); }
+    #assistant-panel {
+      position: fixed; bottom: 96px; right: 24px; z-index: 91;
+      width: min(360px, calc(100vw - 32px)); max-height: min(520px, calc(100vh - 120px));
+      background: #fff; border-radius: 18px; overflow: hidden;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+      display: none; flex-direction: column;
+    }
+    #assistant-panel.open { display: flex; }
+    .assistant-header {
+      background: var(--gradient); color: #fff; padding: 14px 16px;
+      display: flex; align-items: center; justify-content: space-between; font-weight: 700;
+    }
+    .assistant-header button {
+      background: none; border: none; color: #fff; font-size: 20px; cursor: pointer; line-height: 1;
+    }
+    #assistant-messages {
+      flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px;
+      min-height: 180px; background: #faf7f9;
+    }
+    .assistant-bubble {
+      max-width: 82%; padding: 10px 14px; border-radius: 14px; font-size: 0.92rem; line-height: 1.45;
+      white-space: pre-wrap; word-wrap: break-word;
+    }
+    .assistant-bubble.bot { background: #fff; border: 1px solid #f0e6ec; align-self: flex-start; border-bottom-left-radius: 4px; }
+    .assistant-bubble.user { background: var(--gradient); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+    .assistant-picks { display: flex; flex-wrap: wrap; gap: 8px; align-self: flex-start; }
+    .assistant-pick {
+      border: 1.5px solid var(--pink); background: #fff; color: var(--pink-dark);
+      border-radius: 999px; padding: 7px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+    }
+    .assistant-pick:hover { background: var(--pink-light); color: #fff; }
+    .assistant-input-row { display: flex; gap: 8px; padding: 12px; border-top: 1px solid #f0e6ec; background: #fff; }
+    .assistant-input-row input {
+      flex: 1; border: 1px solid #e5d9e0; border-radius: 10px; padding: 10px 12px; font-size: 0.92rem;
+    }
+    .assistant-input-row input:focus { outline: none; border-color: var(--pink); }
+    .assistant-input-row button {
+      background: var(--gradient); color: #fff; border: none; border-radius: 10px; padding: 0 16px;
+      font-weight: 700; cursor: pointer;
+    }
+    .assistant-footnote { padding: 8px 14px; font-size: 0.72rem; color: var(--muted); background: #fff; border-top: 1px solid #f5eef2; text-align: center; }
+    .assistant-typing { font-style: italic; color: var(--muted); }
+  </style>
 </head>
 <body class="tenant-theme">
   <div class="navbar tenant-nav">
@@ -98,6 +151,20 @@
       </div>
     </div>
   </section>
+
+  <button id="assistant-fab" aria-label="Open AI booking assistant">💬</button>
+  <div id="assistant-panel">
+    <div class="assistant-header">
+      <span>✨ WaveBook AI Assistant</span>
+      <button id="assistant-close" aria-label="Close">×</button>
+    </div>
+    <div id="assistant-messages"></div>
+    <div class="assistant-input-row">
+      <input id="assistant-input" type="text" placeholder="Try 'a haircut tomorrow afternoon'..." autocomplete="off">
+      <button id="assistant-send">Send</button>
+    </div>
+    <div class="assistant-footnote">Powered by WaveBook AI</div>
+  </div>
 
   <div class="footer">
     <div class="container">
@@ -220,6 +287,119 @@
           timeInfo.style.color = 'var(--danger)';
         });
     }
+
+    // ---- AI Booking Assistant (rule-based) ----
+    const fab = document.getElementById('assistant-fab');
+    const panel = document.getElementById('assistant-panel');
+    const messagesEl = document.getElementById('assistant-messages');
+    const assistantInput = document.getElementById('assistant-input');
+    let greeted = false;
+
+    function addBubble(text, who) {
+      const el = document.createElement('div');
+      el.className = 'assistant-bubble ' + who;
+      el.textContent = text;
+      messagesEl.appendChild(el);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      return el;
+    }
+
+    function addTyping() {
+      const el = document.createElement('div');
+      el.className = 'assistant-bubble bot assistant-typing';
+      el.textContent = '…';
+      messagesEl.appendChild(el);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      return el;
+    }
+
+    function addPicks(buttons) {
+      const row = document.createElement('div');
+      row.className = 'assistant-picks';
+      buttons.forEach(b => {
+        const btn = document.createElement('button');
+        btn.className = 'assistant-pick';
+        btn.textContent = b.label;
+        btn.addEventListener('click', b.onClick);
+        row.appendChild(btn);
+      });
+      messagesEl.appendChild(row);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function openAssistant() {
+      panel.classList.add('open');
+      if (!greeted) {
+        greeted = true;
+        addBubble("Hi! I'm the WaveBook AI Assistant. Tell me what you'd like to book — for example, 'a haircut tomorrow afternoon'.", 'bot');
+      }
+      assistantInput.focus();
+    }
+
+    function assistantSend(text) {
+      text = (text || '').trim();
+      if (!text) return;
+      addBubble(text, 'user');
+      assistantInput.value = '';
+      const typing = addTyping();
+      fetch('/t/' + slug + '/api/assistant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text })
+      })
+        .then(r => r.json())
+        .then(data => {
+          typing.remove();
+          addBubble(data.reply, 'bot');
+          if (data.services && data.services.length) {
+            addPicks(data.services.map(s => ({
+              label: s.name,
+              onClick: () => assistantSend("I'd like to book " + s.name)
+            })));
+          }
+          if (data.slots && data.slots.length) {
+            addPicks(data.slots.map(slot => ({
+              label: slot.display,
+              onClick: () => bookSlot(slot, data.service_id)
+            })));
+          }
+        })
+        .catch(() => {
+          typing.remove();
+          addBubble("Sorry, I couldn't process that. Please try again.", 'bot');
+        });
+    }
+
+    function bookSlot(slot, serviceId) {
+      const svc = document.getElementById('service-select');
+      svc.value = String(serviceId);
+      svc.dispatchEvent(new Event('change'));
+      dateInput.value = slot.date;
+      dateInput.dispatchEvent(new Event('input'));
+      const timer = setInterval(() => {
+        const match = Array.from(timeSelect.options).find(o => o.value === slot.time);
+        if (match) {
+          clearInterval(timer);
+          timeSelect.value = slot.time;
+          panel.classList.remove('open');
+          document.querySelector('.form-container').scrollIntoView({ behavior: 'smooth' });
+          addBubble("I've filled in your booking details below — just add your name and phone number, then submit.", 'bot');
+        } else if (timeSelect.options.length > 1 && timeSelect.options[1].value) {
+          clearInterval(timer);
+          panel.classList.remove('open');
+          document.querySelector('.form-container').scrollIntoView({ behavior: 'smooth' });
+          addBubble("That time was just taken. Please pick another time from the list below.", 'bot');
+        }
+      }, 150);
+      setTimeout(() => clearInterval(timer), 8000);
+    }
+
+    fab.addEventListener('click', openAssistant);
+    document.getElementById('assistant-close').addEventListener('click', () => panel.classList.remove('open'));
+    document.getElementById('assistant-send').addEventListener('click', () => assistantSend(assistantInput.value));
+    assistantInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') assistantSend(assistantInput.value);
+    });
   </script>
 </body>
 </html>

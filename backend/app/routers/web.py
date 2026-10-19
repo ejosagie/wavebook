@@ -15,6 +15,7 @@ from ..routers.payments import verify_payment as verify_booking_payment
 from ..schemas import SignupRequest
 from ..security import create_admin_token, decode_admin_token
 from ..services import flutterwave
+from ..services.assistant import build_assistant_response
 from ..services.ics import build_business_feed_ics
 from ..services.emailer import send_booking_received_email, send_owner_new_booking_email
 from ..services.notifier import send_business_sms
@@ -974,6 +975,60 @@ def tenant_slots(slug: str, date: str, service_id: int | None = None):
         int(business["buffer_minutes"] or 30),
     )
     return {"blocked": False, "slots": slots}
+
+
+@router.post("/t/{slug}/api/assistant")
+def tenant_assistant(slug: str, payload: dict):
+    """Rule-based AI booking assistant — parses natural language into real slots."""
+    business = _get_business_by_slug(slug)
+    if not business:
+        raise HTTPException(status_code=404, detail="Business not found")
+    message = (payload.get("message") or "").strip()
+    if not message:
+        return {
+            "reply": "Tell me what you'd like to book — for example, 'a haircut tomorrow afternoon'.",
+            "services": [],
+            "slots": [],
+        }
+    conn = get_connection()
+    try:
+        services = rows_to_dicts(
+            conn.execute(
+                "SELECT * FROM services WHERE business_id = ? ORDER BY sort_order, id",
+                (business["id"],),
+            ).fetchall()
+        )
+        availability = get_availability_row(
+            conn.execute("SELECT * FROM availability WHERE business_id = ?", (business["id"],)).fetchone()
+        )
+    finally:
+        conn.close()
+
+    def slots_for(date_str: str, duration_minutes: int) -> list[str]:
+        conn = get_connection()
+        try:
+            confirmed = conn.execute(
+                "SELECT * FROM bookings WHERE business_id = ? AND date = ? AND status = 'confirmed'",
+                (business["id"], date_str),
+            ).fetchall()
+        finally:
+            conn.close()
+        return get_available_time_slots(
+            date_str,
+            availability,
+            rows_to_dicts(confirmed),
+            duration_minutes,
+            int(business["buffer_minutes"] or 30),
+        )
+
+    return build_assistant_response(
+        message,
+        services,
+        business,
+        availability,
+        date.today(),
+        slots_for,
+    )
 
 
 @router.post("/t/{slug}/feedback")
