@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../api/api_client.dart';
 import '../../../models/models.dart';
 import '../../../theme.dart';
+import '../../../widgets/loading_network_image.dart';
 
 class GalleryTab extends StatefulWidget {
   const GalleryTab({super.key});
@@ -138,10 +139,9 @@ class _GalleryTabState extends State<GalleryTab> {
             fit: StackFit.expand,
             children: [
               if (item.path.isNotEmpty)
-                Image.network(
-                  '$kApiBaseUrl${item.path}',
+                LoadingNetworkImage(
+                  url: '$kApiBaseUrl${item.path}',
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const _EmptySlot(),
                 )
               else
                 const _EmptySlot(),

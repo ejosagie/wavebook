@@ -5,6 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../api/api_client.dart';
 import '../../../models/models.dart';
 import '../../../theme.dart';
+import '../../../services/notification_service.dart';
+import '../../../widgets/loading_network_image.dart';
 import '../../storefront/products_screen.dart';
 
 class SettingsTab extends StatefulWidget {
@@ -41,11 +43,15 @@ class _SettingsTabState extends State<SettingsTab> {
   final _payoutSortCode = TextEditingController();
   bool _storefrontEnabled = false;
   SmsBalance? _smsBalance;
+  bool _bookingSound = true;
 
   @override
   void initState() {
     super.initState();
     _load();
+    isBookingSoundEnabled().then((v) {
+      if (mounted) setState(() => _bookingSound = v);
+    });
   }
 
   @override
@@ -260,10 +266,10 @@ class _SettingsTabState extends State<SettingsTab> {
                     if (b.logoPath.isNotEmpty)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(10),
-                        child: Image.network(
-                          '$kApiBaseUrl${b.logoPath}',
+                        child: LoadingNetworkImage(
+                          url: '$kApiBaseUrl${b.logoPath}',
                           height: 56,
-                          errorBuilder: (_, _, _) => const Icon(Icons.image, size: 56),
+                          iconSize: 56,
                         ),
                       )
                     else
@@ -291,10 +297,10 @@ class _SettingsTabState extends State<SettingsTab> {
                     if (b.aboutImage.isNotEmpty)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(10),
-                        child: Image.network(
-                          '$kApiBaseUrl${b.aboutImage}',
+                        child: LoadingNetworkImage(
+                          url: '$kApiBaseUrl${b.aboutImage}',
                           height: 56,
-                          errorBuilder: (_, _, _) => const Icon(Icons.image, size: 56),
+                          iconSize: 56,
                         ),
                       )
                     else
@@ -406,6 +412,20 @@ class _SettingsTabState extends State<SettingsTab> {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 24),
+        const Text('Alerts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 12),
+        Card(
+          child: SwitchListTile(
+            title: const Text('New booking sound', style: TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: const Text('Play a chime when a new booking arrives', style: TextStyle(fontSize: 13)),
+            value: _bookingSound,
+            onChanged: (v) async {
+              setState(() => _bookingSound = v);
+              await setBookingSoundEnabled(v);
+            },
+          ),
         ),
         const SizedBox(height: 24),
         const Text('SMS Notifications', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),

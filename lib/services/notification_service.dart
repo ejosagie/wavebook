@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/api_client.dart';
 
@@ -90,12 +91,31 @@ class NotificationService {
 
 final AudioPlayer _bookingPlayer = AudioPlayer();
 
-/// Shows the booking popup dialog and plays the booking chime.
+const _bookingSoundKey = 'wavebook_booking_sound';
+
+Future<bool> isBookingSoundEnabled() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool(_bookingSoundKey) ?? true;
+}
+
+Future<void> setBookingSoundEnabled(bool enabled) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool(_bookingSoundKey, enabled);
+}
+
+Future<void> _playBookingChime() async {
+  try {
+    if (!await isBookingSoundEnabled()) return;
+    await _bookingPlayer.play(AssetSource('sounds/new_booking.wav'));
+  } catch (_) {}
+}
+
+/// Shows the booking popup dialog and plays the booking chime when enabled.
 void showBookingNotificationPopup(
   BuildContext context,
   AppNotification notification,
 ) {
-  unawaited(_bookingPlayer.play(AssetSource('sounds/new_booking.wav')));
+  unawaited(_playBookingChime());
   showDialog(
     context: context,
     barrierDismissible: true,

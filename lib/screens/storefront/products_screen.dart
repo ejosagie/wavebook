@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../api/api_client.dart';
 import '../../models/models.dart';
 import '../../theme.dart';
+import '../../widgets/loading_network_image.dart';
 
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
@@ -119,60 +120,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
     }
   }
 
-  Future<Map<String, dynamic>?> _showProductDialog({Product? product}) async {
-    final name = TextEditingController(text: product?.name ?? '');
-    final description = TextEditingController(text: product?.description ?? '');
-    final price = TextEditingController(
-      text: product != null ? product.price.toStringAsFixed(2) : '',
+  Future<Map<String, dynamic>?> _showProductDialog({Product? product}) {
+    return Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(builder: (_) => _ProductFormPage(product: product)),
     );
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(product == null ? 'Add Product' : 'Edit Product'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: name,
-                decoration: const InputDecoration(labelText: 'Product name'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: description,
-                decoration: const InputDecoration(labelText: 'Description'),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: price,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Price (£)'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () {
-              final p = double.tryParse(price.text) ?? 0;
-              if (name.text.trim().isEmpty || p <= 0) return;
-              Navigator.pop(ctx, {
-                'name': name.text.trim(),
-                'description': description.text.trim(),
-                'price': p,
-              });
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-    name.dispose();
-    description.dispose();
-    price.dispose();
-    return result;
   }
 
   @override
@@ -225,12 +176,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
               leading: p.imagePath.isNotEmpty
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        '$kApiBaseUrl${p.imagePath}',
+                      child: LoadingNetworkImage(
+                        url: '$kApiBaseUrl${p.imagePath}',
                         width: 48,
                         height: 48,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const Icon(Icons.image, size: 48),
                       ),
                     )
                   : const Icon(Icons.image_outlined, size: 48, color: WaveBookColors.muted),
@@ -264,6 +213,102 @@ class _ProductsScreenState extends State<ProductsScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _ProductFormPage extends StatefulWidget {
+  final Product? product;
+
+  const _ProductFormPage({this.product});
+
+  @override
+  State<_ProductFormPage> createState() => _ProductFormPageState();
+}
+
+class _ProductFormPageState extends State<_ProductFormPage> {
+  late final TextEditingController _name;
+  late final TextEditingController _description;
+  late final TextEditingController _price;
+
+  @override
+  void initState() {
+    super.initState();
+    _name = TextEditingController(text: widget.product?.name ?? '');
+    _description = TextEditingController(text: widget.product?.description ?? '');
+    _price = TextEditingController(
+      text: widget.product != null ? widget.product!.price.toStringAsFixed(2) : '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _description.dispose();
+    _price.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final p = double.tryParse(_price.text) ?? 0;
+    if (_name.text.trim().isEmpty || p <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a product name and a price above £0')),
+      );
+      return;
+    }
+    Navigator.pop(context, {
+      'name': _name.text.trim(),
+      'description': _description.text.trim(),
+      'price': p,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: const BackButton(),
+        title: Text(widget.product == null ? 'Add Product' : 'Edit Product'),
+        actions: [
+          TextButton(
+            onPressed: _save,
+            child: const Text('Save', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+          children: [
+            TextField(
+              controller: _name,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(labelText: 'Product name'),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _description,
+              decoration: const InputDecoration(labelText: 'Description'),
+              minLines: 3,
+              maxLines: 6,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _price,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Price (£)'),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(onPressed: _save, child: const Text('Save product')),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
       ),
     );
   }

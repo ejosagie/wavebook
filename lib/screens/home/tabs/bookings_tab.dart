@@ -183,15 +183,18 @@ class _BookingsTabState extends State<BookingsTab> {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(value: 'all', label: Text('All')),
-                ButtonSegment(value: 'pending', label: Text('Pending')),
-                ButtonSegment(value: 'confirmed', label: Text('Confirmed')),
-                ButtonSegment(value: 'cancelled', label: Text('Cancelled')),
-              ],
-              selected: {_filter},
-              onSelectionChanged: (s) => setState(() => _filter = s.first),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'all', label: Text('All', maxLines: 1)),
+                  ButtonSegment(value: 'pending', label: Text('Pending', maxLines: 1)),
+                  ButtonSegment(value: 'confirmed', label: Text('Confirmed', maxLines: 1)),
+                  ButtonSegment(value: 'cancelled', label: Text('Cancelled', maxLines: 1)),
+                ],
+                selected: {_filter},
+                onSelectionChanged: (s) => setState(() => _filter = s.first),
+              ),
             ),
           ),
           Expanded(child: _buildBody()),
@@ -288,6 +291,7 @@ class _BookingCard extends StatelessWidget {
                   ),
                   child: Text(
                     booking.status.toUpperCase(),
+                    maxLines: 1,
                     style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700),
                   ),
                 ),

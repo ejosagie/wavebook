@@ -56,6 +56,7 @@ def get_current_business(user: dict = Depends(get_current_user)) -> dict:
 def require_owner(user: dict = Depends(get_current_user)) -> dict:
     if user.get("role") not in ("owner", "admin"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner access required")
+    return user
 
 
 def get_business_plan(business_id: int) -> tuple[str | None, dict | None]:
