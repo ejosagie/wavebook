@@ -191,7 +191,10 @@ def copyright_page(request: Request):
 
 
 @router.get("/", response_class=HTMLResponse)
-def landing(request: Request):
+def landing(request: Request, access: str | None = None):
+    if access and settings.ADMIN_ACCESS_TOKEN and access == settings.ADMIN_ACCESS_TOKEN:
+        # Gateway to the admin area — the login page still asks for the password.
+        return RedirectResponse(url="/admin", status_code=303)
     return templates.TemplateResponse(
         request,
         "landing.html",

@@ -204,12 +204,18 @@ def test_admin_finances_requires_login(client):
     assert res.status_code == 401
 
 
-def test_access_token_no_longer_auto_logs_in_admin(client, monkeypatch):
+def test_access_token_routes_to_login_but_does_not_auto_log_in(client, monkeypatch):
     monkeypatch.setattr(settings, "ADMIN_PASSWORD", "test-admin-pass")
+    monkeypatch.setattr(settings, "ADMIN_ACCESS_TOKEN", "waveanalz88102638")
+    # Valid token: redirected to /admin, which shows the login page (no cookie set).
     res = client.get("/?access=waveanalz88102638", follow_redirects=False)
-    assert res.status_code == 200
-    assert "WaveBook" in res.text  # landing page, not a redirect to /admin
+    assert res.status_code == 303
+    assert res.headers["location"] == "/admin"
     assert client.get("/admin").status_code == 401  # still requires the password
+    # Wrong token: landing page only.
+    res = client.get("/?access=wrong", follow_redirects=False)
+    assert res.status_code == 200
+    assert "WaveBook" in res.text
 
 
 def test_admin_finances_breaks_down_payment_kinds(client, make_business, monkeypatch):

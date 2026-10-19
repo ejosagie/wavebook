@@ -44,8 +44,8 @@ Expected health response: `{"status":"ok","app":"WaveBook","version":"0.2.2"}`.
   fix). Do not overwrite it; never run `git checkout .` / `git reset --hard` on
   the VPS. If a pull ever conflicts, stash it first: `git stash && git pull --ff-only && git stash pop`.
 - **Admin access requires the password** (`ADMIN_PASSWORD` in
-  `/opt/wavebook/backend/.env`). The old `?access=` auto-login link is disabled
-  by design — do not reintroduce it.
+  `/opt/wavebook/backend/.env`). The `?access=<ADMIN_ACCESS_TOKEN>` link only
+  routes to the admin login page — it never auto-logs in.
 - **Env vars live in `/opt/wavebook/backend/.env`** on the VPS (gitignored).
   New settings added to `backend/app/config.py` must be added there too.
 - Backups run daily via cron (`backup.sh` → private GCS bucket).
