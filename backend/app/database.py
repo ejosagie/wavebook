@@ -184,6 +184,16 @@ CREATE TABLE IF NOT EXISTS products (
     FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS product_images (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL,
+    business_id INTEGER NOT NULL,
+    path TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     business_id INTEGER NOT NULL,
@@ -209,6 +219,7 @@ CREATE INDEX IF NOT EXISTS idx_bookings_business_date ON bookings(business_id, d
 CREATE INDEX IF NOT EXISTS idx_payments_booking ON payments(booking_id);
 CREATE INDEX IF NOT EXISTS idx_services_business ON services(business_id);
 CREATE INDEX IF NOT EXISTS idx_users_business ON users(business_id);
+CREATE INDEX IF NOT EXISTS idx_product_images_product ON product_images(product_id);
 """
 
 
@@ -243,6 +254,16 @@ def init_db() -> None:
         _ensure_column(conn, "bookings", "reference", "reference TEXT DEFAULT ''")
         _ensure_column(conn, "bookings", "reminder_sent", "reminder_sent INTEGER NOT NULL DEFAULT 0")
         _ensure_column(conn, "bookings", "assigned_staff_id", "assigned_staff_id INTEGER")
+        _ensure_column(conn, "services", "questions", "questions TEXT DEFAULT '[]'")
+        _ensure_column(conn, "bookings", "intake_answers", "intake_answers TEXT DEFAULT '{}'")
+        _ensure_column(conn, "businesses", "calendar_token", "calendar_token TEXT DEFAULT ''")
+        # Move single product images (older app builds) into the multi-image table
+        conn.execute(
+            "INSERT INTO product_images (product_id, business_id, path) "
+            "SELECT id, business_id, image_path FROM products "
+            "WHERE image_path != '' AND image_path IS NOT NULL "
+            "AND id NOT IN (SELECT product_id FROM product_images)"
+        )
         # Backfill a reference for bookings created before the column existed
         missing = conn.execute(
             "SELECT id FROM bookings WHERE reference = '' OR reference IS NULL"

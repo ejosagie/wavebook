@@ -120,7 +120,7 @@ def _run_gcloud(args: list[str]) -> tuple[bool, str]:
         return False, "gcloud CLI not found. Ensure the Google Cloud SDK is installed and on PATH."
 
 
-def upload_shop_image(business_id: int, product_id: int, image_data: bytes) -> str:
+def upload_shop_image(business_id: int, product_id: int, image_data: bytes, name: str | None = None) -> str:
     """
     Upload a single product image to GCS using gcloud storage cp.
     Images are automatically resized to max 800x800 and converted to JPEG.
@@ -129,6 +129,7 @@ def upload_shop_image(business_id: int, product_id: int, image_data: bytes) -> s
         business_id: Business owner id.
         product_id: The product id this image belongs to.
         image_data: Raw bytes of the image file.
+        name: Object name without extension; defaults to the product id.
 
     Returns:
         Public HTTPS URL of the uploaded object.
@@ -143,7 +144,7 @@ def upload_shop_image(business_id: int, product_id: int, image_data: bytes) -> s
     # Auto-resize and convert to JPEG
     resized_data = _resize_image(image_data)
 
-    blob_name = f"{BLOB_ROOT}shop-images/{business_id}/{product_id}.{OUTPUT_EXT}"
+    blob_name = f"{BLOB_ROOT}shop-images/{business_id}/{name or product_id}.{OUTPUT_EXT}"
     gs_path = f"gs://{GCS_BUCKET_NAME}/{blob_name}"
 
     with tempfile.NamedTemporaryFile(suffix=f".{OUTPUT_EXT}", delete=False) as tmp:
@@ -173,6 +174,14 @@ def delete_shop_image(business_id: int, product_id: int) -> None:
         ok, _ = _run_gcloud(["rm", gs_path])
         if ok:
             return
+
+
+def delete_image_url(url: str) -> None:
+    """Delete the object behind a public GCS URL produced by upload_shop_image."""
+    prefix = f"https://storage.googleapis.com/{GCS_BUCKET_NAME}/"
+    if not gcs_enabled() or not url.startswith(prefix):
+        return
+    _run_gcloud(["rm", f"gs://{GCS_BUCKET_NAME}/{url[len(prefix):]}"])
 
 
 def build_image_url(business_id: int, product_id: int, ext: str = "jpg") -> str:

@@ -1,8 +1,9 @@
+import json
 from datetime import date
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from ..config import settings
@@ -14,6 +15,7 @@ from ..routers.payments import verify_payment as verify_booking_payment
 from ..schemas import SignupRequest
 from ..security import create_admin_token, decode_admin_token
 from ..services import flutterwave
+from ..services.ics import build_business_feed_ics
 from ..services.emailer import send_booking_received_email, send_owner_new_booking_email
 from ..services.notifier import send_business_sms
 from ..services.slots import (
@@ -152,6 +154,11 @@ def signup_success(request: Request):
 @router.get("/support", response_class=HTMLResponse)
 def support_page(request: Request):
     return templates.TemplateResponse(request, "support.html", {})
+
+
+@router.get("/download", response_class=HTMLResponse)
+def download_page(request: Request):
+    return templates.TemplateResponse(request, "download.html", {})
 
 
 @router.get("/privacy", response_class=HTMLResponse)
@@ -871,6 +878,31 @@ def tenant_services(request: Request, slug: str):
     )
 
 
+@router.get("/t/{slug}/calendar.ics", response_class=PlainTextResponse)
+def tenant_calendar_feed(slug: str, token: str = ""):
+    """Subscribable iCal feed of confirmed bookings for a business."""
+    business = _get_business_by_slug(slug)
+    if not business:
+        raise HTTPException(status_code=404, detail="Business not found")
+    if business.get("calendar_token") and token != business["calendar_token"]:
+        raise HTTPException(status_code=403, detail="Invalid calendar token")
+    conn = get_connection()
+    try:
+        bookings = rows_to_dicts(
+            conn.execute(
+                "SELECT * FROM bookings WHERE business_id = ? AND status = 'confirmed' ORDER BY date, time",
+                (business["id"],),
+            ).fetchall()
+        )
+    finally:
+        conn.close()
+    return PlainTextResponse(
+        build_business_feed_ics(bookings, business),
+        media_type="text/calendar",
+        headers={"Content-Disposition": f'attachment; filename="{slug}-calendar.ics"'},
+    )
+
+
 @router.get("/t/{slug}/booking", response_class=HTMLResponse)
 def tenant_booking_page(request: Request, slug: str, service: int | None = None):
     business = _get_business_by_slug(slug)
@@ -883,6 +915,11 @@ def tenant_booking_page(request: Request, slug: str, service: int | None = None)
                 "SELECT * FROM services WHERE business_id = ? ORDER BY sort_order, id", (business["id"],)
             ).fetchall()
         )
+        for svc in services:
+            try:
+                svc["questions"] = json.loads(svc.get("questions") or "[]")
+            except json.JSONDecodeError:
+                svc["questions"] = []
         availability = get_availability_row(
             conn.execute("SELECT * FROM availability WHERE business_id = ?", (business["id"],)).fetchone()
         )
@@ -1013,12 +1050,13 @@ async def tenant_booking_submit(
         cur = conn.execute(
             """INSERT INTO bookings
                (business_id, customer_name, customer_email, customer_phone, service_id,
-                service_name, service_price, service_duration_minutes, date, time, notes, reference)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                service_name, service_price, service_duration_minutes, date, time, notes, reference, intake_answers)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 business["id"], name.strip(), email.strip(), phone, service["id"],
                 service["name"], service["price"], service["duration_minutes"],
                 date, time, notes.strip(), generate_reference(),
+                json.dumps(await _collect_intake_answers(service, request)),
             ),
         )
         booking_id = cur.lastrowid
@@ -1090,6 +1128,25 @@ def tenant_booking_paid(request: Request, slug: str, booking_id: int):
 
 
 # ---- Customer booking management portal (reschedule / cancel) ----
+
+
+async def _collect_intake_answers(service, request: Request) -> dict:
+    """Read `answer_<id>` form fields for the service's intake questions."""
+    answers: dict[str, str] = {}
+    try:
+        questions = json.loads(service["questions"] or "[]")
+    except json.JSONDecodeError:
+        return answers
+    form = await request.form()
+    for q in questions:
+        qid = str(q.get("id", ""))
+        if not qid:
+            continue
+        value = (form.get(f"answer_{qid}") or "").strip()
+        if q.get("required") and not value:
+            raise HTTPException(status_code=400, detail=f"Please answer: {q.get('label', '')}")
+        answers[qid] = value
+    return answers
 
 
 def _lookup_booking(reference: str, email: str) -> tuple[dict | None, dict | None]:

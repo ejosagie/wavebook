@@ -18,6 +18,8 @@ class _GalleryTabState extends State<GalleryTab> {
   List<GalleryItem> _items = [];
   bool _loading = true;
   String? _error;
+  int? _uploadingSlot;
+  double _uploadProgress = 0;
 
   @override
   void initState() {
@@ -49,13 +51,26 @@ class _GalleryTabState extends State<GalleryTab> {
     final picker = ImagePicker();
     final file = await picker.pickImage(source: ImageSource.gallery, maxWidth: 1200);
     if (file == null) return;
+    setState(() {
+      _uploadingSlot = slot;
+      _uploadProgress = 0;
+    });
     try {
-      await _api.upload('/api/business/gallery/$slot', file.path, 'file');
+      await _api.upload(
+        '/api/business/gallery/$slot',
+        file.path,
+        'file',
+        onProgress: (p) {
+          if (mounted) setState(() => _uploadProgress = p);
+        },
+      );
       await _load();
     } on ApiException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
       }
+    } finally {
+      if (mounted) setState(() => _uploadingSlot = null);
     }
   }
 
@@ -145,6 +160,25 @@ class _GalleryTabState extends State<GalleryTab> {
                 )
               else
                 const _EmptySlot(),
+              if (_uploadingSlot == i)
+                Container(
+                  color: Colors.black54,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      LinearProgressIndicator(value: _uploadProgress >= 1 ? null : _uploadProgress),
+                      const SizedBox(height: 8),
+                      Text(
+                        _uploadProgress >= 1
+                            ? 'Processing photo...'
+                            : 'Uploading ${(_uploadProgress * 100).round()}%',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
               Positioned(
                 top: 6,
                 right: 6,

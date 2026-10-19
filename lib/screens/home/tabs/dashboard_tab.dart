@@ -334,9 +334,10 @@ class _DashboardTabState extends State<DashboardTab> {
     if (parts.length != 3) return cta;
     final end = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
     final days = end.difference(DateTime.now()).inDays;
-    if (days <= 0) return ios ? cta : 'Your free trial has ended. $cta';
-    if (days == 1) return 'Your free trial ends tomorrow. $cta';
-    return '$days days left in your free trial. $cta';
+    final date = '${parts[2]}/${parts[1]}/${parts[0]}';
+    if (days <= 0) return ios ? cta : 'Your free trial ended on $date. $cta';
+    if (days == 1) return 'Your free trial ends tomorrow ($date). $cta';
+    return '$days days left in your free trial (ends $date). $cta';
   }
 
   void _openUrl(String url) {

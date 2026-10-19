@@ -109,6 +109,7 @@ class _SubscriptionTabState extends State<SubscriptionTab> {
                   Text(
                     info.trialDaysLeft > 0
                         ? '${info.trialDaysLeft} day${info.trialDaysLeft == 1 ? '' : 's'} left in your free trial'
+                            '${info.trialEndsAt.isEmpty ? '' : ' · expires ${info.trialEndsAt}'}'
                         : 'Your free trial has ended',
                     style: const TextStyle(
                       fontSize: 14,

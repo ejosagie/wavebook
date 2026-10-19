@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from ..database import get_connection, row_to_dict, rows_to_dicts
@@ -17,6 +19,11 @@ def list_services(business: dict = Depends(get_current_business)):
                 (business["id"],),
             ).fetchall()
         )
+        for row in rows:
+            try:
+                row["questions"] = json.loads(row.get("questions") or "[]")
+            except json.JSONDecodeError:
+                row["questions"] = []
     finally:
         conn.close()
     return rows
@@ -27,8 +34,9 @@ def create_service(data: ServiceCreate, business: dict = Depends(get_current_bus
     conn = get_connection()
     try:
         cur = conn.execute(
-            "INSERT INTO services (business_id, name, description, price, duration_minutes) VALUES (?, ?, ?, ?, ?)",
-            (business["id"], data.name.strip(), data.description, data.price, data.duration_minutes),
+            "INSERT INTO services (business_id, name, description, price, duration_minutes, questions) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (business["id"], data.name.strip(), data.description, data.price, data.duration_minutes, json.dumps(data.questions)),
         )
         conn.commit()
         service = row_to_dict(conn.execute("SELECT * FROM services WHERE id = ?", (cur.lastrowid,)).fetchone())
@@ -52,6 +60,8 @@ def update_service(
         if not existing:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
         updates = data.model_dump(exclude_unset=True, exclude_none=True)
+        if "questions" in updates:
+            updates["questions"] = json.dumps(updates["questions"])
         if updates:
             fields = ", ".join(f"{k} = ?" for k in updates)
             conn.execute(f"UPDATE services SET {fields} WHERE id = ?", (*updates.values(), service_id))

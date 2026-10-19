@@ -1,5 +1,5 @@
 """iCalendar (.ics) export so bookings can be added to iOS/Google calendars."""
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 def _escape(value: str) -> str:
@@ -28,7 +28,7 @@ def build_booking_ics(booking: dict, business: dict) -> str:
     """
     start = datetime.fromisoformat(f"{booking['date']}T{booking['time']}")
     duration = int(booking.get("service_duration_minutes") or 60)
-    end = start.replace(minute=start.minute + duration)
+    end = start + timedelta(minutes=duration)
     stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
 
     summary = f"{booking.get('service_name', 'Booking')} - {booking.get('customer_name', '')}"
@@ -59,4 +59,44 @@ def build_booking_ics(booking: dict, business: dict) -> str:
         "END:VEVENT",
         "END:VCALENDAR",
     ]
+    return "\r\n".join(_fold(line) for line in lines) + "\r\n"
+
+
+def build_business_feed_ics(bookings: list[dict], business: dict) -> str:
+    """Build a subscribable .ics feed with one VEVENT per booking."""
+    stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//WaveBook//WaveBook//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        f"X-WR-CALNAME:{_escape(business.get('name', 'WaveBook'))}",
+    ]
+    for booking in bookings:
+        start = datetime.fromisoformat(f"{booking['date']}T{booking['time']}")
+        duration = int(booking.get("service_duration_minutes") or 60)
+        end = start + timedelta(minutes=duration)
+        summary = f"{booking.get('service_name', 'Booking')} - {booking.get('customer_name', '')}"
+        description = (
+            f"Booking reference: {booking.get('reference', '')}\n"
+            f"Business: {business.get('name', '')}\n"
+            f"Customer: {booking.get('customer_name', '')}\n"
+            f"Phone: {booking.get('customer_phone', '')}\n"
+            f"Email: {booking.get('customer_email', '')}"
+        )
+        if booking.get("notes"):
+            description += f"\nNotes: {booking['notes']}"
+        lines += [
+            "BEGIN:VEVENT",
+            f"UID:wavebook-{booking['id']}@getwavebook.com",
+            f"DTSTAMP:{stamp}",
+            f"DTSTART:{start.strftime('%Y%m%dT%H%M%S')}",
+            f"DTEND:{end.strftime('%Y%m%dT%H%M%S')}",
+            f"SUMMARY:{_escape(summary)}",
+            f"DESCRIPTION:{_escape(description)}",
+            "STATUS:CONFIRMED",
+            "END:VEVENT",
+        ]
+    lines.append("END:VCALENDAR")
     return "\r\n".join(_fold(line) for line in lines) + "\r\n"

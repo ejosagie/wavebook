@@ -1,4 +1,5 @@
 import re
+import secrets
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
@@ -81,6 +82,22 @@ def update_business(data: BusinessUpdate, business: dict = Depends(get_current_b
     finally:
         conn.close()
     return updated
+
+
+@router.post("/calendar-token")
+def calendar_token(business: dict = Depends(get_current_business), user: dict = Depends(require_owner)):
+    """Return the iCal feed token, generating one on first use."""
+    conn = get_connection()
+    try:
+        if not business.get("calendar_token"):
+            token = secrets.token_urlsafe(24)
+            conn.execute("UPDATE businesses SET calendar_token = ? WHERE id = ?", (token, business["id"]))
+            conn.commit()
+        else:
+            token = business["calendar_token"]
+    finally:
+        conn.close()
+    return {"calendar_token": token}
 
 
 @router.post("/logo")

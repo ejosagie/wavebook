@@ -95,14 +95,14 @@
           </div>
         </form>
         <p id="checkout-error" style="display:none; color: var(--danger); margin-top: 12px; font-size: 0.9rem;"></p>
-        <p style="font-size: 0.85rem; margin-top: 16px;">Secure card payments by Flutterwave.</p>
+        <p style="font-size: 0.85rem; margin-top: 16px;">Secure card payments.</p>
       </div>
     </div>
   </section>
 
   <div class="footer">
     <div class="container">
-      <p>&copy; 2026 NeuroWaves Data Systems Ltd. All rights reserved.</p>
+      <p>&copy; 2026 NeuroWaves Data Systems. All rights reserved.</p>
       <p style="margin-top: 8px;">Support: <a href="mailto:support@getwavebook.com">support@getwavebook.com</a></p>
     </div>
   </div>
@@ -131,7 +131,7 @@
     });
     refreshPlanSelector();
 
-    // Calls the checkout API and redirects to the Flutterwave payment page.
+    // Calls the checkout API and redirects to the payment page.
     document.getElementById('checkout-form').addEventListener('submit', async function (e) {
       e.preventDefault();
       const errorEl = document.getElementById('checkout-error');

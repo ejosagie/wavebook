@@ -6,6 +6,10 @@ import '../../models/models.dart';
 import '../../theme.dart';
 import '../../widgets/loading_network_image.dart';
 
+const _maxProductImages = 4;
+
+String _photoUrl(String path) => path.startsWith('http') ? path : '$kApiBaseUrl$path';
+
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
 
@@ -18,6 +22,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   List<Product> _products = [];
   bool _loading = true;
   String? _error;
+  final Map<int, double> _uploading = {};
 
   @override
   void initState() {
@@ -107,17 +112,67 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Future<void> _uploadImage(Product product) async {
+    if (product.images.length >= _maxProductImages) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You can add up to 4 photos per product. Remove one first.')),
+      );
+      return;
+    }
     final picker = ImagePicker();
     final file = await picker.pickImage(source: ImageSource.gallery, maxWidth: 1200);
     if (file == null) return;
+    setState(() => _uploading[product.id] = 0);
     try {
-      await _api.upload('/api/products/${product.id}/image', file.path, 'file');
+      await _api.upload(
+        '/api/products/${product.id}/images',
+        file.path,
+        'file',
+        onProgress: (p) {
+          if (mounted) setState(() => _uploading[product.id] = p);
+        },
+      );
+      await _load();
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _uploading.remove(product.id));
+    }
+  }
+
+  Future<void> _deleteImage(Product product, ProductImage image) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove photo?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove', style: TextStyle(color: WaveBookColors.danger)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await _api.delete('/api/products/${product.id}/images/${image.id}');
       await _load();
     } on ApiException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
+  }
+
+  void _openViewer(List<ProductImage> images, int index) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => _ImageViewer(urls: images.map((i) => i.path).toList(), initialIndex: index),
+      ),
+    );
   }
 
   Future<Map<String, dynamic>?> _showProductDialog({Product? product}) {
@@ -172,47 +227,269 @@ class _ProductsScreenState extends State<ProductsScreen> {
         itemBuilder: (context, index) {
           final p = _products[index];
           return Card(
-            child: ListTile(
-              leading: p.imagePath.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: LoadingNetworkImage(
-                        url: '$kApiBaseUrl${p.imagePath}',
-                        width: 48,
-                        height: 48,
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _ProductPhotos(
+                  images: p.images,
+                  uploadProgress: _uploading[p.id],
+                  onOpen: (i) => _openViewer(p.images, i),
+                  onRemove: (i) => _deleteImage(p, p.images[i]),
+                  onAdd: () => _uploadImage(p),
+                ),
+                ListTile(
+                  title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: Text('£${p.price.toStringAsFixed(2)}${p.active ? '' : ' · hidden'}'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(p.active ? Icons.visibility : Icons.visibility_off),
+                        tooltip: p.active ? 'Hide product' : 'Show product',
+                        onPressed: () => _toggleActive(p),
                       ),
-                    )
-                  : const Icon(Icons.image_outlined, size: 48, color: WaveBookColors.muted),
-              title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text('£${p.price.toStringAsFixed(2)}${p.active ? '' : ' · hidden'}'),
-              trailing: Row(
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined),
+                        tooltip: 'Edit',
+                        onPressed: () => _editProduct(p),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, color: WaveBookColors.danger),
+                        tooltip: 'Delete',
+                        onPressed: () => _deleteProduct(p),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ProductPhotos extends StatefulWidget {
+  final List<ProductImage> images;
+  final double? uploadProgress;
+  final void Function(int index) onOpen;
+  final void Function(int index) onRemove;
+  final VoidCallback onAdd;
+
+  const _ProductPhotos({
+    required this.images,
+    required this.uploadProgress,
+    required this.onOpen,
+    required this.onRemove,
+    required this.onAdd,
+  });
+
+  @override
+  State<_ProductPhotos> createState() => _ProductPhotosState();
+}
+
+class _ProductPhotosState extends State<_ProductPhotos> {
+  final _controller = PageController();
+  int _index = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final images = widget.images;
+    final progress = widget.uploadProgress;
+    if (images.isEmpty && progress == null) {
+      return Container(
+        height: 140,
+        color: WaveBookColors.muted.withValues(alpha: 0.08),
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.image_outlined, size: 40, color: WaveBookColors.muted),
+            TextButton.icon(
+              onPressed: widget.onAdd,
+              icon: const Icon(Icons.add_a_photo_outlined),
+              label: const Text('Add photo'),
+            ),
+          ],
+        ),
+      );
+    }
+    final current = images.isEmpty ? 0 : _index.clamp(0, images.length - 1).toInt();
+    return SizedBox(
+      height: 200,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (images.isNotEmpty)
+            PageView.builder(
+              controller: _controller,
+              itemCount: images.length,
+              onPageChanged: (i) => setState(() => _index = i),
+              itemBuilder: (_, i) => GestureDetector(
+                onTap: () => widget.onOpen(i),
+                child: LoadingNetworkImage(url: _photoUrl(images[i].path), fit: BoxFit.cover),
+              ),
+            ),
+          if (images.isNotEmpty)
+            Positioned(
+              top: 8,
+              left: 8,
+              child: _Chip(text: '${current + 1} / ${images.length}'),
+            ),
+          if (images.isNotEmpty)
+            Positioned(
+              top: 4,
+              right: 4,
+              child: _CircleAction(
+                icon: Icons.delete_outline,
+                tooltip: 'Remove photo',
+                onPressed: () => widget.onRemove(current),
+              ),
+            ),
+          if (images.isNotEmpty && images.length < _maxProductImages)
+            Positioned(
+              bottom: 4,
+              right: 4,
+              child: _CircleAction(
+                icon: Icons.add_a_photo_outlined,
+                tooltip: 'Add photo',
+                onPressed: widget.onAdd,
+              ),
+            ),
+          if (images.length > 1)
+            Positioned(
+              bottom: 10,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  images.length,
+                  (i) => Container(
+                    width: 7,
+                    height: 7,
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: i == current ? Colors.white : Colors.white54,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (progress != null)
+            Container(
+              color: Colors.black54,
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              alignment: Alignment.center,
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.photo_outlined),
-                    tooltip: 'Upload image',
-                    onPressed: () => _uploadImage(p),
-                  ),
-                  IconButton(
-                    icon: Icon(p.active ? Icons.visibility : Icons.visibility_off),
-                    tooltip: p.active ? 'Hide product' : 'Show product',
-                    onPressed: () => _toggleActive(p),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined),
-                    tooltip: 'Edit',
-                    onPressed: () => _editProduct(p),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, color: WaveBookColors.danger),
-                    tooltip: 'Delete',
-                    onPressed: () => _deleteProduct(p),
+                  LinearProgressIndicator(value: progress >= 1 ? null : progress),
+                  const SizedBox(height: 10),
+                  Text(
+                    progress >= 1
+                        ? 'Processing photo, please wait...'
+                        : 'Uploading photo... ${(progress * 100).round()}%',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
             ),
-          );
-        },
+        ],
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  final String text;
+
+  const _Chip({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12)),
+      child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+    );
+  }
+}
+
+class _CircleAction extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  const _CircleAction({required this.icon, required this.tooltip, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black54,
+      shape: const CircleBorder(),
+      child: IconButton(
+        icon: Icon(icon, color: Colors.white, size: 20),
+        tooltip: tooltip,
+        onPressed: onPressed,
+      ),
+    );
+  }
+}
+
+class _ImageViewer extends StatefulWidget {
+  final List<String> urls;
+  final int initialIndex;
+
+  const _ImageViewer({required this.urls, required this.initialIndex});
+
+  @override
+  State<_ImageViewer> createState() => _ImageViewerState();
+}
+
+class _ImageViewerState extends State<_ImageViewer> {
+  late final PageController _controller = PageController(initialPage: widget.initialIndex);
+  late int _index = widget.initialIndex;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text('${_index + 1} / ${widget.urls.length}'),
+      ),
+      body: PageView.builder(
+        controller: _controller,
+        itemCount: widget.urls.length,
+        onPageChanged: (i) => setState(() => _index = i),
+        itemBuilder: (_, i) => InteractiveViewer(
+          minScale: 1,
+          maxScale: 4,
+          child: Center(
+            child: LoadingNetworkImage(
+              url: _photoUrl(widget.urls[i]),
+              fit: BoxFit.contain,
+              iconSize: 64,
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -92,6 +92,7 @@
             <label>Additional Notes</label>
             <textarea name="notes" placeholder="Any special requests or information we should know..."></textarea>
           </div>
+          <div id="intake-questions"></div>
           <button type="submit" class="btn" style="width:100%;">Submit Booking</button>
         </form>
       </div>
@@ -111,12 +112,65 @@
     const dateWarning = document.getElementById('date-warning');
     const timeInfo = document.getElementById('time-info');
     const slug = {{ business.slug | tojson }};
+    const serviceQuestions = {};
+    {% for svc in services %}
+    serviceQuestions[{{ svc.id }}] = {{ svc.questions | tojson }};
+    {% endfor %}
+
+    const intakeContainer = document.getElementById('intake-questions');
+
+    function renderIntakeQuestions(serviceId) {
+      const questions = serviceQuestions[serviceId] || [];
+      intakeContainer.innerHTML = '';
+      if (questions.length === 0) return;
+      const heading = document.createElement('p');
+      heading.style.cssText = 'font-weight:700; color: var(--pink-dark); margin: 16px 0 8px;';
+      heading.textContent = 'A few questions before you book';
+      intakeContainer.appendChild(heading);
+      questions.forEach(q => {
+        const group = document.createElement('div');
+        group.className = 'form-group';
+        const label = document.createElement('label');
+        label.textContent = q.label + (q.required ? ' *' : '');
+        group.appendChild(label);
+        if (q.type === 'choice') {
+          const select = document.createElement('select');
+          select.name = 'answer_' + q.id;
+          select.required = !!q.required;
+          const placeholder = document.createElement('option');
+          placeholder.value = '';
+          placeholder.textContent = '-- Select --';
+          select.appendChild(placeholder);
+          (q.options || []).forEach(opt => {
+            const o = document.createElement('option');
+            o.value = opt;
+            o.textContent = opt;
+            select.appendChild(o);
+          });
+          group.appendChild(select);
+        } else {
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.name = 'answer_' + q.id;
+          input.required = !!q.required;
+          group.appendChild(input);
+        }
+        intakeContainer.appendChild(group);
+      });
+    }
 
     document.getElementById('service-select').addEventListener('change', function () {
+      renderIntakeQuestions(this.value);
       if (dateInput.value && !blockedDates.includes(dateInput.value)) {
         loadTimeSlots(dateInput.value);
       }
     });
+
+    // Render questions immediately when a service is preselected via ?service=
+    const initialService = document.getElementById('service-select').value;
+    if (initialService) {
+      renderIntakeQuestions(initialService);
+    }
 
     dateInput.addEventListener('input', function (e) {
       const selectedDate = e.target.value;

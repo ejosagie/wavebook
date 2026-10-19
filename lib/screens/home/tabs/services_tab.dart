@@ -177,6 +177,7 @@ class _ServiceEditorScreenState extends State<ServiceEditorScreen> {
   late final TextEditingController _description;
   late final TextEditingController _price;
   late final TextEditingController _duration;
+  late final List<Map<String, dynamic>> _questions;
   bool _saving = false;
 
   @override
@@ -190,6 +191,7 @@ class _ServiceEditorScreenState extends State<ServiceEditorScreen> {
     _duration = TextEditingController(
       text: widget.service?.durationMinutes.toString() ?? '60',
     );
+    _questions = widget.service?.questions.map((q) => Map<String, dynamic>.from(q)).toList() ?? [];
   }
 
   @override
@@ -209,6 +211,7 @@ class _ServiceEditorScreenState extends State<ServiceEditorScreen> {
       'description': _description.text.trim(),
       'price': double.parse(_price.text),
       'duration_minutes': int.parse(_duration.text),
+      'questions': _questions,
     };
     try {
       final api = ApiClient();
@@ -225,6 +228,22 @@ class _ServiceEditorScreenState extends State<ServiceEditorScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _editQuestion(int? index) async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => _IntakeQuestionDialog(question: index == null ? null : _questions[index]),
+    );
+    if (result == null) return;
+    setState(() {
+      if (index == null) {
+        result['id'] = 'q${DateTime.now().millisecondsSinceEpoch}';
+        _questions.add(result);
+      } else {
+        _questions[index] = result;
+      }
+    });
   }
 
   @override
@@ -271,6 +290,59 @@ class _ServiceEditorScreenState extends State<ServiceEditorScreen> {
                   },
                 ),
                 const SizedBox(height: 24),
+                Text(
+                  'Intake questions',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Questions customers answer before booking this service.',
+                  style: TextStyle(fontSize: 13, color: WaveBookColors.muted),
+                ),
+                const SizedBox(height: 8),
+                if (_questions.isEmpty)
+                  Text(
+                    'No questions yet.',
+                    style: TextStyle(fontSize: 13, color: WaveBookColors.muted),
+                  )
+                else
+                  ..._questions.asMap().entries.map(
+                        (e) => Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            dense: true,
+                            title: Text(
+                              e.value['label']?.toString() ?? 'Question',
+                              style: const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            subtitle: Text(
+                              '${e.value['type'] == 'choice' ? 'Multiple choice' : 'Text'}'
+                              '${e.value['required'] == true ? ' · Required' : ''}',
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit_outlined, size: 20),
+                                  tooltip: 'Edit question',
+                                  onPressed: () => _editQuestion(e.key),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, size: 20, color: WaveBookColors.danger),
+                                  tooltip: 'Remove question',
+                                  onPressed: () => setState(() => _questions.removeAt(e.key)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                OutlinedButton.icon(
+                  onPressed: () => _editQuestion(null),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add question'),
+                ),
+                const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: _saving ? null : _save,
                   child: _saving
@@ -286,6 +358,115 @@ class _ServiceEditorScreenState extends State<ServiceEditorScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _IntakeQuestionDialog extends StatefulWidget {
+  final Map<String, dynamic>? question;
+
+  const _IntakeQuestionDialog({this.question});
+
+  @override
+  State<_IntakeQuestionDialog> createState() => _IntakeQuestionDialogState();
+}
+
+class _IntakeQuestionDialogState extends State<_IntakeQuestionDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _label;
+  late final TextEditingController _options;
+  late String _type;
+  late bool _required;
+
+  @override
+  void initState() {
+    super.initState();
+    final q = widget.question;
+    _label = TextEditingController(text: q?['label']?.toString() ?? '');
+    _type = q?['type']?.toString() ?? 'text';
+    _required = q?['required'] == true;
+    _options = TextEditingController(
+      text: (q?['options'] as List? ?? []).join(', '),
+    );
+  }
+
+  @override
+  void dispose() {
+    _label.dispose();
+    _options.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (!_formKey.currentState!.validate()) return;
+    final options = _options.text
+        .split(',')
+        .map((o) => o.trim())
+        .where((o) => o.isNotEmpty)
+        .toList();
+    Navigator.of(context).pop({
+      'label': _label.text.trim(),
+      'type': _type,
+      'required': _required,
+      'options': _type == 'choice' ? options : <String>[],
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.question == null ? 'Add question' : 'Edit question'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextFormField(
+                controller: _label,
+                decoration: const InputDecoration(labelText: 'Question'),
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter the question' : null,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _type,
+                decoration: const InputDecoration(labelText: 'Answer type'),
+                items: const [
+                  DropdownMenuItem(value: 'text', child: Text('Text')),
+                  DropdownMenuItem(value: 'choice', child: Text('Multiple choice')),
+                ],
+                onChanged: (v) => setState(() => _type = v ?? 'text'),
+              ),
+              if (_type == 'choice') ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _options,
+                  decoration: const InputDecoration(
+                    labelText: 'Options',
+                    hintText: 'Comma separated, e.g. Email, Phone, WhatsApp',
+                  ),
+                  validator: (v) {
+                    final opts = (v ?? '').split(',').map((o) => o.trim()).where((o) => o.isNotEmpty);
+                    return opts.length >= 2 ? null : 'Enter at least two options';
+                  },
+                ),
+              ],
+              const SizedBox(height: 12),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Required'),
+                value: _required,
+                onChanged: (v) => setState(() => _required = v),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        ElevatedButton(onPressed: _save, child: const Text('Save')),
+      ],
     );
   }
 }

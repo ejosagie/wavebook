@@ -1,5 +1,6 @@
 import json
 import secrets
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 
@@ -13,10 +14,60 @@ from ..services.uploads import image_content_type
 router = APIRouter(tags=["storefront"])
 
 UPLOAD_DIR = None  # set in main via app.state
+MAX_PRODUCT_IMAGES = 4
 
 
 def _upload_dir():
     return UPLOAD_DIR
+
+
+def _attach_images(conn, products: list[dict]) -> list[dict]:
+    """Add an `images` list (id and path, oldest first) to each product dict."""
+    for p in products:
+        p["images"] = []
+    if not products:
+        return products
+    ids = [p["id"] for p in products]
+    placeholders = ",".join("?" for _ in ids)
+    rows = conn.execute(
+        f"SELECT id, product_id, path FROM product_images WHERE product_id IN ({placeholders}) ORDER BY id",
+        ids,
+    ).fetchall()
+    by_product: dict[int, list[dict]] = {}
+    for r in rows:
+        by_product.setdefault(r["product_id"], []).append({"id": r["id"], "path": r["path"]})
+    for p in products:
+        p["images"] = by_product.get(p["id"], [])
+    return products
+
+
+def _delete_stored_image(path: str) -> None:
+    """Remove an image from GCS or the local uploads folder. Failures are ignored."""
+    try:
+        if path.startswith("http"):
+            gcs.delete_image_url(path)
+        else:
+            (_upload_dir() / path.split("/")[-1]).unlink(missing_ok=True)
+    except Exception:
+        pass
+
+
+def _store_product_image(business: dict, product_id: int, file: UploadFile) -> str:
+    data = file.file.read()
+    if gcs.gcs_enabled():
+        # Upload to the public GCS bucket (auto-resized to 800px JPEG)
+        try:
+            return gcs.upload_shop_image(
+                business["id"], product_id, data, name=f"{product_id}-{uuid.uuid4().hex[:8]}"
+            )
+        except (ValueError, RuntimeError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "png"
+    filename = f"product_{business['id']}_{product_id}_{uuid.uuid4().hex[:8]}.{ext}"
+    uploads = _upload_dir()
+    uploads.mkdir(parents=True, exist_ok=True)
+    (uploads / filename).write_bytes(data)
+    return f"/uploads/{filename}"
 
 
 # ---- Owner product management (app) ----
@@ -32,6 +83,7 @@ def list_products(business: dict = Depends(get_current_business)):
                 (business["id"],),
             ).fetchall()
         )
+        _attach_images(conn, rows)
     finally:
         conn.close()
     return rows
@@ -112,76 +164,97 @@ def delete_product(
         ).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Product not found")
+        stored = {r["path"] for r in conn.execute(
+            "SELECT path FROM product_images WHERE product_id = ?", (product_id,)
+        ).fetchall()}
         if row["image_path"]:
-            if row["image_path"].startswith("http"):
-                # Stored in GCS — remove from the bucket
-                try:
-                    gcs.delete_shop_image(business["id"], product_id)
-                except Exception:
-                    pass
-            else:
-                # Stored on the local disk
-                try:
-                    (_upload_dir() / row["image_path"].split("/")[-1]).unlink(missing_ok=True)
-                except OSError:
-                    pass
+            stored.add(row["image_path"])
         conn.execute("DELETE FROM products WHERE id = ? AND business_id = ?", (product_id, business["id"]))
         conn.commit()
     finally:
         conn.close()
+    for path in stored:
+        _delete_stored_image(path)
     return {"ok": True}
 
 
-@router.post("/api/products/{product_id}/image")
+def _add_product_image(business: dict, product_id: int, file: UploadFile) -> dict:
+    if image_content_type(file) is None:
+        raise HTTPException(status_code=400, detail="Use JPG, PNG, GIF or WebP")
+
+    conn = get_connection()
+    try:
+        product = conn.execute(
+            "SELECT image_path FROM products WHERE id = ? AND business_id = ?",
+            (product_id, business["id"]),
+        ).fetchone()
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
+        count = conn.execute(
+            "SELECT COUNT(*) AS c FROM product_images WHERE product_id = ?", (product_id,)
+        ).fetchone()["c"]
+        if count >= MAX_PRODUCT_IMAGES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"You can add up to {MAX_PRODUCT_IMAGES} photos per product. Remove one first.",
+            )
+        path = _store_product_image(business, product_id, file)
+        conn.execute(
+            "INSERT INTO product_images (product_id, business_id, path) VALUES (?, ?, ?)",
+            (product_id, business["id"], path),
+        )
+        if not product["image_path"]:
+            conn.execute(
+                "UPDATE products SET image_path = ? WHERE id = ? AND business_id = ?",
+                (path, product_id, business["id"]),
+            )
+        conn.commit()
+        images = _attach_images(conn, [{"id": product_id}])[0]["images"]
+    finally:
+        conn.close()
+    return {"path": path, "images": images}
+
+
+@router.post("/api/products/{product_id}/images", status_code=status.HTTP_201_CREATED)
+@router.post("/api/products/{product_id}/image")  # single-image route kept for older app builds
 def upload_product_image(
     product_id: int,
     file: UploadFile,
     business: dict = Depends(get_current_business),
     user: dict = Depends(require_owner),
 ):
-    if image_content_type(file) is None:
-        raise HTTPException(status_code=400, detail="Use JPG, PNG, GIF or WebP")
+    return _add_product_image(business, product_id, file)
 
+
+@router.delete("/api/products/{product_id}/images/{image_id}")
+def delete_product_image(
+    product_id: int,
+    image_id: int,
+    business: dict = Depends(get_current_business),
+    user: dict = Depends(require_owner),
+):
     conn = get_connection()
     try:
-        exists = conn.execute(
-            "SELECT id FROM products WHERE id = ? AND business_id = ?",
-            (product_id, business["id"]),
+        row = conn.execute(
+            "SELECT id, path FROM product_images WHERE id = ? AND product_id = ? AND business_id = ?",
+            (image_id, product_id, business["id"]),
         ).fetchone()
-        if not exists:
-            raise HTTPException(status_code=404, detail="Product not found")
-    finally:
-        conn.close()
-
-    import uuid
-
-    data = file.file.read()
-    if gcs.gcs_enabled():
-        # Upload to the public GCS bucket (auto-resized to 800px JPEG)
-        try:
-            url = gcs.upload_shop_image(business["id"], product_id, data)
-        except (ValueError, RuntimeError) as exc:
-            raise HTTPException(status_code=400, detail=str(exc))
-        path = url
-    else:
-        ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "png"
-        filename = f"product_{business['id']}_{product_id}_{uuid.uuid4().hex[:8]}.{ext}"
-        uploads = _upload_dir()
-        uploads.mkdir(parents=True, exist_ok=True)
-        dest = uploads / filename
-        dest.write_bytes(data)
-        path = f"/uploads/{filename}"
-
-    conn = get_connection()
-    try:
+        if not row:
+            raise HTTPException(status_code=404, detail="Photo not found")
+        conn.execute("DELETE FROM product_images WHERE id = ?", (image_id,))
+        remaining = conn.execute(
+            "SELECT path FROM product_images WHERE product_id = ? ORDER BY id LIMIT 1", (product_id,)
+        ).fetchone()
         conn.execute(
             "UPDATE products SET image_path = ? WHERE id = ? AND business_id = ?",
-            (path, product_id, business["id"]),
+            (remaining["path"] if remaining else "", product_id, business["id"]),
         )
         conn.commit()
+        images = _attach_images(conn, [{"id": product_id}])[0]["images"]
     finally:
         conn.close()
-    return {"path": path}
+    _delete_stored_image(row["path"])
+    return {"ok": True, "images": images}
 
 
 # ---- Public storefront (customer booking website) ----
@@ -203,6 +276,7 @@ def public_storefront(slug: str):
                 (business["id"],),
             ).fetchall()
         )
+        _attach_images(conn, products)
     finally:
         conn.close()
     return {

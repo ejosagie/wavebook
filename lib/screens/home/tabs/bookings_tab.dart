@@ -1,7 +1,4 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../api/api_client.dart';
@@ -23,6 +20,8 @@ class _BookingsTabState extends State<BookingsTab> {
   String _filter = 'all';
   List<StaffMember> _staff = [];
   bool _canAssign = false;
+  List<Service> _services = [];
+  String _businessSlug = '';
 
   @override
   void initState() {
@@ -41,6 +40,24 @@ class _BookingsTabState extends State<BookingsTab> {
       setState(() {
         _bookings = (data as List).map((b) => Booking.fromJson(b as Map<String, dynamic>)).toList();
       });
+      try {
+        final businessData = await _api.get('/api/business') as Map<String, dynamic>;
+        if (mounted) setState(() => _businessSlug = businessData['slug']?.toString() ?? '');
+      } on ApiException {
+        // Schedule link needs the slug; leave it empty if unavailable.
+      }
+      try {
+        final servicesData = await _api.get('/api/services');
+        if (mounted) {
+          setState(() {
+            _services = (servicesData as List)
+                .map((s) => Service.fromJson(s as Map<String, dynamic>))
+                .toList();
+          });
+        }
+      } on ApiException {
+        // Intake labels are optional; answers still display with their ids.
+      }
       try {
         final sub = SubscriptionInfo.fromJson(await _api.get('/api/subscription') as Map<String, dynamic>);
         final canAssign = sub.maxStaff > 0;
@@ -61,6 +78,17 @@ class _BookingsTabState extends State<BookingsTab> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Map<String, String> _intakeLabels(Booking booking) {
+    final service = _services.where((s) => s.id == booking.serviceId).firstOrNull;
+    if (service == null) return booking.intakeAnswers;
+    final labels = <String, String>{};
+    for (final q in service.questions) {
+      final qid = q['id']?.toString();
+      if (qid != null) labels[qid] = q['label']?.toString() ?? qid;
+    }
+    return booking.intakeAnswers.map((k, v) => MapEntry(labels[k] ?? k, v));
   }
 
   Future<void> _setStatus(Booking booking, String status) async {
@@ -148,16 +176,15 @@ class _BookingsTabState extends State<BookingsTab> {
     }
   }
 
-  Future<void> _addToCalendar(Booking booking) async {
+  Future<void> _openSchedule() async {
     try {
-      final ics = await _api.getRaw('/api/bookings/${booking.id}/ics');
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/booking-${booking.reference.isEmpty ? booking.id : booking.reference}.ics');
-      await file.writeAsString(ics);
-      final launched = await launchUrl(Uri.file(file.path));
+      final data = await _api.post('/api/business/calendar-token') as Map<String, dynamic>;
+      final token = data['calendar_token'] as String;
+      final url = '$kApiBaseUrl/t/$_businessSlug/calendar.ics?token=$token';
+      final launched = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
       if (!launched && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open the calendar app')),
+          const SnackBar(content: Text('Could not open the calendar link')),
         );
       }
     } on ApiException catch (e) {
@@ -230,10 +257,11 @@ class _BookingsTabState extends State<BookingsTab> {
         itemCount: bookings.length,
         itemBuilder: (context, i) => _BookingCard(
           booking: bookings[i],
+          intakeLabels: _intakeLabels(bookings[i]),
           onConfirm: () => _setStatus(bookings[i], 'confirmed'),
           onCancel: () => _setStatus(bookings[i], 'cancelled'),
           onDelete: () => _delete(bookings[i]),
-          onAddToCalendar: () => _addToCalendar(bookings[i]),
+          onAddToCalendar: _openSchedule,
           onAssign: () => _assign(bookings[i]),
           canAssign: _canAssign,
         ),
@@ -244,6 +272,7 @@ class _BookingsTabState extends State<BookingsTab> {
 
 class _BookingCard extends StatelessWidget {
   final Booking booking;
+  final Map<String, String> intakeLabels;
   final VoidCallback onConfirm;
   final VoidCallback onCancel;
   final VoidCallback onDelete;
@@ -253,6 +282,7 @@ class _BookingCard extends StatelessWidget {
 
   const _BookingCard({
     required this.booking,
+    this.intakeLabels = const {},
     required this.onConfirm,
     required this.onCancel,
     required this.onDelete,
@@ -305,6 +335,20 @@ class _BookingCard extends StatelessWidget {
             if (booking.customerEmail.isNotEmpty)
               _InfoRow(icon: Icons.email, text: booking.customerEmail),
             if (booking.notes.isNotEmpty) _InfoRow(icon: Icons.notes, text: booking.notes),
+            if (booking.intakeAnswers.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Intake answers',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: WaveBookColors.muted,
+                ),
+              ),
+              ...intakeLabels.entries.map(
+                (e) => _InfoRow(icon: Icons.fact_check_outlined, text: '${e.key}: ${e.value}'),
+              ),
+            ],
             if (booking.assignedStaffName != null)
               _InfoRow(icon: Icons.badge_outlined, text: 'Assigned to ${booking.assignedStaffName}'),
             if (booking.confirmationFile.isNotEmpty)
@@ -353,7 +397,7 @@ class _BookingCard extends StatelessWidget {
                 IconButton(
                   icon: const Icon(Icons.calendar_month_outlined, color: WaveBookColors.pink),
                   onPressed: onAddToCalendar,
-                  tooltip: 'Add to calendar',
+                  tooltip: 'Open schedule link',
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline, color: WaveBookColors.danger),

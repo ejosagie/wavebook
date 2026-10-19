@@ -109,14 +109,39 @@ class ApiClient {
     return _handle(res);
   }
 
-  Future<dynamic> upload(String path, String filePath, String fieldName) async {
+  /// Uploads a file as multipart form data. [onProgress] receives a value from 0 to 1
+  /// as the request body is sent.
+  Future<dynamic> upload(
+    String path,
+    String filePath,
+    String fieldName, {
+    void Function(double progress)? onProgress,
+  }) async {
     final token = await getToken();
     final request = http.MultipartRequest('POST', Uri.parse('$kApiBaseUrl$path'));
     if (token != null) request.headers['Authorization'] = 'Bearer $token';
     request.files.add(await http.MultipartFile.fromPath(fieldName, filePath));
-    final streamed = await request.send();
-    final res = await http.Response.fromStream(streamed);
-    return _handle(res);
+    final total = request.contentLength;
+    final body = request.finalize();
+    var sent = 0;
+    final tracked = body.map((chunk) {
+      sent += chunk.length;
+      if (onProgress != null && total > 0) onProgress(sent / total);
+      return chunk;
+    });
+    final streamedRequest = http.StreamedRequest('POST', request.url)
+      ..headers.addAll(request.headers)
+      ..contentLength = total;
+    final client = http.Client();
+    try {
+      final responseFuture = client.send(streamedRequest);
+      await streamedRequest.sink.addStream(tracked);
+      await streamedRequest.sink.close();
+      final res = await http.Response.fromStream(await responseFuture);
+      return _handle(res);
+    } finally {
+      client.close();
+    }
   }
 
   dynamic _handle(http.Response res) {

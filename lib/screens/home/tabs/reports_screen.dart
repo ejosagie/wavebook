@@ -49,7 +49,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Report')),
+      appBar: AppBar(title: const Text('Report and Analytics')),
       body: Column(
         children: [
           Padding(
@@ -120,12 +120,36 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          _ReportCard(
-            icon: Icons.event,
-            color: WaveBookColors.pink,
-            title: 'Bookings',
-            count: d['bookings_count'] as int,
-            amount: bookingsAmount,
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: WaveBookColors.pink.withValues(alpha: 0.15),
+                    child: const Icon(Icons.event_available, color: WaveBookColors.pink),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Bookings', style: TextStyle(fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${d['bookings_count'] as int} ${d['bookings_count'] == 1 ? 'booking' : 'bookings'}',
+                          style: const TextStyle(color: WaveBookColors.muted, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    '£${bookingsAmount.toStringAsFixed(2)}',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: WaveBookColors.pink),
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           _ReportCard(

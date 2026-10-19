@@ -1,3 +1,4 @@
+import json
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -49,6 +50,11 @@ def list_bookings(
     conn = get_connection()
     try:
         rows = rows_to_dicts(conn.execute(query, params).fetchall())
+        for row in rows:
+            try:
+                row["intake_answers"] = json.loads(row.get("intake_answers") or "{}")
+            except json.JSONDecodeError:
+                row["intake_answers"] = {}
     finally:
         conn.close()
     return rows

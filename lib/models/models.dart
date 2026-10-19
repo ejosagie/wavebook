@@ -147,12 +147,25 @@ class Business {
       };
 }
 
+class ProductImage {
+  final int id;
+  final String path;
+
+  ProductImage({required this.id, required this.path});
+
+  factory ProductImage.fromJson(Map<String, dynamic> json) => ProductImage(
+        id: json['id'] as int,
+        path: json['path'] as String? ?? '',
+      );
+}
+
 class Product {
   final int id;
   final String name;
   final String description;
   final double price;
   final String imagePath;
+  final List<ProductImage> images;
   final bool active;
   final int sortOrder;
 
@@ -162,6 +175,7 @@ class Product {
     required this.description,
     required this.price,
     required this.imagePath,
+    required this.images,
     required this.active,
     required this.sortOrder,
   });
@@ -172,6 +186,9 @@ class Product {
         description: json['description'] as String? ?? '',
         price: (json['price'] as num?)?.toDouble() ?? 0,
         imagePath: json['image_path'] as String? ?? '',
+        images: (json['images'] as List? ?? [])
+            .map((i) => ProductImage.fromJson(i as Map<String, dynamic>))
+            .toList(),
         active: (json['active'] as num?)?.toInt() == 1,
         sortOrder: json['sort_order'] as int? ?? 0,
       );
@@ -288,6 +305,7 @@ class Service {
   final double price;
   final int durationMinutes;
   final int sortOrder;
+  final List<Map<String, dynamic>> questions;
 
   Service({
     required this.id,
@@ -296,6 +314,7 @@ class Service {
     required this.price,
     required this.durationMinutes,
     required this.sortOrder,
+    this.questions = const [],
   });
 
   factory Service.fromJson(Map<String, dynamic> json) => Service(
@@ -305,6 +324,9 @@ class Service {
         price: (json['price'] as num?)?.toDouble() ?? 0,
         durationMinutes: json['duration_minutes'] as int? ?? 60,
         sortOrder: json['sort_order'] as int? ?? 0,
+        questions: (json['questions'] as List? ?? [])
+            .map((q) => Map<String, dynamic>.from(q as Map))
+            .toList(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -312,6 +334,7 @@ class Service {
         'description': description,
         'price': price,
         'duration_minutes': durationMinutes,
+        'questions': questions,
       };
 }
 
@@ -327,6 +350,7 @@ class Booking {
   final String date;
   final String time;
   final String notes;
+  final Map<String, String> intakeAnswers;
   final String status;
   final String confirmationFile;
   final String reference;
@@ -346,6 +370,7 @@ class Booking {
     required this.date,
     required this.time,
     required this.notes,
+    this.intakeAnswers = const {},
     required this.status,
     required this.confirmationFile,
     required this.reference,
@@ -366,6 +391,8 @@ class Booking {
         date: json['date'] as String? ?? '',
         time: json['time'] as String? ?? '',
         notes: json['notes'] as String? ?? '',
+        intakeAnswers: (json['intake_answers'] as Map? ?? {})
+            .map((k, v) => MapEntry(k.toString(), v.toString())),
         status: json['status'] as String? ?? 'pending',
         confirmationFile: json['confirmation_file'] as String? ?? '',
         reference: json['reference'] as String? ?? '',

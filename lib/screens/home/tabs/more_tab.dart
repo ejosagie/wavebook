@@ -29,6 +29,7 @@ class MoreTab extends StatefulWidget {
 class _MoreTabState extends State<MoreTab> {
   final _api = ApiClient();
   bool _canManageStaff = false;
+  SubscriptionInfo? _subscription;
 
   @override
   void initState() {
@@ -39,10 +40,24 @@ class _MoreTabState extends State<MoreTab> {
   Future<void> _loadPlan() async {
     try {
       final sub = SubscriptionInfo.fromJson(await _api.get('/api/subscription') as Map<String, dynamic>);
-      if (mounted) setState(() => _canManageStaff = sub.maxStaff > 0);
+      if (mounted) {
+        setState(() {
+          _subscription = sub;
+          _canManageStaff = sub.maxStaff > 0;
+        });
+      }
     } on ApiException {
       if (mounted) setState(() => _canManageStaff = false);
     }
+  }
+
+  String _subscriptionSubtitle(SubscriptionInfo sub) {
+    if (sub.status == 'active') return 'Subscription active · £${sub.priceGbp.toStringAsFixed(2)}/month';
+    if (sub.trialDaysLeft > 0) {
+      final end = sub.trialEndsAt.isEmpty ? '' : ' · ends ${sub.trialEndsAt}';
+      return '${sub.trialDaysLeft} day${sub.trialDaysLeft == 1 ? '' : 's'} left in trial$end';
+    }
+    return 'Free trial ended · subscribe to continue';
   }
 
   @override
@@ -87,7 +102,7 @@ class _MoreTabState extends State<MoreTab> {
           _MenuCard(
             icon: Icons.bar_chart,
             color: WaveBookColors.rose,
-            title: 'Report',
+            title: 'Report and Analytics',
             subtitle: 'Bookings, deposits and order income',
             onTap: () => _push(context, const ReportsScreen()),
           ),
@@ -124,7 +139,9 @@ class _MoreTabState extends State<MoreTab> {
             icon: Icons.workspace_premium_outlined,
             color: WaveBookColors.pink,
             title: 'Subscription',
-            subtitle: 'Plans, billing and trial status',
+            subtitle: _subscription == null
+                ? 'Plans, billing and trial status'
+                : _subscriptionSubtitle(_subscription!),
             onTap: () => _push(context, const SubscriptionTab()),
           ),
           _MenuCard(

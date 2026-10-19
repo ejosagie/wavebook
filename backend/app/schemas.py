@@ -49,6 +49,7 @@ class BusinessUpdate(BaseModel):
     payout_account_number: str | None = None
     payout_sort_code: str | None = None
     theme_color: str | None = None
+    calendar_token: str | None = None
 
 
 # ---- Subscription ----
@@ -97,6 +98,7 @@ class ServiceCreate(BaseModel):
     description: str = ""
     price: float = Field(ge=0)
     duration_minutes: int = Field(ge=5, le=1440)
+    questions: list[dict] = Field(default_factory=list)
 
 
 class ServiceUpdate(BaseModel):
@@ -104,6 +106,7 @@ class ServiceUpdate(BaseModel):
     description: str | None = None
     price: float | None = Field(default=None, ge=0)
     duration_minutes: int | None = Field(default=None, ge=5, le=1440)
+    questions: list[dict] | None = None
     sort_order: int | None = None
 
 
