@@ -4,7 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../api/api_client.dart';
 import '../models/models.dart';
 
-const String kAppVersion = '1.1.3';
+const String kAppVersion = '1.1.5';
 
 int compareVersions(String a, String b) {
   final pa = a.split('.').map((s) => int.tryParse(s) ?? 0).toList();
