@@ -295,6 +295,31 @@ def test_admin_finances_subscription_payments_paginate(
     assert "&pound;9.99" in res.text  # page 2 shows the oldest (i=0)
 
 
+def test_admin_feedback_paginates(client, make_business, monkeypatch):
+    _admin_cookie(client, monkeypatch)
+    biz = make_business("feedpage")
+    conn = database.get_connection()
+    try:
+        for i in range(30):
+            conn.execute(
+                "INSERT INTO feedback (business_id, rating, comment, created_at) "
+                "VALUES (?, 5, ?, ?)",
+                (biz["id"], f"Feedback comment {i:02d}", f"2026-10-01 {i:02d}:00:00"),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    res = client.get("/admin/feedback")
+    assert res.status_code == 200
+    assert "Page 1 of 2" in res.text
+    assert "Feedback comment 29" in res.text  # page 1 shows the 25 newest
+    assert "Feedback comment 00" not in res.text
+    res = client.get("/admin/feedback?page=2")
+    assert res.status_code == 200
+    assert "Page 2 of 2" in res.text
+    assert "Feedback comment 00" in res.text
+
+
 def test_access_token_routes_to_login_but_does_not_auto_log_in(client, monkeypatch):
     monkeypatch.setattr(settings, "ADMIN_PASSWORD", "test-admin-pass")
     monkeypatch.setattr(settings, "ADMIN_ACCESS_TOKEN", "waveanalz88102638")
