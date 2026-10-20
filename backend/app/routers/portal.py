@@ -1,0 +1,434 @@
+"""Browser owner portal — Acuity-style account management on the web.
+
+Server-rendered pages protected by an httpOnly session cookie. The forms
+reuse the existing API router functions so business logic lives in one place.
+"""
+
+from pathlib import Path
+from urllib.parse import quote
+
+from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+
+from ..config import settings
+from ..database import get_connection, row_to_dict
+from ..routers.availability import update_availability
+from ..routers.business import update_business
+from ..routers.auth import change_password
+from ..routers.staff import invite_staff, remove_staff, update_staff
+from ..schemas import (
+    AvailabilityUpdate,
+    BusinessUpdate,
+    ChangePasswordRequest,
+    StaffInvite,
+    StaffUpdate,
+    SUPPORTED_CURRENCIES,
+)
+from ..security import create_access_token, decode_access_token, verify_password
+from ..services.slots import DAY_LABELS, DEFAULT_WORKING_DAYS, get_availability_row
+from .web import CURRENCY_SYMBOLS
+
+router = APIRouter(prefix="/portal", tags=["portal"])
+
+PORTAL_COOKIE = "wavebook_portal"
+
+TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+DAY_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+
+
+def _portal_user(request: Request) -> dict | None:
+    """Return the logged-in user from the portal cookie, or None."""
+    token = request.cookies.get(PORTAL_COOKIE)
+    if not token:
+        return None
+    user_id = decode_access_token(token)
+    if user_id is None:
+        return None
+    conn = get_connection()
+    try:
+        user = row_to_dict(conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone())
+    finally:
+        conn.close()
+    if user is None:
+        return None
+    user.pop("password_hash", None)
+    return user
+
+
+def _require_portal_user(request: Request) -> dict:
+    user = _portal_user(request)
+    if user is None:
+        raise HTTPException(status_code=303, headers={"Location": "/portal/login"})
+    return user
+
+
+def _load_business(user: dict) -> dict | None:
+    if not user.get("business_id"):
+        return None
+    conn = get_connection()
+    try:
+        business = row_to_dict(
+            conn.execute("SELECT * FROM businesses WHERE id = ?", (user["business_id"],)).fetchone()
+        )
+    finally:
+        conn.close()
+    return business
+
+
+def _redirect(path: str, msg: str | None = None, error: str | None = None) -> RedirectResponse:
+    url = path
+    params = []
+    if msg:
+        params.append(f"msg={quote(msg)}")
+    if error:
+        params.append(f"error={quote(error)}")
+    if params:
+        url += ("&" if "?" in url else "?") + "&".join(params)
+    return RedirectResponse(url, status_code=303)
+
+
+def _set_portal_cookie(response: RedirectResponse, request: Request, user_id: int) -> None:
+    response.set_cookie(
+        PORTAL_COOKIE,
+        create_access_token(user_id),
+        httponly=True,
+        samesite="lax",
+        secure=request.url.scheme == "https",
+        max_age=7 * 24 * 3600,
+    )
+
+
+def _counts(business_id: int) -> dict:
+    conn = get_connection()
+    try:
+        services = conn.execute(
+            "SELECT COUNT(*) AS c FROM services WHERE business_id = ?", (business_id,)
+        ).fetchone()["c"]
+        products = conn.execute(
+            "SELECT COUNT(*) AS c FROM products WHERE business_id = ?", (business_id,)
+        ).fetchone()["c"]
+        staff = conn.execute(
+            "SELECT COUNT(*) AS c FROM staff WHERE business_id = ?", (business_id,)
+        ).fetchone()["c"]
+        bookings = conn.execute(
+            "SELECT COUNT(*) AS c FROM bookings WHERE business_id = ?", (business_id,)
+        ).fetchone()["c"]
+    finally:
+        conn.close()
+    return {"services": services, "products": products, "staff": staff, "bookings": bookings}
+
+
+# ---- Login / logout ----
+
+
+@router.get("/login", response_class=HTMLResponse)
+def portal_login_page(request: Request):
+    if _portal_user(request):
+        return RedirectResponse(url="/portal", status_code=303)
+    return templates.TemplateResponse(
+        request,
+        "portal_login.html",
+        {"error": request.query_params.get("error"), "msg": request.query_params.get("msg")},
+    )
+
+
+@router.post("/login")
+def portal_login_submit(request: Request, email: str = Form(...), password: str = Form(...)):
+    conn = get_connection()
+    try:
+        user = row_to_dict(
+            conn.execute("SELECT * FROM users WHERE email = ?", (email.strip().lower(),)).fetchone()
+        )
+    finally:
+        conn.close()
+    if user is None or not verify_password(password, user["password_hash"]):
+        return _redirect("/portal/login", error="Invalid email or password")
+    if user.get("role") not in ("owner", "admin"):
+        return _redirect("/portal/login", error="Staff accounts use the WaveBook mobile app")
+    if not user.get("business_id"):
+        return _redirect("/portal/login", error="No business is linked to this account")
+    conn = get_connection()
+    try:
+        conn.execute("UPDATE users SET last_login_at = datetime('now') WHERE id = ?", (user["id"],))
+        conn.commit()
+    finally:
+        conn.close()
+    response = _redirect("/portal", msg="Welcome back")
+    _set_portal_cookie(response, request, user["id"])
+    return response
+
+
+@router.post("/logout")
+def portal_logout():
+    response = _redirect("/portal/login", msg="You have been signed out")
+    response.delete_cookie(PORTAL_COOKIE)
+    return response
+
+
+# ---- Dashboard ----
+
+
+@router.get("", response_class=HTMLResponse)
+def portal_dashboard(request: Request):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+
+    conn = get_connection()
+    try:
+        availability = get_availability_row(
+            conn.execute(
+                "SELECT * FROM availability WHERE business_id = ?", (business["id"],)
+            ).fetchone()
+        )
+        staff_rows = conn.execute(
+            """SELECT s.id, s.active, u.email, u.full_name, u.phone
+               FROM staff s JOIN users u ON u.id = s.user_id
+               WHERE s.business_id = ? ORDER BY s.id""",
+            (business["id"],),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    return templates.TemplateResponse(
+        request,
+        "portal_dashboard.html",
+        {
+            "user": user,
+            "business": business,
+            "availability": availability,
+            "staff": [dict(r) for r in staff_rows],
+            "counts": _counts(business["id"]),
+            "day_order": DAY_ORDER,
+            "day_labels": DAY_LABELS,
+            "currencies": sorted(SUPPORTED_CURRENCIES),
+            "currency_symbols": CURRENCY_SYMBOLS,
+            "website_url": f"https://{business['slug']}.{settings.PUBLIC_BASE_DOMAIN}",
+            "active_tab": request.query_params.get("tab", "overview"),
+            "msg": request.query_params.get("msg"),
+            "error": request.query_params.get("error"),
+        },
+    )
+
+
+# ---- Calendar ----
+
+
+@router.post("/calendar")
+def portal_calendar_save(
+    request: Request,
+    slot_interval: int = Form(30),
+    blocked_dates: str = Form(""),
+    mon_enabled: str = Form(""),
+    mon_start: str = Form("09:00"),
+    mon_end: str = Form("17:00"),
+    tue_enabled: str = Form(""),
+    tue_start: str = Form("09:00"),
+    tue_end: str = Form("17:00"),
+    wed_enabled: str = Form(""),
+    wed_start: str = Form("09:00"),
+    wed_end: str = Form("17:00"),
+    thu_enabled: str = Form(""),
+    thu_start: str = Form("09:00"),
+    thu_end: str = Form("17:00"),
+    fri_enabled: str = Form(""),
+    fri_start: str = Form("09:00"),
+    fri_end: str = Form("17:00"),
+    sat_enabled: str = Form(""),
+    sat_start: str = Form("09:00"),
+    sat_end: str = Form("17:00"),
+    sun_enabled: str = Form(""),
+    sun_start: str = Form("09:00"),
+    sun_end: str = Form("17:00"),
+):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+
+    working_days = {}
+    for day in DAY_ORDER:
+        enabled = locals().get(f"{day}_enabled") == "on"
+        start = locals().get(f"{day}_start") or "09:00"
+        end = locals().get(f"{day}_end") or "17:00"
+        working_days[day] = {"enabled": enabled, "start": start, "end": end}
+
+    dates = [line.strip() for line in blocked_dates.splitlines() if line.strip()]
+
+    try:
+        update_availability(
+            data=AvailabilityUpdate(
+                working_days=working_days,
+                blocked_dates=dates,
+                slot_interval=max(5, min(240, slot_interval)),
+            ),
+            business=business,
+            user=user,
+        )
+    except HTTPException as exc:
+        return _redirect("/portal?tab=calendar", error=exc.detail)
+    return _redirect("/portal?tab=calendar", msg="Calendar settings saved")
+
+
+# ---- Staff ----
+
+
+@router.post("/staff")
+def portal_staff_invite(
+    request: Request,
+    full_name: str = Form(...),
+    email: str = Form(...),
+    phone: str = Form(""),
+):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    try:
+        invite_staff(
+            data=StaffInvite(full_name=full_name, email=email, phone=phone),
+            business=business,
+            user=user,
+        )
+    except HTTPException as exc:
+        return _redirect("/portal?tab=staff", error=exc.detail)
+    return _redirect("/portal?tab=staff", msg="Staff member invited")
+
+
+@router.post("/staff/{staff_id}/toggle")
+def portal_staff_toggle(staff_id: int, request: Request, active: str = Form("")):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    try:
+        update_staff(
+            staff_id=staff_id,
+            data=StaffUpdate(active=active == "on"),
+            business=business,
+            user=user,
+        )
+    except HTTPException as exc:
+        return _redirect("/portal?tab=staff", error=exc.detail)
+    return _redirect("/portal?tab=staff", msg="Staff member updated")
+
+
+@router.post("/staff/{staff_id}/remove")
+def portal_staff_remove(staff_id: int, request: Request):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    try:
+        remove_staff(staff_id=staff_id, business=business, user=user)
+    except HTTPException as exc:
+        return _redirect("/portal?tab=staff", error=exc.detail)
+    return _redirect("/portal?tab=staff", msg="Staff member removed")
+
+
+# ---- Payments ----
+
+
+@router.post("/payments")
+def portal_payments_save(
+    request: Request,
+    currency: str = Form("GBP"),
+    deposit_amount: float = Form(0.0),
+    payout_bank_name: str = Form(""),
+    payout_account_name: str = Form(""),
+    payout_account_number: str = Form(""),
+    payout_sort_code: str = Form(""),
+):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    try:
+        update_business(
+            data=BusinessUpdate(
+                currency=currency,
+                deposit_amount=max(0.0, deposit_amount),
+                payout_bank_name=payout_bank_name.strip(),
+                payout_account_name=payout_account_name.strip(),
+                payout_account_number=payout_account_number.strip(),
+                payout_sort_code=payout_sort_code.strip(),
+            ),
+            business=business,
+        )
+    except HTTPException as exc:
+        return _redirect("/portal?tab=payments", error=exc.detail)
+    return _redirect("/portal?tab=payments", msg="Payment settings saved")
+
+
+# ---- Customization ----
+
+
+@router.post("/customize")
+def portal_customize_save(
+    request: Request,
+    name: str = Form(...),
+    tagline: str = Form(""),
+    about_text: str = Form(""),
+    rules: str = Form(""),
+    contact_phone: str = Form(""),
+    contact_email: str = Form(""),
+    address: str = Form(""),
+    instagram: str = Form(""),
+    facebook: str = Form(""),
+    tiktok: str = Form(""),
+    opening_hours: str = Form(""),
+    theme_color: str = Form("#ec4899"),
+    storefront_enabled: str = Form(""),
+):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    try:
+        update_business(
+            data=BusinessUpdate(
+                name=name.strip(),
+                tagline=tagline.strip(),
+                about_text=about_text.strip(),
+                rules=rules.strip(),
+                contact_phone=contact_phone.strip(),
+                contact_email=contact_email.strip(),
+                address=address.strip(),
+                instagram=instagram.strip(),
+                facebook=facebook.strip(),
+                tiktok=tiktok.strip(),
+                opening_hours=opening_hours.strip(),
+                theme_color=theme_color.strip() or "#ec4899",
+                storefront_enabled=storefront_enabled == "on",
+            ),
+            business=business,
+        )
+    except HTTPException as exc:
+        return _redirect("/portal?tab=customize", error=exc.detail)
+    return _redirect("/portal?tab=customize", msg="Website settings saved")
+
+
+# ---- Account ----
+
+
+@router.post("/account")
+def portal_account_save(
+    request: Request,
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+):
+    user = _require_portal_user(request)
+    try:
+        change_password(
+            data=ChangePasswordRequest(
+                current_password=current_password, new_password=new_password
+            ),
+            user=user,
+        )
+    except HTTPException as exc:
+        return _redirect("/portal?tab=account", error=exc.detail)
+    return _redirect("/portal?tab=account", msg="Password changed")

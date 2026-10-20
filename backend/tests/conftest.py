@@ -35,13 +35,13 @@ def client(sent):
 
 @pytest.fixture
 def make_business():
-    def _make(slug, plan=None, status="active", contact_email="", deposit=20.0):
+    def _make(slug, plan=None, status="active", contact_email="", deposit=20.0, currency="GBP"):
         conn = database.get_connection()
         try:
             bid = conn.execute(
-                "INSERT INTO businesses (slug, name, subscription_status, contact_email, deposit_amount) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (slug, f"{slug.title()} Studio", status, contact_email, deposit),
+                "INSERT INTO businesses (slug, name, subscription_status, contact_email, deposit_amount, currency) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (slug, f"{slug.title()} Studio", status, contact_email, deposit, currency),
             ).lastrowid
             conn.execute(
                 "INSERT INTO availability (business_id, working_days, blocked_dates, blocked_slots, slot_interval) "

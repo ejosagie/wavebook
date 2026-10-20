@@ -343,7 +343,7 @@ def storefront_checkout(data: StorefrontCheckout):
         payment_link = flutterwave.create_payment_link(
             tx_ref=tx_ref,
             amount=round(total, 2),
-            currency=settings.FLW_CURRENCY,
+            currency=business["currency"],
             redirect_url=f"{settings.API_PUBLIC_URL}/pay/verify",
             customer_email=data.customer_email.strip(),
             meta={
@@ -365,7 +365,7 @@ def storefront_checkout(data: StorefrontCheckout):
         "order_id": order_id,
         "payment_link": payment_link,
         "amount": round(total, 2),
-        "currency": settings.FLW_CURRENCY.upper(),
+        "currency": business["currency"].upper(),
     }
 
 

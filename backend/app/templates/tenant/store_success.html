@@ -17,7 +17,7 @@
   {% endif %}
 </head>
 <body class="tenant-theme">
-  <div class="navbar tenant-nav">
+  <div class="navbar tenant-nav has-menu">
     <div class="container">
       <div class="brand">
         {% if business.logo_path %}
@@ -27,11 +27,13 @@
         {% endif %}
         {{ business.name }}
       </div>
-      <nav>
-        <a href="{{ tenant_base }}">Home</a>
+      <input type="checkbox" id="nav-toggle" class="nav-toggle">
+      <label for="nav-toggle" class="nav-toggle-label" aria-label="Open menu">☰</label>
+      <nav class="nav-links" onclick="document.getElementById('nav-toggle').checked=false">
+        <a href="{{ tenant_base }}/">Home</a>
         <a href="{{ tenant_base }}/services">Services</a>
         <a href="{{ tenant_base }}/store">Store</a>
-        <a href="{{ tenant_base }}/booking">Book Now</a>
+        <a href="{{ tenant_base }}/booking" class="btn btn-sm">Book Now</a>
       </nav>
     </div>
   </div>

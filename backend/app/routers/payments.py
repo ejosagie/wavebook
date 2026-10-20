@@ -47,7 +47,7 @@ def init_payment(data: PaymentIntentCreate):
         payment_link = flutterwave.create_payment_link(
             tx_ref=tx_ref,
             amount=amount,
-            currency=settings.FLW_CURRENCY,
+            currency=business["currency"],
             redirect_url=f"{settings.API_PUBLIC_URL}/pay/verify",
             customer_email=booking["customer_email"] or "",
             meta={
@@ -69,7 +69,7 @@ def init_payment(data: PaymentIntentCreate):
     return {
         "payment_link": payment_link,
         "amount": amount,
-        "currency": settings.FLW_CURRENCY.upper(),
+        "currency": business["currency"].upper(),
     }
 
 
