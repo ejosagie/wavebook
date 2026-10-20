@@ -399,26 +399,37 @@ def admin_update_trial_days(request: Request, trial_days: int = Form(...)):
 # ---- Owner admin dashboard ----
 
 ADMIN_COOKIE = "wavebook_admin"
+ADMIN_PAGE_SIZE = 25
+
+
+def _admin_page(page: int, total: int) -> tuple[int, int, int]:
+    total_pages = max(1, (total + ADMIN_PAGE_SIZE - 1) // ADMIN_PAGE_SIZE)
+    page = max(1, min(page, total_pages))
+    return page, total_pages, (page - 1) * ADMIN_PAGE_SIZE
 
 
 @router.get("/admin", response_class=HTMLResponse)
-def admin_dashboard(request: Request):
+def admin_dashboard(request: Request, page: int = 1):
     if not _is_admin(request):
         return templates.TemplateResponse(
             request, "admin_login.html", {"error": None}, status_code=401
         )
     conn = get_connection()
     try:
+        total_businesses = conn.execute(
+            "SELECT COUNT(*) AS c FROM businesses"
+        ).fetchone()["c"]
+        page, total_pages, offset = _admin_page(page, total_businesses)
         businesses = rows_to_dicts(
             conn.execute(
                 """SELECT b.*,
                           (SELECT COUNT(*) FROM bookings bk WHERE bk.business_id = b.id) AS booking_count,
                           (SELECT COUNT(*) FROM bookings bk WHERE bk.business_id = b.id AND bk.status = 'pending') AS pending_count
-                   FROM businesses b ORDER BY b.created_at DESC"""
+                   FROM businesses b ORDER BY b.created_at DESC LIMIT ? OFFSET ?""",
+                (ADMIN_PAGE_SIZE, offset),
             ).fetchall()
         )
         total_bookings = conn.execute("SELECT COUNT(*) AS c FROM bookings").fetchone()["c"]
-        total_businesses = conn.execute("SELECT COUNT(*) AS c FROM businesses").fetchone()["c"]
         active_subs = conn.execute(
             "SELECT COUNT(*) AS c FROM businesses WHERE subscription_status = 'active'"
         ).fetchone()["c"]
@@ -433,11 +444,13 @@ def admin_dashboard(request: Request):
         "admin_dashboard.html",
         {
             "businesses": businesses,
-            "total_bookings": total_bookings,
             "total_businesses": total_businesses,
+            "total_bookings": total_bookings,
             "active_subs": active_subs,
             "app_meta": meta,
             "trial_days": get_trial_days(),
+            "page": page,
+            "total_pages": total_pages,
         },
     )
 
@@ -470,12 +483,14 @@ def _admin_or_login(request: Request):
 
 
 @router.get("/admin/users", response_class=HTMLResponse)
-def admin_users(request: Request):
+def admin_users(request: Request, page: int = 1):
     blocked = _admin_or_login(request)
     if blocked:
         return blocked
     conn = get_connection()
     try:
+        total = conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"]
+        page, total_pages, offset = _admin_page(page, total)
         users = rows_to_dicts(
             conn.execute(
                 """SELECT u.*, b.name AS business_name, b.slug AS business_slug,
@@ -495,7 +510,8 @@ def admin_users(request: Request):
                        WHERE s.business_id = u.business_id
                        ORDER BY s.created_at DESC LIMIT 1
                    )
-                   ORDER BY u.created_at DESC"""
+                   ORDER BY u.created_at DESC LIMIT ? OFFSET ?""",
+                (ADMIN_PAGE_SIZE, offset),
             ).fetchall()
         )
         for u in users:
@@ -504,7 +520,11 @@ def admin_users(request: Request):
             )
     finally:
         conn.close()
-    return templates.TemplateResponse(request, "admin_users.html", {"users": users})
+    return templates.TemplateResponse(
+        request,
+        "admin_users.html",
+        {"users": users, "total": total, "page": page, "total_pages": total_pages},
+    )
 
 
 @router.post("/admin/users/{user_id}/role")
@@ -564,22 +584,29 @@ def admin_business_delete(request: Request, business_id: int):
 
 
 @router.get("/admin/feedback", response_class=HTMLResponse)
-def admin_feedback(request: Request):
+def admin_feedback(request: Request, page: int = 1):
     blocked = _admin_or_login(request)
     if blocked:
         return blocked
     conn = get_connection()
     try:
+        total = conn.execute("SELECT COUNT(*) AS c FROM feedback").fetchone()["c"]
+        page, total_pages, offset = _admin_page(page, total)
         feedback = rows_to_dicts(
             conn.execute(
                 """SELECT f.*, b.name AS business_name, b.slug AS business_slug
                    FROM feedback f JOIN businesses b ON b.id = f.business_id
-                   ORDER BY f.created_at DESC"""
+                   ORDER BY f.created_at DESC LIMIT ? OFFSET ?""",
+                (ADMIN_PAGE_SIZE, offset),
             ).fetchall()
         )
     finally:
         conn.close()
-    return templates.TemplateResponse(request, "admin_feedback.html", {"feedback": feedback})
+    return templates.TemplateResponse(
+        request,
+        "admin_feedback.html",
+        {"feedback": feedback, "total": total, "page": page, "total_pages": total_pages},
+    )
 
 
 @router.post("/admin/feedback/{feedback_id}/approve")
@@ -757,7 +784,9 @@ def admin_metrics(request: Request):
 
 
 @router.get("/admin/finances", response_class=HTMLResponse)
-def admin_finances(request: Request, from_date: str = "", to_date: str = ""):
+def admin_finances(
+    request: Request, from_date: str = "", to_date: str = "", spage: int = 1
+):
     blocked = _admin_or_login(request)
     if blocked:
         return blocked
@@ -819,13 +848,17 @@ def admin_finances(request: Request, from_date: str = "", to_date: str = ""):
             f"SELECT COALESCE(SUM(sub.amount), 0) AS s FROM subscriptions sub {sub_where}",
             sub_params,
         ).fetchone()["s"]
+        sub_count = conn.execute(
+            f"SELECT COUNT(*) AS c FROM subscriptions sub {sub_where}", sub_params
+        ).fetchone()["c"]
+        spage, sub_total_pages, sub_offset = _admin_page(spage, sub_count)
         subscription_payments = rows_to_dicts(
             conn.execute(
                 f"""SELECT sub.id, sub.plan, sub.amount, sub.created_at,
                            b.name AS business_name, b.slug AS business_slug
                     FROM subscriptions sub JOIN businesses b ON b.id = sub.business_id
-                    {sub_where} ORDER BY sub.created_at DESC LIMIT 200""",
-                sub_params,
+                    {sub_where} ORDER BY sub.created_at DESC LIMIT ? OFFSET ?""",
+                sub_params + [ADMIN_PAGE_SIZE, sub_offset],
             ).fetchall()
         )
         for sp in subscription_payments:
@@ -850,6 +883,9 @@ def admin_finances(request: Request, from_date: str = "", to_date: str = ""):
             "settlements": settlements,
             "sub_total": sub_total,
             "subscription_payments": subscription_payments,
+            "sub_count": sub_count,
+            "spage": spage,
+            "sub_total_pages": sub_total_pages,
             "from_date": from_date,
             "to_date": to_date,
         },
@@ -857,7 +893,7 @@ def admin_finances(request: Request, from_date: str = "", to_date: str = ""):
 
 
 @router.get("/admin/settlements", response_class=HTMLResponse)
-def admin_settlements(request: Request):
+def admin_settlements(request: Request, page: int = 1):
     blocked = _admin_or_login(request)
     if blocked:
         return blocked
@@ -876,11 +912,14 @@ def admin_settlements(request: Request):
         )
         for b in businesses:
             b["outstanding"] = round(b["collected"] - b["settled"], 2)
+        total = conn.execute("SELECT COUNT(*) AS c FROM settlements").fetchone()["c"]
+        page, total_pages, offset = _admin_page(page, total)
         settlements = rows_to_dicts(
             conn.execute(
                 """SELECT s.*, b.name AS business_name, b.slug AS business_slug
                    FROM settlements s JOIN businesses b ON b.id = s.business_id
-                   ORDER BY s.created_at DESC LIMIT 50"""
+                   ORDER BY s.created_at DESC LIMIT ? OFFSET ?""",
+                (ADMIN_PAGE_SIZE, offset),
             ).fetchall()
         )
     finally:
@@ -888,7 +927,13 @@ def admin_settlements(request: Request):
     return templates.TemplateResponse(
         request,
         "admin_settlements.html",
-        {"businesses": businesses, "settlements": settlements},
+        {
+            "businesses": businesses,
+            "settlements": settlements,
+            "total": total,
+            "page": page,
+            "total_pages": total_pages,
+        },
     )
 
 

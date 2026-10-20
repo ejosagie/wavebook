@@ -118,6 +118,18 @@
       {% else %}
       <p style="color: var(--muted);">No settlements recorded yet.</p>
       {% endif %}
+
+      {% if total_pages > 1 %}
+      <div style="display:flex; gap:12px; align-items:center; margin-top:24px; flex-wrap:wrap;">
+        {% if page > 1 %}
+        <a class="btn btn-sm" href="/admin/settlements?page={{ page - 1 }}">&larr; Prev</a>
+        {% endif %}
+        <span style="color: var(--muted);">Page {{ page }} of {{ total_pages }} ({{ total }} settlements)</span>
+        {% if page < total_pages %}
+        <a class="btn btn-sm" href="/admin/settlements?page={{ page + 1 }}">Next &rarr;</a>
+        {% endif %}
+      </div>
+      {% endif %}
     </div>
   </section>
 

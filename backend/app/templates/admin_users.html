@@ -32,7 +32,7 @@
         <a href="/admin/bookings" class="btn btn-sm">Bookings</a>
       </nav>
 
-      <h2 style="text-align:left; margin-bottom:16px;">Users ({{ users|length }})</h2>
+      <h2 style="text-align:left; margin-bottom:16px;">Users ({{ total }})</h2>
       {% if users %}
       <table>
         <thead>
@@ -87,6 +87,18 @@
       </table>
       {% else %}
       <p style="color: var(--muted);">No users yet.</p>
+      {% endif %}
+
+      {% if total_pages > 1 %}
+      <div style="display:flex; gap:12px; align-items:center; margin-top:24px; flex-wrap:wrap;">
+        {% if page > 1 %}
+        <a class="btn btn-sm" href="/admin/users?page={{ page - 1 }}">&larr; Prev</a>
+        {% endif %}
+        <span style="color: var(--muted);">Page {{ page }} of {{ total_pages }} ({{ total }} users)</span>
+        {% if page < total_pages %}
+        <a class="btn btn-sm" href="/admin/users?page={{ page + 1 }}">Next &rarr;</a>
+        {% endif %}
+      </div>
       {% endif %}
     </div>
   </section>

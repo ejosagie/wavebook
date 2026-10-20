@@ -83,6 +83,18 @@
       <p style="color: var(--muted);">No subscription payments{% if from_date or to_date %} in this date range{% endif %} yet.</p>
       {% endif %}
 
+      {% if sub_total_pages > 1 %}
+      <div style="display:flex; gap:12px; align-items:center; margin-top:24px; flex-wrap:wrap;">
+        {% if spage > 1 %}
+        <a class="btn btn-sm" href="/admin/finances?from_date={{ from_date }}&to_date={{ to_date }}&spage={{ spage - 1 }}">&larr; Prev</a>
+        {% endif %}
+        <span style="color: var(--muted);">Page {{ spage }} of {{ sub_total_pages }} ({{ sub_count }} payments)</span>
+        {% if spage < sub_total_pages %}
+        <a class="btn btn-sm" href="/admin/finances?from_date={{ from_date }}&to_date={{ to_date }}&spage={{ spage + 1 }}">Next &rarr;</a>
+        {% endif %}
+      </div>
+      {% endif %}
+
       <h3 style="text-align:left; margin:24px 0 12px;">Business Balances</h3>
       {% if businesses %}
       <table>

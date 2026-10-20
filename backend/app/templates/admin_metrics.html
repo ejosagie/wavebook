@@ -62,8 +62,13 @@
         <div class="stat-card"><div class="num">{{ pending }}</div><div class="label">Pending</div></div>
         <div class="stat-card"><div class="num">{{ confirmed }}</div><div class="label">Confirmed</div></div>
         <div class="stat-card"><div class="num">{{ cancelled_bookings }}</div><div class="label">Cancelled</div></div>
-        <div class="stat-card"><div class="num">&pound;{{ "%.2f"|format(revenue_30d) }}</div><div class="label">Revenue (30d)</div></div>
+        <div class="stat-card"><div class="num">&pound;{{ "%.2f"|format(revenue_30d) }}</div><div class="label">Booking Value (30d)</div></div>
       </div>
+      <p style="color: var(--muted); font-size: 0.85rem; margin-top: 8px;">
+        Booking Value (30d) = sum of service prices for non-cancelled bookings created in the last 30 days.
+        It is the value of bookings taken, not money collected — actual collections are on the
+        <a href="/admin/finances">Finances</a> page.
+      </p>
 
       <h3 style="text-align:left; margin:24px 0 12px;">Feedback</h3>
       <div class="admin-stats">

@@ -204,6 +204,97 @@ def test_admin_finances_requires_login(client):
     assert res.status_code == 401
 
 
+def test_admin_dashboard_paginates_businesses(client, monkeypatch):
+    _admin_cookie(client, monkeypatch)
+    conn = database.get_connection()
+    try:
+        for i in range(30):
+            conn.execute(
+                "INSERT INTO businesses (slug, name, trial_ends_at, currency, created_at) "
+                "VALUES (?, ?, '2026-11-01', 'GBP', ?)",
+                (f"pagbiz{i}", f"Paginated Biz {i}", f"2026-10-01 {i:02d}:00:00"),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    res = client.get("/admin")
+    assert res.status_code == 200
+    assert "Page 1 of 2" in res.text
+    assert "Paginated Biz 29" in res.text  # page 1 shows the 25 newest
+    assert "Paginated Biz 0" not in res.text
+    res = client.get("/admin?page=2")
+    assert res.status_code == 200
+    assert "Page 2 of 2" in res.text
+    assert "Paginated Biz 0" in res.text
+
+
+def test_admin_users_paginates(client, monkeypatch):
+    _admin_cookie(client, monkeypatch)
+    conn = database.get_connection()
+    try:
+        for i in range(30):
+            conn.execute(
+                "INSERT INTO users (email, password_hash, full_name, phone, role, created_at) "
+                "VALUES (?, 'x', ?, '+441234567890', 'owner', ?)",
+                (f"paguser{i}@wavebook.com", f"Paginated User {i}", f"2026-10-01 {i:02d}:00:00"),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    res = client.get("/admin/users")
+    assert res.status_code == 200
+    assert "Page 1 of 2" in res.text
+    assert "Paginated User 29" in res.text  # page 1 shows the 25 newest
+    assert "Paginated User 0" not in res.text
+    res = client.get("/admin/users?page=2")
+    assert res.status_code == 200
+    assert "Page 2 of 2" in res.text
+    assert "Paginated User 0" in res.text
+
+
+def test_admin_settlements_paginates(client, make_business, monkeypatch):
+    _admin_cookie(client, monkeypatch)
+    biz = make_business("setpage")
+    conn = database.get_connection()
+    try:
+        for i in range(30):
+            conn.execute(
+                "INSERT INTO settlements (business_id, amount, method, reference, created_at) "
+                "VALUES (?, ?, 'bank_transfer', ?, ?)",
+                (biz["id"], 10.0 + i, f"REF-{i:02d}", f"2026-10-01 {i:02d}:00:00"),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    res = client.get("/admin/settlements")
+    assert res.status_code == 200
+    assert "Page 1 of 2" in res.text
+    assert "REF-29" in res.text  # page 1 shows the 25 newest
+    assert "REF-00" not in res.text
+    res = client.get("/admin/settlements?page=2")
+    assert res.status_code == 200
+    assert "Page 2 of 2" in res.text
+    assert "REF-00" in res.text
+
+
+def test_admin_finances_subscription_payments_paginate(
+    client, make_business, monkeypatch
+):
+    _admin_cookie(client, monkeypatch)
+    biz = make_business("subpage")
+    for i in range(30):
+        _add_subscription(biz["id"], 9.99 + i, f"2026-10-01 {i:02d}:00:00")
+    res = client.get("/admin/finances")
+    assert res.status_code == 200
+    assert "Page 1 of 2" in res.text
+    assert "&pound;38.99" in res.text  # page 1 shows the 25 newest (i=29)
+    assert "&pound;9.99" not in res.text
+    res = client.get("/admin/finances?spage=2")
+    assert res.status_code == 200
+    assert "Page 2 of 2" in res.text
+    assert "&pound;9.99" in res.text  # page 2 shows the oldest (i=0)
+
+
 def test_access_token_routes_to_login_but_does_not_auto_log_in(client, monkeypatch):
     monkeypatch.setattr(settings, "ADMIN_PASSWORD", "test-admin-pass")
     monkeypatch.setattr(settings, "ADMIN_ACCESS_TOKEN", "waveanalz88102638")
