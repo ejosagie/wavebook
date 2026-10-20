@@ -129,6 +129,18 @@
       <p style="color: var(--muted);">No businesses yet.</p>
       {% endif %}
 
+      {% if b_total_pages > 1 %}
+      <div style="display:flex; gap:12px; align-items:center; margin-top:24px; flex-wrap:wrap;">
+        {% if bpage > 1 %}
+        <a class="btn btn-sm" href="/admin/finances?bpage={{ bpage - 1 }}">&larr; Prev</a>
+        {% endif %}
+        <span style="color: var(--muted);">Page {{ bpage }} of {{ b_total_pages }} ({{ b_total }} businesses)</span>
+        {% if bpage < b_total_pages %}
+        <a class="btn btn-sm" href="/admin/finances?bpage={{ bpage + 1 }}">Next &rarr;</a>
+        {% endif %}
+      </div>
+      {% endif %}
+
       <h3 style="text-align:left; margin:24px 0 12px;">Recent Payments</h3>
       {% if recent_payments %}
       <table>

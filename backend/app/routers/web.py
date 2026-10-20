@@ -785,7 +785,11 @@ def admin_metrics(request: Request):
 
 @router.get("/admin/finances", response_class=HTMLResponse)
 def admin_finances(
-    request: Request, from_date: str = "", to_date: str = "", spage: int = 1
+    request: Request,
+    from_date: str = "",
+    to_date: str = "",
+    spage: int = 1,
+    bpage: int = 1,
 ):
     blocked = _admin_or_login(request)
     if blocked:
@@ -806,6 +810,8 @@ def admin_finances(
             "SELECT COALESCE(SUM(amount), 0) AS s FROM settlements"
         ).fetchone()["s"]
 
+        b_total = conn.execute("SELECT COUNT(*) AS c FROM businesses").fetchone()["c"]
+        bpage, b_total_pages, b_offset = _admin_page(bpage, b_total)
         businesses = rows_to_dicts(
             conn.execute(
                 """SELECT b.id, b.name, b.slug, b.subscription_status,
@@ -814,7 +820,8 @@ def admin_finances(
                           COALESCE((SELECT SUM(s.amount) FROM settlements s
                                     WHERE s.business_id = b.id), 0) AS settled
                    FROM businesses b
-                   ORDER BY collected DESC"""
+                   ORDER BY collected DESC LIMIT ? OFFSET ?""",
+                (ADMIN_PAGE_SIZE, b_offset),
             ).fetchall()
         )
         for b in businesses:
@@ -881,6 +888,9 @@ def admin_finances(
             "businesses": businesses,
             "recent_payments": recent_payments,
             "settlements": settlements,
+            "b_total": b_total,
+            "bpage": bpage,
+            "b_total_pages": b_total_pages,
             "sub_total": sub_total,
             "subscription_payments": subscription_payments,
             "sub_count": sub_count,
@@ -893,12 +903,14 @@ def admin_finances(
 
 
 @router.get("/admin/settlements", response_class=HTMLResponse)
-def admin_settlements(request: Request, page: int = 1):
+def admin_settlements(request: Request, page: int = 1, bpage: int = 1):
     blocked = _admin_or_login(request)
     if blocked:
         return blocked
     conn = get_connection()
     try:
+        b_total = conn.execute("SELECT COUNT(*) AS c FROM businesses").fetchone()["c"]
+        bpage, b_total_pages, b_offset = _admin_page(bpage, b_total)
         businesses = rows_to_dicts(
             conn.execute(
                 """SELECT b.id, b.name, b.slug, b.contact_email,
@@ -907,7 +919,8 @@ def admin_settlements(request: Request, page: int = 1):
                           COALESCE((SELECT SUM(s.amount) FROM settlements s
                                     WHERE s.business_id = b.id), 0) AS settled
                    FROM businesses b
-                   ORDER BY collected DESC"""
+                   ORDER BY collected DESC LIMIT ? OFFSET ?""",
+                (ADMIN_PAGE_SIZE, b_offset),
             ).fetchall()
         )
         for b in businesses:
@@ -933,6 +946,9 @@ def admin_settlements(request: Request, page: int = 1):
             "total": total,
             "page": page,
             "total_pages": total_pages,
+            "b_total": b_total,
+            "bpage": bpage,
+            "b_total_pages": b_total_pages,
         },
     )
 

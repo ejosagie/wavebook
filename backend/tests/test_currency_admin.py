@@ -320,6 +320,56 @@ def test_admin_feedback_paginates(client, make_business, monkeypatch):
     assert "Feedback comment 00" in res.text
 
 
+def test_admin_settlements_businesses_paginate(client, make_business, monkeypatch):
+    _admin_cookie(client, monkeypatch)
+    biz_ids = [make_business(f"oweb{i}")["id"] for i in range(30)]
+    conn = database.get_connection()
+    try:
+        for i, bid in enumerate(biz_ids):
+            conn.execute(
+                "INSERT INTO payments (business_id, amount, kind, status) "
+                "VALUES (?, ?, 'deposit', 'paid')",
+                (bid, 100.0 + i),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    res = client.get("/admin/settlements")
+    assert res.status_code == 200
+    assert "Page 1 of 2" in res.text
+    assert "Oweb29 Studio" in res.text  # highest collected first
+    assert "Oweb0 Studio" not in res.text
+    res = client.get("/admin/settlements?bpage=2")
+    assert res.status_code == 200
+    assert "Page 2 of 2" in res.text
+    assert "Oweb0 Studio" in res.text
+
+
+def test_admin_finances_businesses_paginate(client, make_business, monkeypatch):
+    _admin_cookie(client, monkeypatch)
+    biz_ids = [make_business(f"balb{i}")["id"] for i in range(30)]
+    conn = database.get_connection()
+    try:
+        for i, bid in enumerate(biz_ids):
+            conn.execute(
+                "INSERT INTO payments (business_id, amount, kind, status, created_at) "
+                "VALUES (?, ?, 'deposit', 'paid', ?)",
+                (bid, 100.0 + i, f"2026-10-01 {i:02d}:00:00"),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    res = client.get("/admin/finances")
+    assert res.status_code == 200
+    assert "Page 1 of 2" in res.text
+    assert "Balb29 Studio" in res.text  # highest collected first
+    assert "Balb0 Studio" not in res.text
+    res = client.get("/admin/finances?bpage=2")
+    assert res.status_code == 200
+    assert "Page 2 of 2" in res.text
+    assert "Balb0 Studio" in res.text
+
+
 def test_access_token_routes_to_login_but_does_not_auto_log_in(client, monkeypatch):
     monkeypatch.setattr(settings, "ADMIN_PASSWORD", "test-admin-pass")
     monkeypatch.setattr(settings, "ADMIN_ACCESS_TOKEN", "waveanalz88102638")
