@@ -70,11 +70,16 @@ def _tenant_slug(request: Request, path_slug: str | None = None) -> str | None:
     """Resolve tenant slug from subdomain or /t/{slug} path (for local dev)."""
     if path_slug:
         return path_slug
-    host = request.headers.get("host", "")
-    base = settings.BASE_URL.replace("http://", "").replace("https://", "").split(":")[0]
-    if host.endswith(base) and host != base:
-        return host.split(".")[0]
+    host = request.headers.get("host", "").split(":")[0].lower()
+    base = settings.PUBLIC_BASE_DOMAIN.lower()
+    if host.endswith("." + base) and host != base:
+        return host[: -(len(base) + 1)]
     return None
+
+
+def _tenant_base(request: Request, slug: str) -> str:
+    """URL prefix for tenant links: '' on the tenant subdomain, '/t/{slug}' on path access."""
+    return "" if _tenant_slug(request) == slug else f"/t/{slug}"
 
 
 CURRENCY_SYMBOLS = {
@@ -1059,6 +1064,7 @@ def tenant_home(request: Request, slug: str):
             "availability": availability,
             "feedback": feedback,
             "day_labels": DAY_LABELS,
+            "tenant_base": _tenant_base(request, slug),
             "format_price": _format_price,
             "format_duration": _format_duration,
         },
@@ -1085,6 +1091,7 @@ def tenant_services(request: Request, slug: str):
         {
             "business": business,
             "services": services,
+            "tenant_base": _tenant_base(request, slug),
             "format_price": _format_price,
             "format_duration": _format_duration,
         },
@@ -1147,6 +1154,7 @@ def tenant_booking_page(request: Request, slug: str, service: int | None = None)
             "selected_service": service,
             "blocked_dates": blocked_dates_json(availability),
             "today": date.today().isoformat(),
+            "tenant_base": _tenant_base(request, slug),
             "format_price": _format_price,
             "format_duration": _format_duration,
         },
@@ -1361,6 +1369,7 @@ async def tenant_booking_submit(
             "business": business,
             "booking": booking,
             "deposit_amount": min(float(business["deposit_amount"] or 0), float(service["price"] or 0)),
+            "tenant_base": _tenant_base(request, slug),
             "format_price": _format_price,
         },
     )
@@ -1389,6 +1398,7 @@ def tenant_booking_paid(request: Request, slug: str, booking_id: int):
             "business": business,
             "booking": row_to_dict(booking),
             "deposit_amount": 0.0,
+            "tenant_base": _tenant_base(request, slug),
             "format_price": _format_price,
         },
     )
@@ -1615,6 +1625,7 @@ def tenant_store(request: Request, slug: str):
         {
             "business": business,
             "products": products,
+            "tenant_base": _tenant_base(request, slug),
             "format_price": _format_price,
         },
     )
@@ -1642,6 +1653,7 @@ def tenant_store_order_success(request: Request, slug: str, order_id: int):
         {
             "business": business,
             "order": row_to_dict(order),
+            "tenant_base": _tenant_base(request, slug),
             "format_price": _format_price,
         },
     )
@@ -1689,5 +1701,5 @@ async def tenant_upload_confirmation(
     return templates.TemplateResponse(
         request,
         "tenant/confirmation_uploaded.html",
-        {"business": business},
+        {"business": business, "tenant_base": _tenant_base(request, slug)},
     )

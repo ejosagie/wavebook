@@ -28,10 +28,10 @@
         {{ business.name }}
       </div>
       <nav>
-        <a href="/t/{{ business.slug }}">Home</a>
-        <a href="/t/{{ business.slug }}/services">Services</a>
-        {% if business.storefront_enabled %}<a href="/t/{{ business.slug }}/store">Store</a>{% endif %}
-        <a href="/t/{{ business.slug }}/booking">Book Now</a>
+        <a href="{{ tenant_base }}">Home</a>
+        <a href="{{ tenant_base }}/services">Services</a>
+        {% if business.storefront_enabled %}<a href="{{ tenant_base }}/store">Store</a>{% endif %}
+        <a href="{{ tenant_base }}/booking">Book Now</a>
       </nav>
     </div>
   </div>
@@ -51,7 +51,7 @@
             <p class="desc">{{ svc.description }}</p>
             <div class="price">{{ format_price(svc.price, business.currency) }}</div>
             <div class="duration">{{ format_duration(svc.duration_minutes) }}</div>
-            <a href="/t/{{ business.slug }}/booking?service={{ svc.id }}" class="btn" style="margin-top: 8px;">Book This Service</a>
+            <a href="{{ tenant_base }}/booking?service={{ svc.id }}" class="btn" style="margin-top: 8px;">Book This Service</a>
           </div>
           {% endfor %}
         {% else %}

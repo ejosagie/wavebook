@@ -28,10 +28,10 @@
         {{ business.name }}
       </div>
       <nav>
-        <a href="/t/{{ business.slug }}">Home</a>
-        <a href="/t/{{ business.slug }}/services">Services</a>
-        {% if business.storefront_enabled %}<a href="/t/{{ business.slug }}/store">Store</a>{% endif %}
-        <a href="/t/{{ business.slug }}/booking">Book Now</a>
+        <a href="{{ tenant_base }}">Home</a>
+        <a href="{{ tenant_base }}/services">Services</a>
+        {% if business.storefront_enabled %}<a href="{{ tenant_base }}/store">Store</a>{% endif %}
+        <a href="{{ tenant_base }}/booking">Book Now</a>
       </nav>
     </div>
   </div>
@@ -46,7 +46,7 @@
           <strong style="color: var(--success);">What happens next?</strong><br>
           Once your booking and payment are confirmed, you will receive a text message confirming your appointment.
         </p>
-        <a href="/t/{{ business.slug }}" class="btn" style="margin-top: 16px;">Return to Home</a>
+        <a href="{{ tenant_base }}" class="btn" style="margin-top: 16px;">Return to Home</a>
       </div>
     </div>
   </section>

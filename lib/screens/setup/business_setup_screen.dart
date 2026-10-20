@@ -106,7 +106,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                         labelText: 'Website Address',
                         hintText: 'yourbusiness',
                         prefixIcon: Icon(Icons.link),
-                        suffixText: '.wab.is',
+                        suffixText: '.wab.ad',
                       ),
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) return 'Choose a website address';

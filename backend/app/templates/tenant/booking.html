@@ -81,10 +81,10 @@
         {{ business.name }}
       </div>
       <nav>
-        <a href="/t/{{ business.slug }}">Home</a>
-        <a href="/t/{{ business.slug }}/services">Services</a>
-        {% if business.storefront_enabled %}<a href="/t/{{ business.slug }}/store">Store</a>{% endif %}
-        <a href="/t/{{ business.slug }}/booking">Book Now</a>
+        <a href="{{ tenant_base }}">Home</a>
+        <a href="{{ tenant_base }}/services">Services</a>
+        {% if business.storefront_enabled %}<a href="{{ tenant_base }}/store">Store</a>{% endif %}
+        <a href="{{ tenant_base }}/booking">Book Now</a>
       </nav>
     </div>
   </div>
@@ -105,7 +105,7 @@
       </div>
 
       <div class="form-container">
-        <form method="POST" action="/t/{{ business.slug }}/booking">
+        <form method="POST" action="{{ tenant_base }}/booking">
           <div class="form-group">
             <label>Full Name *</label>
             <input type="text" name="name" required>
@@ -179,6 +179,7 @@
     const dateWarning = document.getElementById('date-warning');
     const timeInfo = document.getElementById('time-info');
     const slug = {{ business.slug | tojson }};
+    const base = {{ tenant_base | tojson }};
     const serviceQuestions = {};
     {% for svc in services %}
     serviceQuestions[{{ svc.id }}] = {{ svc.questions | tojson }};
@@ -258,7 +259,7 @@
     function loadTimeSlots(date) {
       timeSelect.innerHTML = '<option value="">Loading...</option>';
       const serviceId = document.getElementById('service-select').value;
-      fetch('/t/' + slug + '/api/slots?date=' + encodeURIComponent(date) + '&service_id=' + encodeURIComponent(serviceId || ''))
+      fetch(base + '/api/slots?date=' + encodeURIComponent(date) + '&service_id=' + encodeURIComponent(serviceId || ''))
         .then(r => r.json())
         .then(data => {
           if (data.blocked || data.slots.length === 0) {
@@ -351,7 +352,7 @@
       addBubble(text, 'user');
       assistantInput.value = '';
       const typing = addTyping();
-      fetch('/t/' + slug + '/api/assistant', {
+      fetch(base + '/api/assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text })
@@ -437,7 +438,7 @@
       }
       addBubble(name + ' · ' + phone, 'user');
       const typing = addTyping();
-      fetch('/t/' + slug + '/api/chat/start', {
+      fetch(base + '/api/chat/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name, phone: phone })
@@ -470,7 +471,7 @@
       if (!text || !chatToken) return;
       addBubble(text, 'user');
       assistantInput.value = '';
-      fetch('/t/' + slug + '/api/chat/' + chatToken + '/messages', {
+      fetch(base + '/api/chat/' + chatToken + '/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ body: text })
@@ -484,7 +485,7 @@
       if (chatTimer) clearInterval(chatTimer);
       chatTimer = setInterval(() => {
         if (!chatToken) return;
-        fetch('/t/' + slug + '/api/chat/' + chatToken + '/messages?since=' + lastMessageId)
+        fetch(base + '/api/chat/' + chatToken + '/messages?since=' + lastMessageId)
           .then(r => r.json())
           .then(data => {
             (data.messages || []).forEach(m => {

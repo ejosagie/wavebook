@@ -86,7 +86,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   child: ListTile(
                     leading: const Icon(Icons.public, color: WaveBookColors.pink),
                     title: const Text('Your website', style: TextStyle(fontWeight: FontWeight.w700)),
-                    subtitle: Text('$slug.wab.is'),
+                    subtitle: Text('$slug.wab.ad'),
                     trailing: const Icon(Icons.open_in_new),
                     onTap: () => _openWebsite(slug),
                   ),
@@ -155,7 +155,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   void _openWebsite(String slug) {
     launchUrl(
-      Uri.parse('https://$slug.wab.is'),
+      Uri.parse('https://$slug.wab.ad'),
       mode: LaunchMode.externalApplication,
     );
   }

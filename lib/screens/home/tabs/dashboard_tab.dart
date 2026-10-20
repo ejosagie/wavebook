@@ -324,7 +324,7 @@ class _DashboardTabState extends State<DashboardTab> {
           child: ListTile(
             leading: const Icon(Icons.public, color: WaveBookColors.pink),
             title: const Text('Your booking website', style: TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text('${business.slug}.wab.is'),
+            subtitle: Text('${business.slug}.wab.ad'),
             trailing: const Icon(Icons.open_in_new),
             onTap: () => _openWebsite(context, business.slug),
           ),
@@ -395,7 +395,7 @@ class _DashboardTabState extends State<DashboardTab> {
 
   void _openWebsite(BuildContext context, String slug) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Open $slug.wab.is in your browser to view your booking site.')),
+      SnackBar(content: Text('Open $slug.wab.ad in your browser to view your booking site.')),
     );
   }
 }

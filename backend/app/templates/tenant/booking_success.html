@@ -28,10 +28,10 @@
         {{ business.name }}
       </div>
       <nav>
-        <a href="/t/{{ business.slug }}">Home</a>
-        <a href="/t/{{ business.slug }}/services">Services</a>
-        {% if business.storefront_enabled %}<a href="/t/{{ business.slug }}/store">Store</a>{% endif %}
-        <a href="/t/{{ business.slug }}/booking">Book Now</a>
+        <a href="{{ tenant_base }}">Home</a>
+        <a href="{{ tenant_base }}/services">Services</a>
+        {% if business.storefront_enabled %}<a href="{{ tenant_base }}/store">Store</a>{% endif %}
+        <a href="{{ tenant_base }}/booking">Book Now</a>
       </nav>
     </div>
   </div>
@@ -74,7 +74,7 @@
         <p style="color: var(--muted); font-size: 0.9rem; margin-top: 8px;">
           Bank transfer details will appear here once the business owner adds them in the app.
         </p>
-        <form method="POST" enctype="multipart/form-data" action="/t/{{ business.slug }}/upload-confirmation" style="margin-top: 12px;">
+        <form method="POST" enctype="multipart/form-data" action="{{ tenant_base }}/upload-confirmation" style="margin-top: 12px;">
           <div class="form-group">
             <label>Payment Receipt / Screenshot</label>
             <input type="file" name="confirmation" accept="image/*,application/pdf" required>

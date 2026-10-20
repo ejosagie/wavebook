@@ -47,6 +47,33 @@ def _book(client, slug, service_id, answers=None):
     return client.post(f"/t/{slug}/booking", data=data, follow_redirects=False)
 
 
+def test_tenant_subdomain_serves_site(client, make_business):
+    biz = make_business("subdomco")
+
+    # Path-based access still works with /t/ links
+    res = client.get("/t/subdomco")
+    assert res.status_code == 200
+    assert "Subdomco Studio" in res.text
+    assert 'href="/t/subdomco/services"' in res.text
+
+    # Subdomain access: Host slug.wab.ad is rewritten to the /t/slug routes
+    res = client.get("/", headers={"host": "subdomco.wab.ad"})
+    assert res.status_code == 200
+    assert "Subdomco Studio" in res.text
+    assert 'href="/services"' in res.text  # clean links on the subdomain
+
+    res = client.get("/services", headers={"host": "subdomco.wab.ad"})
+    assert res.status_code == 200
+    assert "Subdomco Studio" in res.text
+
+    # Static assets are served without the tenant rewrite
+    res = client.get("/static/css/style.css", headers={"host": "subdomco.wab.ad"})
+    assert res.status_code == 200
+
+    # Unknown subdomains 404
+    assert client.get("/", headers={"host": "nope.wab.ad"}).status_code == 404
+
+
 def test_booking_collects_intake_answers(client, make_business, monkeypatch, tmp_path):
     _open_slot(monkeypatch)
     biz = make_business("intakeco", plan="premium_monthly")

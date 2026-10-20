@@ -45,7 +45,7 @@ def send_email(to: str, subject: str, body_text: str) -> dict:
 
 def send_welcome_email(to: str, full_name: str, business: dict | None = None) -> dict:
     """Welcome email sent to a business owner when they register."""
-    site = f"https://{business['slug']}.wab.is" if business else "your booking website"
+    site = f"https://{business['slug']}.wab.ad" if business else "your booking website"
     body = (
         f"Hi {full_name},\n\n"
         f"Welcome to WaveBook! Your account is ready and your {get_trial_days()}-day free trial "

@@ -205,7 +205,7 @@ class _ShopScreenState extends State<ShopScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              '$slug.wab.is',
+              '$slug.wab.ad',
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
@@ -220,7 +220,7 @@ class _ShopScreenState extends State<ShopScreen> {
               title: const Text('Sell products on your website', style: TextStyle(fontWeight: FontWeight.w700)),
               subtitle: Text(
                 _storefrontEnabled
-                    ? 'Your shop is live — customers can buy from $slug.wab.is'
+                    ? 'Your shop is live — customers can buy from $slug.wab.ad'
                     : 'Your shop is hidden until you turn it on',
               ),
             ),

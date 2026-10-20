@@ -9,13 +9,13 @@ WaveBook is a modern, UK-focused booking and scheduling platform for solo busine
   - `/` — landing page (getwavebook.com)
   - `/subscribe` — subscription page (Stripe checkout)
   - `/admin` — platform owner dashboard
-  - `/t/{slug}` — tenant booking sites (also served at `<slug>.wab.is`)
+  - `/t/{slug}` — tenant booking sites (also served at `<slug>.wab.ad`)
 - `app/` — Flutter app for iOS + Android (business owner app)
 
 ## Domains
 
 - Main site + API: `getwavebook.com` (API at `getwavebook.com/api/*`)
-- Tenant booking sites: `<business>.wab.is`
+- Tenant booking sites: `<business>.wab.ad`
 - Subscription activation happens on the website only (App Store compliant)
 
 ## Backend quickstart
@@ -58,7 +58,7 @@ flutter run --dart-define=API_BASE_URL=http://localhost:8000  # iOS simulator
 
 ## Features
 
-- Sign up + business setup (each business gets `<slug>.wab.is`)
+- Sign up + business setup (each business gets `<slug>.wab.ad`)
 - Services, availability (slot engine with buffers), bookings with deposit flow
 - Gallery, staff (up to 5), customer profiles, settings
 - Real-time booking notifications (popup in app)

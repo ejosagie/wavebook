@@ -28,10 +28,10 @@
         {{ business.name }}
       </div>
       <nav>
-        <a href="/t/{{ business.slug }}">Home</a>
-        <a href="/t/{{ business.slug }}/services">Services</a>
-        <a href="/t/{{ business.slug }}/store">Store</a>
-        <a href="/t/{{ business.slug }}/booking">Book Now</a>
+        <a href="{{ tenant_base }}">Home</a>
+        <a href="{{ tenant_base }}/services">Services</a>
+        <a href="{{ tenant_base }}/store">Store</a>
+        <a href="{{ tenant_base }}/booking">Book Now</a>
       </nav>
     </div>
   </div>

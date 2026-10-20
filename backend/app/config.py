@@ -12,7 +12,7 @@ class Settings:
     DATABASE_PATH: str = os.getenv("DATABASE_PATH", str(BASE_DIR / "data" / "wavebook.db"))
     BASE_URL: str = os.getenv("BASE_URL", "http://localhost:8000")
     # Public domains
-    PUBLIC_BASE_DOMAIN: str = os.getenv("PUBLIC_BASE_DOMAIN", "wab.is")  # tenant booking sites: <slug>.wab.is
+    PUBLIC_BASE_DOMAIN: str = os.getenv("PUBLIC_BASE_DOMAIN", "wab.ad")  # tenant booking sites: <slug>.wab.ad
     API_PUBLIC_URL: str = os.getenv("API_PUBLIC_URL", "https://getwavebook.com")  # main site + API
     STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "")
     STRIPE_PUBLISHABLE_KEY: str = os.getenv("STRIPE_PUBLISHABLE_KEY", "")

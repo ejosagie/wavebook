@@ -32,6 +32,17 @@ UPLOADS_DIR = BASE_DIR / "uploads"
 
 app = FastAPI(title="WaveBook API", version="0.2.2", dependencies=[Depends(enforce_staff_access)])
 
+
+@app.middleware("http")
+async def tenant_subdomain_rewrite(request: Request, call_next):
+    """Serve tenant sites on <slug>.<PUBLIC_BASE_DOMAIN> by rewriting to /t/<slug> paths."""
+    slug = web._tenant_slug(request)
+    if slug and not request.url.path.startswith(("/t/", "/static/", "/uploads/", "/api/")):
+        path = f"/t/{slug}" + ("" if request.url.path == "/" else request.url.path)
+        request.scope["path"] = path
+        request.scope["raw_path"] = path.encode()
+    return await call_next(request)
+
 # Wire upload dir into the business and products routers
 business.UPLOAD_DIR = UPLOADS_DIR
 products.UPLOAD_DIR = UPLOADS_DIR
