@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../api/api_client.dart';
 import '../../models/models.dart';
@@ -84,6 +87,66 @@ class _ShopScreenState extends State<ShopScreen> {
     }
   }
 
+  void _showStoreQr(String slug) {
+    final storeUrl = '$kApiBaseUrl/t/$slug/store';
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Your Store QR Code'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: QrImageView(data: storeUrl, size: 200),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              storeUrl,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Customers scan this to open your online store.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: WaveBookColors.muted),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+          TextButton.icon(
+            icon: const Icon(Icons.copy, size: 18),
+            label: const Text('Copy link'),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: storeUrl));
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Store link copied')),
+              );
+            },
+          ),
+          FilledButton.icon(
+            icon: const Icon(Icons.share, size: 18),
+            label: const Text('Share'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              Share.share(storeUrl);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -161,6 +224,14 @@ class _ShopScreenState extends State<ShopScreen> {
                     : 'Your shop is hidden until you turn it on',
               ),
             ),
+            if (_storefrontEnabled) ...[
+              const SizedBox(height: 4),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.qr_code_2),
+                label: const Text('Show QR code'),
+                onPressed: () => _showStoreQr(slug),
+              ),
+            ],
             const SizedBox(height: 4),
             Row(
               children: [
