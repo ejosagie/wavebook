@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WaveBook Admin — Visits</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" type="image/png" href="/static/img/icon.png">
+</head>
+<body>
+  <div class="navbar">
+    <div class="container">
+      <a href="/" class="brand"><img src="/static/img/icon.png" alt="WaveBook" class="brand-icon"> Admin</a>
+      <nav class="nav-links">
+        <a href="/">View Site</a>
+        <form method="post" action="/admin/logout" style="display:inline;">
+          <button type="submit" class="btn btn-sm" style="margin-left:8px;">Logout</button>
+        </form>
+      </nav>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="container">
+      <nav style="display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap;">
+        <a href="/admin" class="btn btn-sm">Overview</a>
+        <a href="/admin/metrics" class="btn btn-sm">Metrics</a>
+        <a href="/admin/visits" class="btn btn-sm">Visits</a>
+        <a href="/admin/finances" class="btn btn-sm">Finances</a>
+        <a href="/admin/settlements" class="btn btn-sm">Settlements</a>
+        <a href="/admin/users" class="btn btn-sm">Users</a>
+        <a href="/admin/feedback" class="btn btn-sm">Feedback</a>
+        <a href="/admin/bookings" class="btn btn-sm">Bookings</a>
+      </nav>
+
+      <h2 style="text-align:left; margin-bottom:16px;">Website Visits</h2>
+
+      <h3 style="text-align:left; margin:24px 0 12px;">Home Page</h3>
+      <div class="admin-stats">
+        <div class="stat-card"><div class="num">{{ home.total }}</div><div class="label">All Time</div></div>
+        <div class="stat-card"><div class="num">{{ home.today }}</div><div class="label">Today</div></div>
+        <div class="stat-card"><div class="num">{{ home.h24 }}</div><div class="label">Last 24 Hours</div></div>
+        <div class="stat-card"><div class="num">{{ home.d7 }}</div><div class="label">Last 7 Days</div></div>
+        <div class="stat-card"><div class="num">{{ home.d30 }}</div><div class="label">Last 30 Days</div></div>
+      </div>
+
+      <h3 style="text-align:left; margin:24px 0 12px;">Download Page</h3>
+      <div class="admin-stats">
+        <div class="stat-card"><div class="num">{{ download.total }}</div><div class="label">All Time</div></div>
+        <div class="stat-card"><div class="num">{{ download.today }}</div><div class="label">Today</div></div>
+        <div class="stat-card"><div class="num">{{ download.h24 }}</div><div class="label">Last 24 Hours</div></div>
+        <div class="stat-card"><div class="num">{{ download.d7 }}</div><div class="label">Last 7 Days</div></div>
+        <div class="stat-card"><div class="num">{{ download.d30 }}</div><div class="label">Last 30 Days</div></div>
+      </div>
+
+      <h3 style="text-align:left; margin:24px 0 12px;">Recent Visits</h3>
+      {% if recent %}
+      <table>
+        <thead>
+          <tr>
+            <th>Page</th>
+            <th>Visited At</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in recent %}
+          <tr>
+            <td><strong>{{ v.page }}</strong></td>
+            <td>{{ v.visited_at }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color: var(--muted);">No visits recorded yet.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="container"><p>&copy; 2026 NeuroWaves Data Systems. All rights reserved.</p><p style="margin-top: 8px;">Support: <a href="mailto:support@getwavebook.com">support@getwavebook.com</a></p></div>
+  </div>
+</body>
+</html>

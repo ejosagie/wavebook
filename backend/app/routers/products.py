@@ -268,6 +268,7 @@ def public_storefront(slug: str):
         business = conn.execute("SELECT * FROM businesses WHERE slug = ?", (slug,)).fetchone()
         if not business:
             raise HTTPException(status_code=404, detail="Business not found")
+        business = row_to_dict(business)
         if not business["storefront_enabled"]:
             raise HTTPException(status_code=404, detail="Storefront not enabled")
         products = rows_to_dicts(
@@ -285,6 +286,9 @@ def public_storefront(slug: str):
             "slug": business["slug"],
             "currency": business["currency"],
             "contact_phone": business["contact_phone"],
+            "shipping_fee_local": business.get("shipping_fee_local") or 0,
+            "shipping_fee_international": business.get("shipping_fee_international") or 0,
+            "store_country": business.get("store_country") or "GB",
         },
         "products": products,
     }
@@ -298,8 +302,23 @@ def storefront_checkout(data: StorefrontCheckout):
         business = conn.execute("SELECT * FROM businesses WHERE slug = ?", (data.slug,)).fetchone()
         if not business:
             raise HTTPException(status_code=404, detail="Business not found")
+        business = row_to_dict(business)
         if not business["storefront_enabled"]:
             raise HTTPException(status_code=400, detail="Storefront not enabled")
+        missing = [
+            label
+            for label, value in (
+                ("customer name", data.customer_name),
+                ("phone number", data.customer_phone),
+                ("address", data.customer_address),
+                ("city", data.customer_city),
+                ("postcode / ZIP code", data.customer_postcode),
+                ("country", data.customer_country),
+            )
+            if not (value or "").strip()
+        ]
+        if missing:
+            raise HTTPException(status_code=400, detail=f"Missing required field(s): {', '.join(missing)}")
 
         items = []
         total = 0.0
@@ -324,14 +343,30 @@ def storefront_checkout(data: StorefrontCheckout):
         if total <= 0:
             raise HTTPException(status_code=400, detail="Your basket is empty")
 
+        # Shipping: local fee when the customer's country matches the store's,
+        # otherwise the international fee. No fee when both are unset.
+        store_country = (business.get("store_country") or "GB").strip().upper()
+        customer_country = (data.customer_country or "").strip().upper()
+        if customer_country and customer_country != store_country:
+            shipping_fee = float(business.get("shipping_fee_international") or 0)
+        else:
+            shipping_fee = float(business.get("shipping_fee_local") or 0)
+        total += shipping_fee
+
         cur = conn.execute(
-            "INSERT INTO orders (business_id, customer_name, customer_email, customer_phone, items, total, status) "
-            "VALUES (?, ?, ?, ?, ?, ?, 'pending')",
+            "INSERT INTO orders (business_id, customer_name, customer_email, customer_phone, "
+            "customer_address, customer_city, customer_postcode, customer_country, shipping_fee, items, total, status) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')",
             (
                 business["id"],
                 data.customer_name.strip(),
                 data.customer_email.strip(),
                 data.customer_phone.strip(),
+                data.customer_address.strip(),
+                data.customer_city.strip(),
+                data.customer_postcode.strip(),
+                customer_country,
+                round(shipping_fee, 2),
                 json.dumps(items),
                 round(total, 2),
             ),

@@ -25,9 +25,24 @@ class _ShopScreenState extends State<ShopScreen> {
   final _slug = TextEditingController();
   final _phone = TextEditingController();
   final _email = TextEditingController();
+  final _shippingLocal = TextEditingController();
+  final _shippingInternational = TextEditingController();
+  String _storeCountry = 'GB';
   bool _storefrontEnabled = false;
   bool _loading = true;
   bool _saving = false;
+
+  static const _countries = [
+    ('GB', 'United Kingdom'), ('US', 'United States'), ('CA', 'Canada'), ('AU', 'Australia'),
+    ('NZ', 'New Zealand'), ('IE', 'Ireland'), ('DE', 'Germany'), ('FR', 'France'),
+    ('ES', 'Spain'), ('IT', 'Italy'), ('NL', 'Netherlands'), ('BE', 'Belgium'),
+    ('PT', 'Portugal'), ('CH', 'Switzerland'), ('SE', 'Sweden'), ('NO', 'Norway'),
+    ('DK', 'Denmark'), ('FI', 'Finland'), ('AT', 'Austria'), ('PL', 'Poland'),
+    ('NG', 'Nigeria'), ('KE', 'Kenya'), ('ZA', 'South Africa'), ('GH', 'Ghana'),
+    ('EG', 'Egypt'), ('MA', 'Morocco'), ('AE', 'United Arab Emirates'), ('SA', 'Saudi Arabia'),
+    ('IN', 'India'), ('JP', 'Japan'), ('CN', 'China'), ('SG', 'Singapore'),
+    ('BR', 'Brazil'), ('MX', 'Mexico'), ('AR', 'Argentina'), ('TR', 'Turkey'),
+  ];
 
   @override
   void initState() {
@@ -41,6 +56,8 @@ class _ShopScreenState extends State<ShopScreen> {
     _slug.dispose();
     _phone.dispose();
     _email.dispose();
+    _shippingLocal.dispose();
+    _shippingInternational.dispose();
     super.dispose();
   }
 
@@ -55,6 +72,9 @@ class _ShopScreenState extends State<ShopScreen> {
         _phone.text = b.contactPhone;
         _email.text = b.contactEmail;
         _storefrontEnabled = b.storefrontEnabled;
+        _shippingLocal.text = b.shippingFeeLocal > 0 ? b.shippingFeeLocal.toStringAsFixed(2) : '';
+        _shippingInternational.text = b.shippingFeeInternational > 0 ? b.shippingFeeInternational.toStringAsFixed(2) : '';
+        _storeCountry = b.storeCountry.isEmpty ? 'GB' : b.storeCountry;
       });
     } on ApiException {
       // Non-fatal — the tabs still work without the settings card.
@@ -71,6 +91,9 @@ class _ShopScreenState extends State<ShopScreen> {
         'contact_phone': _phone.text.trim(),
         'contact_email': _email.text.trim(),
         'storefront_enabled': _storefrontEnabled,
+        'shipping_fee_local': double.tryParse(_shippingLocal.text) ?? 0,
+        'shipping_fee_international': double.tryParse(_shippingInternational.text) ?? 0,
+        'store_country': _storeCountry,
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -88,7 +111,7 @@ class _ShopScreenState extends State<ShopScreen> {
   }
 
   void _showStoreQr(String slug) {
-    final storeUrl = '$kApiBaseUrl/t/$slug/store';
+    final storeUrl = 'https://$slug.wab.ad/store';
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -251,6 +274,51 @@ class _ShopScreenState extends State<ShopScreen> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Shipping',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Customers pay this when they check out. If their country differs from your store country, the international fee is charged.',
+              style: TextStyle(fontSize: 12, color: WaveBookColors.muted),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _shippingLocal,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Local shipping fee',
+                      hintText: 'e.g. 3.50',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _shippingInternational,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'International fee',
+                      hintText: 'e.g. 12.00',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _storeCountry,
+              decoration: const InputDecoration(labelText: 'Store country'),
+              items: _countries
+                  .map((c) => DropdownMenuItem(value: c.$1, child: Text(c.$2)))
+                  .toList(),
+              onChanged: (v) => setState(() => _storeCountry = v ?? 'GB'),
             ),
             const SizedBox(height: 12),
             Align(

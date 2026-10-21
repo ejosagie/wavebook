@@ -800,6 +800,59 @@ def admin_metrics(request: Request):
     )
 
 
+@router.get("/admin/visits", response_class=HTMLResponse)
+def admin_visits(request: Request):
+    blocked = _admin_or_login(request)
+    if blocked:
+        return blocked
+    conn = get_connection()
+    try:
+        def one(sql: str, params=()) -> int:
+            return conn.execute(sql, params).fetchone()["c"]
+
+        def page_counts(page: str) -> dict:
+            return {
+                "total": one(
+                    "SELECT COUNT(*) AS c FROM page_visits WHERE page = ?", (page,)
+                ),
+                "today": one(
+                    "SELECT COUNT(*) AS c FROM page_visits WHERE page = ? AND visited_at >= date('now')",
+                    (page,),
+                ),
+                "h24": one(
+                    "SELECT COUNT(*) AS c FROM page_visits WHERE page = ? AND visited_at >= datetime('now', '-24 hours')",
+                    (page,),
+                ),
+                "d7": one(
+                    "SELECT COUNT(*) AS c FROM page_visits WHERE page = ? AND visited_at >= datetime('now', '-7 days')",
+                    (page,),
+                ),
+                "d30": one(
+                    "SELECT COUNT(*) AS c FROM page_visits WHERE page = ? AND visited_at >= datetime('now', '-30 days')",
+                    (page,),
+                ),
+            }
+
+        home = page_counts("home")
+        download = page_counts("download")
+        recent = rows_to_dicts(
+            conn.execute(
+                "SELECT page, visited_at FROM page_visits ORDER BY id DESC LIMIT 100"
+            ).fetchall()
+        )
+    finally:
+        conn.close()
+    return templates.TemplateResponse(
+        request,
+        "admin_visits.html",
+        {
+            "home": home,
+            "download": download,
+            "recent": recent,
+        },
+    )
+
+
 @router.get("/admin/finances", response_class=HTMLResponse)
 def admin_finances(
     request: Request,

@@ -55,6 +55,9 @@ class BusinessUpdate(BaseModel):
     payout_sort_code: str | None = None
     theme_color: str | None = None
     calendar_token: str | None = None
+    shipping_fee_local: float | None = Field(default=None, ge=0)
+    shipping_fee_international: float | None = Field(default=None, ge=0)
+    store_country: str | None = None
 
 
 # ---- Subscription ----
@@ -87,6 +90,10 @@ class StorefrontItem(BaseModel):
 
 class StorefrontCheckout(BaseModel):
     slug: str = Field(min_length=2)
+    customer_address: str = ""
+    customer_city: str = ""
+    customer_postcode: str = ""
+    customer_country: str = ""
     customer_name: str = Field(min_length=1)
     customer_email: str = ""
     customer_phone: str = ""

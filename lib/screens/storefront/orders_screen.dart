@@ -183,11 +183,35 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     '${currencySymbol(_currency)}${order.total.toStringAsFixed(2)} · ${order.createdAt}',
                     style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                   ),
+                  if (order.shippingFee > 0)
+                    Text(
+                      'Shipping: ${currencySymbol(_currency)}${order.shippingFee.toStringAsFixed(2)}',
+                      style: const TextStyle(color: WaveBookColors.muted, fontSize: 13),
+                    ),
                   if (order.customerPhone.isNotEmpty)
                     Text(
                       'Call: ${order.customerPhone}',
                       style: const TextStyle(color: WaveBookColors.muted, fontSize: 13),
                     ),
+                  if (order.customerAddress.isNotEmpty ||
+                      order.customerCity.isNotEmpty ||
+                      order.customerPostcode.isNotEmpty ||
+                      order.customerCountry.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Ship to:',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: WaveBookColors.muted),
+                    ),
+                    Text(
+                      [
+                        if (order.customerAddress.isNotEmpty) order.customerAddress,
+                        if (order.customerCity.isNotEmpty) order.customerCity,
+                        if (order.customerPostcode.isNotEmpty) order.customerPostcode,
+                        if (order.customerCountry.isNotEmpty) order.customerCountry,
+                      ].join(', '),
+                      style: const TextStyle(color: WaveBookColors.muted, fontSize: 13),
+                    ),
+                  ],
                   if (order.status == 'paid' || order.status == 'confirmed')
                     const SizedBox(height: 12),
                   if (order.status == 'paid')

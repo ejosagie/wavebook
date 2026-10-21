@@ -39,6 +39,9 @@ CREATE TABLE IF NOT EXISTS businesses (
     subscription_status TEXT NOT NULL DEFAULT 'trial',  -- trial | active | past_due | cancelled
     stripe_customer_id TEXT DEFAULT '',
     stripe_subscription_id TEXT DEFAULT '',
+    shipping_fee_local REAL NOT NULL DEFAULT 0,
+    shipping_fee_international REAL NOT NULL DEFAULT 0,
+    store_country TEXT NOT NULL DEFAULT 'GB',
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -198,6 +201,11 @@ CREATE TABLE IF NOT EXISTS product_images (
 CREATE TABLE IF NOT EXISTS orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     business_id INTEGER NOT NULL,
+    customer_address TEXT DEFAULT '',
+    customer_city TEXT DEFAULT '',
+    customer_postcode TEXT DEFAULT '',
+    customer_country TEXT DEFAULT '',
+    shipping_fee REAL NOT NULL DEFAULT 0,
     customer_name TEXT DEFAULT '',
     customer_email TEXT DEFAULT '',
     customer_phone TEXT DEFAULT '',
@@ -284,6 +292,14 @@ def init_db() -> None:
         _ensure_column(conn, "businesses", "payout_sort_code", "payout_sort_code TEXT DEFAULT ''")
         _ensure_column(conn, "businesses", "sms_used", "sms_used INTEGER NOT NULL DEFAULT 0")
         _ensure_column(conn, "businesses", "sms_credits", "sms_credits INTEGER NOT NULL DEFAULT 0")
+        _ensure_column(conn, "businesses", "shipping_fee_local", "shipping_fee_local REAL NOT NULL DEFAULT 0")
+        _ensure_column(conn, "businesses", "shipping_fee_international", "shipping_fee_international REAL NOT NULL DEFAULT 0")
+        _ensure_column(conn, "businesses", "store_country", "store_country TEXT NOT NULL DEFAULT 'GB'")
+        _ensure_column(conn, "orders", "customer_address", "customer_address TEXT DEFAULT ''")
+        _ensure_column(conn, "orders", "customer_city", "customer_city TEXT DEFAULT ''")
+        _ensure_column(conn, "orders", "customer_postcode", "customer_postcode TEXT DEFAULT ''")
+        _ensure_column(conn, "orders", "customer_country", "customer_country TEXT DEFAULT ''")
+        _ensure_column(conn, "orders", "shipping_fee", "shipping_fee REAL NOT NULL DEFAULT 0")
         _ensure_column(conn, "businesses", "trial_ends_at", "trial_ends_at TEXT DEFAULT ''")
         _ensure_column(conn, "businesses", "theme_color", "theme_color TEXT DEFAULT '#ec4899'")
         _ensure_column(conn, "bookings", "reference", "reference TEXT DEFAULT ''")
