@@ -256,6 +256,11 @@ body.tenant-theme .tenant-hero p { color: var(--muted); font-size: 1.1rem; margi
 .service-card .price { font-size: 1.3rem; font-weight: 800; color: var(--pink-dark); }
 .service-card .duration { font-size: 0.9rem; color: #8a6a7c; }
 .service-card .btn { margin-top: auto; }
+.service-card .desc { flex: 1; }
+.service-card .product-img {
+  width: 100%; height: 180px; border-radius: 10px; margin-bottom: 12px;
+  object-fit: contain; background: #faf7fa;
+}
 body.tenant-theme .section h2 { letter-spacing: -0.01em; }
 body.tenant-theme .info-card h3 { margin-bottom: 8px; }
 

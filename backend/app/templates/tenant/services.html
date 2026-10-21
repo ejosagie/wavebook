@@ -54,7 +54,7 @@
             <p class="desc">{{ svc.description }}</p>
             <div class="price">{{ format_price(svc.price, business.currency) }}</div>
             <div class="duration">{{ format_duration(svc.duration_minutes) }}</div>
-            <a href="{{ tenant_base }}/booking?service={{ svc.id }}" class="btn" style="margin-top: 8px;">Book This Service</a>
+            <a href="{{ tenant_base }}/booking?service={{ svc.id }}" class="btn">Book This Service</a>
           </div>
           {% endfor %}
         {% else %}

@@ -71,21 +71,6 @@
         </p>
       </div>
 
-      <div class="info-card">
-        <h3>Prefer to pay by bank transfer?</h3>
-        {% if business.contact_phone %}<p><strong>Bank:</strong> {{ business.contact_phone }}</p>{% endif %}
-        <p style="color: var(--muted); font-size: 0.9rem; margin-top: 8px;">
-          Bank transfer details will appear here once the business owner adds them in the app.
-        </p>
-        <form method="POST" enctype="multipart/form-data" action="{{ tenant_base }}/upload-confirmation" style="margin-top: 12px;">
-          <div class="form-group">
-            <label>Payment Receipt / Screenshot</label>
-            <input type="file" name="confirmation" accept="image/*,application/pdf" required>
-            <input type="hidden" name="booking_ref" value="{{ booking.id }}">
-          </div>
-          <button type="submit" class="btn btn-outline" style="width:100%;">Submit Payment Evidence</button>
-        </form>
-      </div>
       {% else %}
       <div class="info-card" style="border-color: var(--success);">
         <h3 style="color: var(--success);">No deposit required</h3>

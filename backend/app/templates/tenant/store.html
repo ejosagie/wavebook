@@ -51,12 +51,12 @@
         {% for p in products %}
         <div class="service-card">
           {% if p.image_path %}
-            <img src="{{ p.image_path }}" alt="{{ p.name }}" style="width:100%; height:180px; object-fit:cover; border-radius:10px; margin-bottom:12px;">
+            <img src="{{ p.image_path }}" alt="{{ p.name }}" class="product-img">
           {% endif %}
           <h3>{{ p.name }}</h3>
           {% if p.description %}<p class="desc">{{ p.description }}</p>{% endif %}
           <div class="price">{{ format_price(p.price, business.currency) }}</div>
-          <button class="btn add-to-basket" data-id="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.price }}" style="margin-top: 8px; width:100%;">Add to Basket</button>
+          <button class="btn add-to-basket" data-id="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.price }}" style="width:100%;">Add to Basket</button>
         </div>
         {% endfor %}
       </div>
