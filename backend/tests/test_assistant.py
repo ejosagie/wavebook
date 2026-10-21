@@ -112,3 +112,14 @@ def test_assistant_handles_business_with_no_services(client, make_business):
 def test_assistant_unknown_business_returns_404(client):
     res = client.post("/t/does-not-exist/api/assistant", json={"message": "haircut"})
     assert res.status_code == 404
+
+
+def test_tenant_slots_accepts_empty_service_id(client, make_business, monkeypatch):
+    """Regression: the booking page sends service_id= when no service is selected;
+    the endpoint must not reject the empty value with a 422."""
+    _open_slots(monkeypatch)
+    biz = make_business("slotempty")
+    res = client.get("/t/slotempty/api/slots?date=2026-10-22&service_id=")
+    assert res.status_code == 200, res.text
+    assert res.json()["blocked"] is False
+    assert res.json()["slots"] == ["10:00", "14:00", "16:00"]

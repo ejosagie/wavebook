@@ -1227,10 +1227,11 @@ def tenant_booking_page(request: Request, slug: str, service: int | None = None)
 
 
 @router.get("/t/{slug}/api/slots")
-def tenant_slots(slug: str, date: str, service_id: int | None = None):
+def tenant_slots(slug: str, date: str, service_id: str | None = None):
     business = _get_business_by_slug(slug)
     if not business:
         raise HTTPException(status_code=404, detail="Business not found")
+    service_id = int(service_id) if service_id and service_id.strip().isdigit() else None
     conn = get_connection()
     try:
         availability_row = conn.execute(
