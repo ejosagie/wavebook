@@ -60,6 +60,9 @@ def create_payment_link(
         )
         result = resp.json()
     except requests.RequestException as exc:
+        import logging
+
+        logging.getLogger("wavebook").exception("Flutterwave request failed")
         raise HTTPException(status_code=502, detail="Could not reach Flutterwave") from exc
 
     if result.get("status") != "success" or not result.get("data", {}).get("link"):
