@@ -352,7 +352,7 @@ def storefront_checkout(data: StorefrontCheckout):
                 "type": "storefront",
             },
             title=f"{business['name']} Store",
-            description=f"Order #{order_id} from {business['name']}",
+            description=f"Order {order_id} from {business['name']}",
         )
         conn.execute(
             "UPDATE orders SET payment_ref = ? WHERE id = ?", (tx_ref, order_id)
