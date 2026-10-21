@@ -7,11 +7,18 @@ Mirrors the flow used by the legacy PHP prototype (fluttermethod/):
                              confirms the payment after the customer returns.
 """
 
+import logging
+import time
+
 from fastapi import HTTPException
 
 from ..config import settings
 
 FLW_API = "https://api.flutterwave.com/v3"
+FLW_USER_AGENT = "WaveBook/1.0 (+https://getwavebook.com)"
+MAX_RETRIES = 3
+
+logger = logging.getLogger("wavebook")
 
 
 def _headers() -> dict:
@@ -20,7 +27,37 @@ def _headers() -> dict:
     return {
         "Authorization": f"Bearer {settings.FLW_SECRET_KEY}",
         "Content-Type": "application/json",
+        "User-Agent": FLW_USER_AGENT,
     }
+
+
+def _request(method: str, url: str, **kwargs) -> "requests.Response":
+    """Request with retries and backoff for transient failures."""
+    import requests
+
+    last_exc: Exception | None = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            resp = requests.request(method, url, headers=_headers(), timeout=30, **kwargs)
+            if resp.status_code in (429, 500, 502, 503, 504):
+                logger.warning("FLW transient status=%s attempt=%s", resp.status_code, attempt + 1)
+                time.sleep(2**attempt)
+                continue
+            return resp
+        except requests.RequestException as exc:
+            last_exc = exc
+            logger.warning("FLW request error attempt=%s: %s", attempt + 1, exc)
+            time.sleep(2**attempt)
+    raise HTTPException(status_code=502, detail="Could not reach Flutterwave") from last_exc
+
+
+def _json(resp) -> dict:
+    """Parse a JSON response, logging the raw body when Flutterwave returns HTML (e.g. a WAF block)."""
+    try:
+        return resp.json()
+    except ValueError:
+        logger.error("FLW non-JSON response status=%s body=%r", resp.status_code, resp.text[:500])
+        raise HTTPException(status_code=502, detail="Could not reach Flutterwave")
 
 
 def create_payment_link(
@@ -35,8 +72,6 @@ def create_payment_link(
     description: str,
 ) -> str:
     """Create a hosted Flutterwave payment link and return its URL."""
-    import requests
-
     payload = {
         "tx_ref": tx_ref,
         "amount": str(amount),
@@ -51,27 +86,7 @@ def create_payment_link(
             "logo": f"{settings.API_PUBLIC_URL}/static/img/icon.png",
         },
     }
-    try:
-        resp = requests.post(
-            f"{FLW_API}/payments",
-            json=payload,
-            headers=_headers(),
-            timeout=30,
-        )
-        import logging
-
-        logging.getLogger("wavebook").error(
-            "FLW status=%s headers=%r body=%r",
-            resp.status_code,
-            dict(resp.headers),
-            resp.text[:800],
-        )
-        result = resp.json()
-    except requests.RequestException as exc:
-        import logging
-
-        logging.getLogger("wavebook").exception("Flutterwave request failed")
-        raise HTTPException(status_code=502, detail="Could not reach Flutterwave") from exc
+    result = _json(_request("POST", f"{FLW_API}/payments", json=payload))
 
     if result.get("status") != "success" or not result.get("data", {}).get("link"):
         raise HTTPException(
@@ -83,17 +98,7 @@ def create_payment_link(
 
 def verify_transaction(transaction_id: str) -> dict:
     """Verify a Flutterwave transaction and return its data dict."""
-    import requests
-
-    try:
-        resp = requests.get(
-            f"{FLW_API}/transactions/{transaction_id}/verify",
-            headers=_headers(),
-            timeout=30,
-        )
-        result = resp.json()
-    except requests.RequestException as exc:
-        raise HTTPException(status_code=502, detail="Could not reach Flutterwave") from exc
+    result = _json(_request("GET", f"{FLW_API}/transactions/{transaction_id}/verify"))
 
     data = result.get("data") or {}
     if result.get("status") != "success" or not data:

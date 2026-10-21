@@ -34,7 +34,7 @@
         <a href="{{ tenant_base }}/">Home</a>
         <a href="{{ tenant_base }}/services">Services</a>
         {% if business.storefront_enabled %}<a href="{{ tenant_base }}/store">Store</a>{% endif %}
-        <a href="{{ tenant_base }}/booking" class="btn btn-sm">Book Now</a>
+        <a href="{{ tenant_base }}/booking" class="btn btn-book-now">Book Now</a>
       </nav>
     </div>
   </div>
@@ -53,6 +53,8 @@
       </div>
     </div>
   </section>
+
+  {% include 'tenant/_chat_widget.html' %}
 
   <div class="footer">
     <div class="container">

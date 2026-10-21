@@ -1,0 +1,14 @@
+<button id="assistant-fab" data-slug="{{ business.slug }}" data-base="{{ tenant_base }}" aria-label="Open AI booking assistant">💬</button>
+<div id="assistant-panel">
+  <div class="assistant-header">
+    <span>✨ WaveBook AI Assistant</span>
+    <button id="assistant-close" aria-label="Close">×</button>
+  </div>
+  <div id="assistant-messages"></div>
+  <div class="assistant-input-row">
+    <input id="assistant-input" type="text" placeholder="Try 'a haircut tomorrow afternoon'..." autocomplete="off">
+    <button id="assistant-send">Send</button>
+  </div>
+  <div class="assistant-footnote">Powered by WaveBook AI</div>
+</div>
+<script src="/static/js/tenant_chat.js"></script>

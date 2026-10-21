@@ -258,6 +258,79 @@ body.tenant-theme .tenant-hero p { color: var(--muted); font-size: 1.1rem; margi
 .service-card .btn { margin-top: auto; }
 body.tenant-theme .section h2 { letter-spacing: -0.01em; }
 body.tenant-theme .info-card h3 { margin-bottom: 8px; }
+
+/* Prominent white "Book Now" button in the tenant nav */
+body.tenant-theme .nav-links a.btn-book-now,
+body.tenant-theme .nav-links a.btn-book-now:hover {
+  background: #fff;
+  color: var(--pink-dark);
+  border: 2px solid var(--pink);
+  border-radius: 999px;
+  padding: 9px 22px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  box-shadow: 0 4px 14px rgba(190, 24, 93, 0.22);
+}
+body.tenant-theme .nav-links a.btn-book-now:hover {
+  background: var(--gradient);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 6px 20px rgba(190, 24, 93, 0.35);
+  transform: translateY(-1px);
+}
+
+/* AI assistant + customer chat widget (tenant pages) */
+#assistant-fab {
+  position: fixed; bottom: 24px; right: 24px; z-index: 90;
+  width: 58px; height: 58px; border-radius: 50%; border: none; cursor: pointer;
+  background: var(--gradient); color: #fff; font-size: 26px;
+  box-shadow: 0 8px 24px rgba(190, 24, 93, 0.35);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.15s;
+}
+#assistant-fab:hover { transform: translateY(-2px); }
+#assistant-panel {
+  position: fixed; bottom: 96px; right: 24px; z-index: 91;
+  width: min(360px, calc(100vw - 32px)); max-height: min(520px, calc(100vh - 120px));
+  background: #fff; border-radius: 18px; overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+  display: none; flex-direction: column;
+}
+#assistant-panel.open { display: flex; }
+.assistant-header {
+  background: var(--gradient); color: #fff; padding: 14px 16px;
+  display: flex; align-items: center; justify-content: space-between; font-weight: 700;
+}
+.assistant-header button {
+  background: none; border: none; color: #fff; font-size: 20px; cursor: pointer; line-height: 1;
+}
+#assistant-messages {
+  flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px;
+  min-height: 180px; background: #faf7f9;
+}
+.assistant-bubble {
+  max-width: 82%; padding: 10px 14px; border-radius: 14px; font-size: 0.92rem; line-height: 1.45;
+  white-space: pre-wrap; word-wrap: break-word;
+}
+.assistant-bubble.bot { background: #fff; border: 1px solid #f0e6ec; align-self: flex-start; border-bottom-left-radius: 4px; }
+.assistant-bubble.user { background: var(--gradient); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+.assistant-picks { display: flex; flex-wrap: wrap; gap: 8px; align-self: flex-start; }
+.assistant-pick {
+  border: 1.5px solid var(--pink); background: #fff; color: var(--pink-dark);
+  border-radius: 999px; padding: 7px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+}
+.assistant-pick:hover { background: var(--pink-light); color: #fff; }
+.assistant-input-row { display: flex; gap: 8px; padding: 12px; border-top: 1px solid #f0e6ec; background: #fff; }
+.assistant-input-row input {
+  flex: 1; border: 1px solid #e5d9e0; border-radius: 10px; padding: 10px 12px; font-size: 0.92rem;
+}
+.assistant-input-row input:focus { outline: none; border-color: var(--pink); }
+.assistant-input-row button {
+  background: var(--gradient); color: #fff; border: none; border-radius: 10px; padding: 0 16px;
+  font-weight: 700; cursor: pointer;
+}
+.assistant-footnote { padding: 8px 14px; font-size: 0.72rem; color: var(--muted); background: #fff; border-top: 1px solid #f5eef2; text-align: center; }
+.assistant-typing { font-style: italic; color: var(--muted); }
 .hours-list { list-style: none; }
 .hours-list li { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0dce8; font-size: 0.95rem; }
 .gallery-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }

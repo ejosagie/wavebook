@@ -34,7 +34,7 @@
         <a href="{{ tenant_base }}/">Home</a>
         <a href="{{ tenant_base }}/services">Services</a>
         <a href="{{ tenant_base }}/store">Store</a>
-        <a href="{{ tenant_base }}/booking" class="btn btn-sm">Book Now</a>
+        <a href="{{ tenant_base }}/booking" class="btn btn-book-now">Book Now</a>
       </nav>
     </div>
   </div>
@@ -79,7 +79,7 @@
           </div>
           <div class="form-group">
             <label>Mobile number</label>
-            <input type="tel" id="cust-phone" placeholder="e.g. 07123 456789">
+            <input type="tel" id="cust-phone">
           </div>
           <button id="pay-button" class="btn" style="width:100%;">Pay with Card</button>
           <p id="payment-error" style="display:none; color: var(--danger); margin-top: 10px; font-size: 0.9rem;"></p>
@@ -93,6 +93,8 @@
       {% endif %}
     </div>
   </section>
+
+  {% include 'tenant/_chat_widget.html' %}
 
   <div class="footer">
     <div class="container">
