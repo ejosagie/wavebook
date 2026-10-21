@@ -214,6 +214,12 @@ CREATE TABLE IF NOT EXISTS app_meta (
     value TEXT DEFAULT ''
 );
 
+CREATE TABLE IF NOT EXISTS page_visits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    page TEXT NOT NULL,
+    visited_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS chats (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     business_id INTEGER NOT NULL,
@@ -238,6 +244,7 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 CREATE INDEX IF NOT EXISTS idx_feedback_business ON feedback(business_id, approved);
 CREATE INDEX IF NOT EXISTS idx_notifications_business ON notifications(business_id, read);
 CREATE INDEX IF NOT EXISTS idx_bookings_business_date ON bookings(business_id, date);
+CREATE INDEX IF NOT EXISTS idx_page_visits_page ON page_visits(page);
 CREATE INDEX IF NOT EXISTS idx_payments_booking ON payments(booking_id);
 CREATE INDEX IF NOT EXISTS idx_services_business ON services(business_id);
 CREATE INDEX IF NOT EXISTS idx_users_business ON users(business_id);

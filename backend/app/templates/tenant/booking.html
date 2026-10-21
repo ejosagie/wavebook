@@ -178,6 +178,27 @@
       renderIntakeQuestions(initialService);
     }
 
+    // Prefill date/time from the assistant link (?service=&date=&time=)
+    const params = new URLSearchParams(window.location.search);
+    const qDate = params.get('date');
+    const qTime = params.get('time');
+    if (qDate && !blockedDates.includes(qDate)) {
+      dateInput.value = qDate;
+      loadTimeSlots(qDate);
+      if (qTime) {
+        const pickTimer = setInterval(() => {
+          const match = Array.from(timeSelect.options).find(o => o.value === qTime);
+          if (match) {
+            clearInterval(pickTimer);
+            timeSelect.value = qTime;
+          } else if (timeSelect.options.length > 1 && timeSelect.options[1].value) {
+            clearInterval(pickTimer);
+          }
+        }, 150);
+        setTimeout(() => clearInterval(pickTimer), 8000);
+      }
+    }
+
     dateInput.addEventListener('input', function (e) {
       const selectedDate = e.target.value;
       if (blockedDates.includes(selectedDate)) {

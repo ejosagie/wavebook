@@ -351,8 +351,6 @@ class _BookingCard extends StatelessWidget {
             ],
             if (booking.assignedStaffName != null)
               _InfoRow(icon: Icons.badge_outlined, text: 'Assigned to ${booking.assignedStaffName}'),
-            if (booking.confirmationFile.isNotEmpty)
-              _InfoRow(icon: Icons.receipt, text: 'Payment evidence uploaded'),
             const SizedBox(height: 12),
             if (booking.status != 'cancelled') ...[
               Row(

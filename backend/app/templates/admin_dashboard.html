@@ -37,6 +37,8 @@
         <div class="stat-card"><div class="num">{{ total_businesses }}</div><div class="label">Businesses</div></div>
         <div class="stat-card"><div class="num">{{ total_bookings }}</div><div class="label">Total Bookings</div></div>
         <div class="stat-card"><div class="num">{{ active_subs }}</div><div class="label">Active Subscriptions</div></div>
+        <div class="stat-card"><div class="num">{{ home_visits }}</div><div class="label">Home Page Visits{% if home_visits_today %} ({{ home_visits_today }} today){% endif %}</div></div>
+        <div class="stat-card"><div class="num">{{ download_visits }}</div><div class="label">Download Page Visits{% if download_visits_today %} ({{ download_visits_today }} today){% endif %}</div></div>
       </div>
 
       <h2 style="text-align:left; margin-bottom: 16px;">All Businesses ({{ total_businesses }})</h2>

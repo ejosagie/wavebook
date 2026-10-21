@@ -101,7 +101,7 @@ def match_service(text: str, services: list[dict]) -> dict | None:
         elif desc and desc in t:
             score = 10
         words = [w for w in re.split(r"\W+", name) if len(w) > 2 and w not in STOPWORDS]
-        hits = [w for w in words if w in t]
+        hits = [w for w in words if re.search(rf"\b{re.escape(w)}\b", t)]
         if hits:
             # Shorter names win ties: a one-word name is a more precise match.
             score = max(score, 5 + len(hits) * 3 + (10 - len(words)))

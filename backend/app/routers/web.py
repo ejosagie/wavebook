@@ -82,6 +82,16 @@ def _tenant_base(request: Request, slug: str) -> str:
     return "" if _tenant_slug(request) == slug else f"/t/{slug}"
 
 
+def _record_visit(page: str) -> None:
+    """Count a public page visit (used for the admin home/download counters)."""
+    conn = get_connection()
+    try:
+        conn.execute("INSERT INTO page_visits (page) VALUES (?)", (page,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 CURRENCY_SYMBOLS = {
     "GBP": "£",
     "USD": "$",
@@ -182,6 +192,7 @@ def support_page(request: Request):
 
 @router.get("/download", response_class=HTMLResponse)
 def download_page(request: Request):
+    _record_visit("download")
     return templates.TemplateResponse(request, "download.html", {})
 
 
@@ -200,6 +211,7 @@ def landing(request: Request, access: str | None = None):
     if access and settings.ADMIN_ACCESS_TOKEN and access == settings.ADMIN_ACCESS_TOKEN:
         # Gateway to the admin area — the login page still asks for the password.
         return RedirectResponse(url="/admin", status_code=303)
+    _record_visit("home")
     return templates.TemplateResponse(
         request,
         "landing.html",
@@ -1656,50 +1668,4 @@ def tenant_store_order_success(request: Request, slug: str, order_id: int):
             "tenant_base": _tenant_base(request, slug),
             "format_price": _format_price,
         },
-    )
-
-
-@router.post("/t/{slug}/upload-confirmation")
-async def tenant_upload_confirmation(
-    request: Request,
-    slug: str,
-    booking_ref: str = Form(...),
-    confirmation: UploadFile = Form(...),
-):
-    business = _get_business_by_slug(slug)
-    if not business:
-        raise HTTPException(status_code=404, detail="Business not found")
-
-    allowed = {"image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"}
-    if confirmation.content_type not in allowed:
-        raise HTTPException(status_code=400, detail="Invalid file type. Use an image or PDF.")
-
-    conn = get_connection()
-    try:
-        booking = conn.execute(
-            "SELECT * FROM bookings WHERE id = ? AND business_id = ?", (booking_ref, business["id"])
-        ).fetchone()
-        if not booking:
-            raise HTTPException(status_code=404, detail="Booking reference not found")
-
-        import uuid
-
-        ext = confirmation.filename.rsplit(".", 1)[-1].lower() if "." in confirmation.filename else "bin"
-        filename = f"conf_{business['id']}_{booking_ref}_{uuid.uuid4().hex[:8]}.{ext}"
-        UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-        dest = UPLOADS_DIR / filename
-        dest.write_bytes(await confirmation.read())
-
-        conn.execute(
-            "UPDATE bookings SET confirmation_file = ? WHERE id = ?",
-            (f"/uploads/{filename}", booking_ref),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-    return templates.TemplateResponse(
-        request,
-        "tenant/confirmation_uploaded.html",
-        {"business": business, "tenant_base": _tenant_base(request, slug)},
     )

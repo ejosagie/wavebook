@@ -37,6 +37,11 @@ class _HomeScreenState extends State<HomeScreen> {
           showBookingNotificationPopup(context, notification);
         }
       },
+      onNewChat: (notification) {
+        if (mounted) {
+          playChatNotificationSound();
+        }
+      },
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) checkForUpdate(context);

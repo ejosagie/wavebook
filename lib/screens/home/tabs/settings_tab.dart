@@ -45,6 +45,7 @@ class _SettingsTabState extends State<SettingsTab> {
   bool _storefrontEnabled = false;
   SmsBalance? _smsBalance;
   bool _bookingSound = true;
+  bool _chatSound = true;
 
   @override
   void initState() {
@@ -52,6 +53,9 @@ class _SettingsTabState extends State<SettingsTab> {
     _load();
     isBookingSoundEnabled().then((v) {
       if (mounted) setState(() => _bookingSound = v);
+    });
+    isChatSoundEnabled().then((v) {
+      if (mounted) setState(() => _chatSound = v);
     });
   }
 
@@ -437,14 +441,27 @@ class _SettingsTabState extends State<SettingsTab> {
         const Text('Alerts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
         const SizedBox(height: 12),
         Card(
-          child: SwitchListTile(
-            title: const Text('New booking sound', style: TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: const Text('Play a chime when a new booking arrives', style: TextStyle(fontSize: 13)),
-            value: _bookingSound,
-            onChanged: (v) async {
-              setState(() => _bookingSound = v);
-              await setBookingSoundEnabled(v);
-            },
+          child: Column(
+            children: [
+              SwitchListTile(
+                title: const Text('New booking sound', style: TextStyle(fontWeight: FontWeight.w700)),
+                subtitle: const Text('Play a chime when a new booking arrives', style: TextStyle(fontSize: 13)),
+                value: _bookingSound,
+                onChanged: (v) async {
+                  setState(() => _bookingSound = v);
+                  await setBookingSoundEnabled(v);
+                },
+              ),
+              SwitchListTile(
+                title: const Text('New chat sound', style: TextStyle(fontWeight: FontWeight.w700)),
+                subtitle: const Text('Play a chime when a customer sends a new chat message', style: TextStyle(fontSize: 13)),
+                value: _chatSound,
+                onChanged: (v) async {
+                  setState(() => _chatSound = v);
+                  await setChatSoundEnabled(v);
+                },
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 24),

@@ -84,6 +84,24 @@ def test_assistant_matches_partial_service_name(client, make_business, make_serv
     assert len(data["slots"]) == 3
 
 
+def test_assistant_generic_booking_request_shows_menu(client, make_business, make_service, monkeypatch):
+    """'book an appointment' without a service name must ask which service, not match one."""
+    _open_slots(monkeypatch)
+    biz = make_business("assistgeneric")
+    make_service(biz["id"])
+    _rename_service(biz["id"], "Men's Haircut")
+    res = client.post(
+        "/t/assistgeneric/api/assistant",
+        json={"message": "I'd like to book an appointment"},
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data.get("service_id") is None
+    assert data["reply"] == "I can help you book. Which service would you like?"
+    assert len(data["services"]) == 1
+    assert data["services"][0]["name"] == "Men's Haircut"
+
+
 def test_assistant_handles_business_with_no_services(client, make_business):
     biz = make_business("assistnone")
     res = client.post("/t/assistnone/api/assistant", json={"message": "a haircut tomorrow"})

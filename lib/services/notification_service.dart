@@ -36,19 +36,27 @@ class AppNotification {
       );
 }
 
-/// Polls the backend for new booking notifications and shows a popup.
+/// Polls the backend for new booking/chat notifications and shows a popup.
 class NotificationService {
   final ApiClient _api = ApiClient();
   Timer? _timer;
   int _lastSeenId = 0;
   bool _running = false;
+  bool _initialized = false;
 
-  /// Start polling. [onNewBooking] is called when a new booking notification arrives.
-  void start({required void Function(AppNotification notification) onNewBooking}) {
+  /// Start polling. [onNewBooking] is called when a new booking notification
+  /// arrives, [onNewChat] when a new chat message notification arrives.
+  void start({
+    required void Function(AppNotification notification) onNewBooking,
+    void Function(AppNotification notification)? onNewChat,
+  }) {
     if (_running) return;
     _running = true;
-    _poll(onNewBooking);
-    _timer = Timer.periodic(const Duration(seconds: 20), (_) => _poll(onNewBooking));
+    _poll(onNewBooking, onNewChat);
+    _timer = Timer.periodic(
+      const Duration(seconds: 20),
+      (_) => _poll(onNewBooking, onNewChat),
+    );
   }
 
   void stop() {
@@ -57,17 +65,29 @@ class NotificationService {
     _timer = null;
   }
 
-  Future<void> _poll(void Function(AppNotification) onNewBooking) async {
+  Future<void> _poll(
+    void Function(AppNotification) onNewBooking,
+    void Function(AppNotification)? onNewChat,
+  ) async {
     try {
       final data = await _api.get('/api/notifications?since=$_lastSeenId');
       final items = (data as List)
           .map((n) => AppNotification.fromJson(n as Map<String, dynamic>))
           .toList();
+      if (!_initialized) {
+        // Seed the watermark with the newest existing notification so we only
+        // alert for notifications that arrive after the app started.
+        _initialized = true;
+        if (items.isNotEmpty) _lastSeenId = items.first.id;
+        return;
+      }
       for (final n in items.reversed) {
         if (n.id > _lastSeenId) {
           _lastSeenId = n.id;
           if (n.type == 'booking') {
             onNewBooking(n);
+          } else if (n.type == 'chat' && onNewChat != null) {
+            onNewChat(n);
           }
         }
       }
@@ -90,8 +110,10 @@ class NotificationService {
 }
 
 final AudioPlayer _bookingPlayer = AudioPlayer();
+final AudioPlayer _chatPlayer = AudioPlayer();
 
 const _bookingSoundKey = 'wavebook_booking_sound';
+const _chatSoundKey = 'wavebook_chat_sound';
 
 Future<bool> isBookingSoundEnabled() async {
   final prefs = await SharedPreferences.getInstance();
@@ -103,10 +125,28 @@ Future<void> setBookingSoundEnabled(bool enabled) async {
   await prefs.setBool(_bookingSoundKey, enabled);
 }
 
+Future<bool> isChatSoundEnabled() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool(_chatSoundKey) ?? true;
+}
+
+Future<void> setChatSoundEnabled(bool enabled) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool(_chatSoundKey, enabled);
+}
+
 Future<void> _playBookingChime() async {
   try {
     if (!await isBookingSoundEnabled()) return;
     await _bookingPlayer.play(AssetSource('sounds/new_booking.wav'));
+  } catch (_) {}
+}
+
+/// Plays the chat notification chime when a new customer chat message arrives.
+Future<void> playChatNotificationSound() async {
+  try {
+    if (!await isChatSoundEnabled()) return;
+    await _chatPlayer.play(AssetSource('sounds/new_booking.wav'));
   } catch (_) {}
 }
 

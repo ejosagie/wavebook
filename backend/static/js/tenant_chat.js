@@ -95,13 +95,17 @@
   }
 
   function bookSlot(slot, serviceId) {
+    const bookingUrl = base + '/booking?service=' + encodeURIComponent(serviceId) +
+      '&date=' + encodeURIComponent(slot.date) + '&time=' + encodeURIComponent(slot.time);
+    addBubble("Great — open the booking page to complete your booking. I've preselected the service and time for you.", 'bot');
+    addPicks([
+      { label: '📅 Open booking page', onClick: () => { window.location.href = bookingUrl; } }
+    ]);
+    // If we're already on the booking page, fill the form in place too.
     const svc = document.getElementById('service-select');
     const dateInput = document.getElementById('booking-date');
     const timeSelect = document.getElementById('booking-time');
-    if (!svc || !dateInput || !timeSelect) {
-      addBubble("Please open the booking page to complete your booking.", 'bot');
-      return;
-    }
+    if (!svc || !dateInput || !timeSelect) return;
     svc.value = String(serviceId);
     svc.dispatchEvent(new Event('change'));
     dateInput.value = slot.date;
@@ -114,13 +118,11 @@
         panel.classList.remove('open');
         const form = document.querySelector('.form-container');
         if (form) form.scrollIntoView({ behavior: 'smooth' });
-        addBubble("I've filled in your booking details below — just add your name and phone number, then submit.", 'bot');
       } else if (timeSelect.options.length > 1 && timeSelect.options[1].value) {
         clearInterval(timer);
         panel.classList.remove('open');
         const form = document.querySelector('.form-container');
         if (form) form.scrollIntoView({ behavior: 'smooth' });
-        addBubble("That time was just taken. Please pick another time from the list below.", 'bot');
       }
     }, 150);
     setTimeout(() => clearInterval(timer), 8000);
