@@ -58,6 +58,11 @@ def create_payment_link(
             headers=_headers(),
             timeout=30,
         )
+        import logging
+
+        logging.getLogger("wavebook").error(
+            "FLW status=%s body=%r", resp.status_code, resp.text[:300]
+        )
         result = resp.json()
     except requests.RequestException as exc:
         import logging
