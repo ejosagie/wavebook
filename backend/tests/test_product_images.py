@@ -101,3 +101,30 @@ def test_storefront_lists_product_images(client, make_business, monkeypatch, tmp
     res = client.get("/api/storefront/multiimgstore")
     assert res.status_code == 200, res.text
     assert len(res.json()["products"][0]["images"]) == 2
+
+
+def test_store_page_renders_pagination_with_many_products(client, make_business):
+    """The storefront page must render all product cards plus pagination
+    controls and a results counter so large catalogues stay usable."""
+    biz = make_business("bigstore")
+    conn = database.get_connection()
+    try:
+        conn.execute(
+            "UPDATE businesses SET storefront_enabled = 1 WHERE id = ?", (biz["id"],)
+        )
+        for i in range(30):
+            conn.execute(
+                "INSERT INTO products (business_id, name, price, active) VALUES (?, ?, ?, 1)",
+                (biz["id"], f"Product {i}", 5.0),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    res = client.get("/t/bigstore/store")
+    assert res.status_code == 200, res.text
+    html = res.text
+    assert html.count('class="service-card product-card"') == 30
+    assert 'id="pagination"' in html
+    assert 'id="store-results"' in html
+    assert "PAGE_SIZE" in html
+    assert "renderProducts" in html
