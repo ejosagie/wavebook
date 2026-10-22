@@ -44,6 +44,12 @@
     .checkout-fields label { font-size: 0.85rem; font-weight: 700; display: block; margin-bottom: 4px; }
     .checkout-fields input, .checkout-fields select { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 0.95rem; box-sizing: border-box; }
     .pay-button { width: 100%; margin-top: 12px; }
+    .store-results { text-align: center; color: var(--muted); font-size: 0.9rem; margin: 16px 0 0; }
+    .pagination { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 28px; flex-wrap: wrap; }
+    .page-btn { min-width: 38px; height: 38px; padding: 0 12px; border: 1px solid var(--border); border-radius: 10px; background: #fff; cursor: pointer; font-weight: 700; color: var(--text); }
+    .page-btn:hover:not(:disabled) { border-color: var(--pink); color: var(--pink); }
+    .page-btn.active { background: var(--gradient); color: #fff; border-color: transparent; }
+    .page-btn:disabled { opacity: 0.45; cursor: not-allowed; }
   </style>
 </head>
 <body class="tenant-theme">
@@ -95,6 +101,8 @@
         {% endfor %}
       </div>
       <p id="no-results" style="display:none; color: var(--muted); text-align:center; margin-top: 24px;">No products match your search.</p>
+      <p class="store-results" id="store-results"></p>
+      <div class="pagination" id="pagination"></div>
       {% else %}
       <p style="color: var(--muted); text-align:center; margin-top: 24px;">No products yet. Please check back later.</p>
       {% endif %}
@@ -270,21 +278,83 @@
 
     countrySelect.addEventListener('change', renderCart);
 
-    // ---- Search ----
+    // ---- Search + pagination ----
     const searchInput = document.getElementById('store-search');
-    if (searchInput) {
-      searchInput.addEventListener('input', function () {
-        const q = this.value.trim().toLowerCase();
-        let visible = 0;
-        document.querySelectorAll('.product-card').forEach(card => {
-          const haystack = card.dataset.name + ' ' + card.dataset.desc;
-          const show = !q || haystack.includes(q);
-          card.style.display = show ? '' : 'none';
-          if (show) visible++;
-        });
-        document.getElementById('no-results').style.display = visible === 0 ? 'block' : 'none';
+    const productCards = Array.from(document.querySelectorAll('.product-card'));
+    const resultsEl = document.getElementById('store-results');
+    const paginationEl = document.getElementById('pagination');
+    const PAGE_SIZE = 12;
+    let currentPage = 1;
+
+    function filteredProducts() {
+      const q = searchInput ? searchInput.value.trim().toLowerCase() : '';
+      return productCards.filter(card => {
+        if (!q) return true;
+        const haystack = card.dataset.name + ' ' + card.dataset.desc;
+        return haystack.includes(q);
       });
     }
+
+    function pageNumbers(totalPages) {
+      const pages = new Set([1, totalPages]);
+      for (let p = currentPage - 2; p <= currentPage + 2; p++) {
+        if (p >= 1 && p <= totalPages) pages.add(p);
+      }
+      return Array.from(pages).sort((a, b) => a - b);
+    }
+
+    function renderPagination(totalPages) {
+      if (totalPages <= 1) {
+        paginationEl.innerHTML = '';
+        return;
+      }
+      let html = '<button class="page-btn" data-page="' + (currentPage - 1) + '"' + (currentPage === 1 ? ' disabled' : '') + '>‹ Prev</button>';
+      let prev = 0;
+      pageNumbers(totalPages).forEach(p => {
+        if (p - prev > 1) html += '<span class="page-btn" style="border:none; background:none; cursor:default;">…</span>';
+        html += '<button class="page-btn' + (p === currentPage ? ' active' : '') + '" data-page="' + p + '">' + p + '</button>';
+        prev = p;
+      });
+      html += '<button class="page-btn" data-page="' + (currentPage + 1) + '"' + (currentPage === totalPages ? ' disabled' : '') + '>Next ›</button>';
+      paginationEl.innerHTML = html;
+    }
+
+    function renderProducts() {
+      const matches = filteredProducts();
+      const totalPages = Math.max(1, Math.ceil(matches.length / PAGE_SIZE));
+      if (currentPage > totalPages) currentPage = totalPages;
+      const start = (currentPage - 1) * PAGE_SIZE;
+      const pageItems = matches.slice(start, start + PAGE_SIZE);
+
+      productCards.forEach(card => (card.style.display = 'none'));
+      pageItems.forEach(card => (card.style.display = ''));
+
+      document.getElementById('no-results').style.display = matches.length === 0 ? 'block' : 'none';
+      resultsEl.textContent = matches.length > 0
+        ? 'Showing ' + (start + 1) + '–' + Math.min(start + PAGE_SIZE, matches.length) + ' of ' + matches.length + ' product' + (matches.length === 1 ? '' : 's')
+        : '';
+      renderPagination(totalPages);
+    }
+
+    paginationEl.addEventListener('click', function (e) {
+      const btn = e.target.closest('.page-btn');
+      if (!btn || btn.disabled) return;
+      const page = Number(btn.dataset.page);
+      if (page >= 1) {
+        currentPage = page;
+        renderProducts();
+        document.getElementById('product-grid').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+
+    if (searchInput) {
+      searchInput.addEventListener('input', function () {
+        currentPage = 1;
+        renderProducts();
+      });
+    }
+
+    renderProducts();
 
     // ---- Checkout ----
     document.getElementById('pay-button').addEventListener('click', async () => {
