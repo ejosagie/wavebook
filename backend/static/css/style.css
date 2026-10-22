@@ -362,6 +362,8 @@ th { background: var(--surface-alt); font-weight: 700; }
 .badge-cancelled { background: rgba(248, 113, 113, 0.15); color: var(--danger); }
 .badge-active { background: rgba(52, 211, 153, 0.15); color: var(--success); }
 .badge-trial { background: rgba(236, 72, 153, 0.15); color: var(--pink); }
+.badge-staff { background: rgba(100, 116, 139, 0.15); color: var(--muted); }
+.badge-demo { background: rgba(56, 189, 248, 0.15); color: #0284c7; }
 .badge-past_due { background: rgba(248, 113, 113, 0.15); color: var(--danger); }
 
 @media (max-width: 640px) {

@@ -199,6 +199,40 @@ def test_admin_users_shows_registration_and_subscription_dates(
     assert "WaveBook Premium" in res.text  # plan label
 
 
+def test_admin_users_staff_hide_business_subscription(client, make_business, monkeypatch):
+    """Staff rows must not show the business's subscription — staff don't subscribe."""
+    _admin_cookie(client, monkeypatch)
+    biz = make_business("staffsub", plan="premium_monthly")
+    conn = database.get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO users (email, password_hash, full_name, role, business_id) "
+            "VALUES ('staff@staffsub.wavebook.com', 'x', 'Staff Test', 'staff', ?)",
+            (biz["id"],),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    res = client.get("/admin/users")
+    assert res.status_code == 200
+    assert "staff — no subscription" in res.text
+    assert "WaveBook Premium" in res.text  # owner row still shows the plan
+    # The staff row must not show the plan label or its subscription dates.
+    staff_row = res.text.split("Staff Test")[1].split("</tr>")[0]
+    assert "WaveBook Premium" not in staff_row
+    assert "2026-03-15" not in staff_row
+    assert "2027-03-15" not in staff_row
+
+
+def test_admin_users_notes_demo_account(client, make_business, monkeypatch):
+    """The demo business's subscription must be labelled as a demo account."""
+    _admin_cookie(client, monkeypatch)
+    make_business("demo", plan="premium_monthly")
+    res = client.get("/admin/users")
+    assert res.status_code == 200
+    assert "demo account" in res.text
+
+
 def test_admin_finances_requires_login(client):
     res = client.get("/admin/finances")
     assert res.status_code == 401

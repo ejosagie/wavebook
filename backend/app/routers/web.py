@@ -532,9 +532,19 @@ def admin_users(request: Request, page: int = 1):
             ).fetchall()
         )
         for u in users:
-            u["sub_plan_label"] = settings.TIER_LABELS.get(
-                (u.get("sub_plan") or "").rsplit("_", 1)[0], u.get("sub_plan") or ""
-            )
+            if u.get("role") == "staff":
+                # Staff don't subscribe — the business does. Don't show the
+                # business's subscription on their row.
+                u["sub_plan"] = None
+                u["sub_start"] = None
+                u["sub_end"] = None
+                u["sub_plan_label"] = ""
+                u["is_demo"] = False
+            else:
+                u["is_demo"] = u.get("business_slug") == "demo"
+                u["sub_plan_label"] = settings.TIER_LABELS.get(
+                    (u.get("sub_plan") or "").rsplit("_", 1)[0], u.get("sub_plan") or ""
+                )
     finally:
         conn.close()
     return templates.TemplateResponse(
