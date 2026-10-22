@@ -199,8 +199,9 @@ def test_admin_users_shows_registration_and_subscription_dates(
     assert "WaveBook Premium" in res.text  # plan label
 
 
-def test_admin_users_staff_hide_business_subscription(client, make_business, monkeypatch):
-    """Staff rows must not show the business's subscription — staff don't subscribe."""
+def test_admin_users_groups_staff_under_owner(client, make_business, monkeypatch):
+    """Staff must appear nested under their business owner row, not as a
+    separate row that looks like another paying user."""
     _admin_cookie(client, monkeypatch)
     biz = make_business("staffsub", plan="premium_monthly")
     conn = database.get_connection()
@@ -215,22 +216,28 @@ def test_admin_users_staff_hide_business_subscription(client, make_business, mon
         conn.close()
     res = client.get("/admin/users")
     assert res.status_code == 200
-    assert "staff — no subscription" in res.text
-    assert "WaveBook Premium" in res.text  # owner row still shows the plan
-    # The staff row must not show the plan label or its subscription dates.
-    staff_row = res.text.split("Staff Test")[1].split("</tr>")[0]
-    assert "WaveBook Premium" not in staff_row
-    assert "2026-03-15" not in staff_row
-    assert "2027-03-15" not in staff_row
+    html = res.text
+    # Owner row still shows the business subscription and a staff toggle.
+    assert "WaveBook Premium" in html
+    assert "1 staff" in html
+    # The staff member is nested in an expandable sub-row, not a main row.
+    assert 'class="staff-subrows"' in html
+    assert "Staff Test" in html
+    assert "staff — no subscription" in html
+    subrow = html.split('class="staff-subrows"')[1].split("</table>")[0]
+    assert "Staff Test" in subrow
+    # The staff name must not appear in a main row (outside the sub-row).
+    assert "Staff Test" not in html.split('class="staff-subrows"')[0]
 
 
-def test_admin_users_notes_demo_account(client, make_business, monkeypatch):
-    """The demo business's subscription must be labelled as a demo account."""
+def test_admin_users_demo_shows_real_subscription(client, make_business, monkeypatch):
+    """The demo account is a paying customer and must show its plan normally."""
     _admin_cookie(client, monkeypatch)
     make_business("demo", plan="premium_monthly")
     res = client.get("/admin/users")
     assert res.status_code == 200
-    assert "demo account" in res.text
+    assert "WaveBook Premium" in res.text
+    assert "demo account" not in res.text
 
 
 def test_admin_finances_requires_login(client):

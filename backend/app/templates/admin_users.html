@@ -58,22 +58,23 @@
             <td>
               {% if u.business_slug %}
                 <a href="/t/{{ u.business_slug }}" target="_blank">{{ u.business_name }}</a>
+                {% if u.staff_list %}
+                <button type="button" class="btn btn-sm staff-toggle" data-target="staff-{{ u.id }}" style="display:block; margin-top:6px;">▸ {{ u.staff_list|length }} staff</button>
+                {% endif %}
               {% else %}—{% endif %}
             </td>
             <td>{{ u.created_at[:10] }}</td>
             <td>
               {% if u.role == 'staff' %}
                 <span class="badge badge-staff">staff — no subscription</span>
-              {% elif u.is_demo %}
-                <span class="badge badge-demo">demo account</span>
               {% elif u.sub_plan %}
                 <span class="badge badge-{{ u.subscription_status }}">{{ u.sub_plan_label }} ({{ u.subscription_status }})</span>
               {% else %}
                 <span class="badge badge-trial">trial</span>
               {% endif %}
             </td>
-            <td>{% if u.role == 'staff' or u.is_demo %}—{% elif u.sub_start %}{{ u.sub_start[:10] }}{% else %}—{% endif %}</td>
-            <td>{% if u.role == 'staff' or u.is_demo %}—{% elif u.sub_end %}{{ u.sub_end }}{% else %}—{% endif %}</td>
+            <td>{% if u.role == 'staff' %}—{% elif u.sub_start %}{{ u.sub_start[:10] }}{% else %}—{% endif %}</td>
+            <td>{% if u.role == 'staff' %}—{% elif u.sub_end %}{{ u.sub_end }}{% else %}—{% endif %}</td>
             <td>
               <form method="post" action="/admin/users/{{ u.id }}/role" style="display:inline;">
                 <select name="role" onchange="this.form.submit()">
@@ -87,6 +88,47 @@
               </form>
             </td>
           </tr>
+          {% if u.staff_list %}
+          <tr id="staff-{{ u.id }}" class="staff-subrows" style="display:none;">
+            <td colspan="9" style="padding:0; background: var(--surface-alt);">
+              <table style="box-shadow:none; margin:0;">
+                <thead>
+                  <tr>
+                    <th>Staff</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Registered</th>
+                    <th>Subscription</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for s in u.staff_list %}
+                  <tr>
+                    <td><strong>{{ s.full_name }}</strong></td>
+                    <td>{{ s.email }}</td>
+                    <td><span class="badge badge-staff">staff</span></td>
+                    <td>{{ s.created_at[:10] }}</td>
+                    <td><span class="badge badge-staff">staff — no subscription</span></td>
+                    <td>
+                      <form method="post" action="/admin/users/{{ s.id }}/role" style="display:inline;">
+                        <select name="role" onchange="this.form.submit()">
+                          <option value="owner">owner</option>
+                          <option value="staff" selected>staff</option>
+                          <option value="admin">admin</option>
+                        </select>
+                      </form>
+                      <form method="post" action="/admin/users/{{ s.id }}/delete" style="display:inline;" onsubmit="return confirm('Delete this user?');">
+                        <button type="submit" class="btn btn-sm" style="background:var(--danger);">Delete</button>
+                      </form>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </td>
+          </tr>
+          {% endif %}
           {% endfor %}
         </tbody>
       </table>
@@ -111,5 +153,16 @@
   <div class="footer">
     <div class="container"><p>&copy; 2026 NeuroWaves Data Systems. All rights reserved.</p><p style="margin-top: 8px;">Support: <a href="mailto:support@getwavebook.com">support@getwavebook.com</a></p></div>
   </div>
+
+  <script>
+    document.querySelectorAll('.staff-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const row = document.getElementById(this.dataset.target);
+        const hidden = row.style.display === 'none';
+        row.style.display = hidden ? '' : 'none';
+        this.textContent = (hidden ? '▾' : '▸') + this.textContent.slice(1);
+      });
+    });
+  </script>
 </body>
 </html>

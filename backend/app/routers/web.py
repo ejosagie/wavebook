@@ -507,8 +507,7 @@ def admin_users(request: Request, page: int = 1):
     conn = get_connection()
     try:
         total = conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"]
-        page, total_pages, offset = _admin_page(page, total)
-        users = rows_to_dicts(
+        all_users = rows_to_dicts(
             conn.execute(
                 """SELECT u.*, b.name AS business_name, b.slug AS business_slug,
                           b.subscription_status,
@@ -527,24 +526,36 @@ def admin_users(request: Request, page: int = 1):
                        WHERE s.business_id = u.business_id
                        ORDER BY s.created_at DESC LIMIT 1
                    )
-                   ORDER BY u.created_at DESC LIMIT ? OFFSET ?""",
-                (ADMIN_PAGE_SIZE, offset),
+                   ORDER BY u.created_at DESC"""
             ).fetchall()
         )
-        for u in users:
+        # Staff are shown nested under their business owner, not as separate
+        # rows, so one business never looks like several paying users.
+        staff_by_business: dict = {}
+        main_users: list = []
+        for u in all_users:
             if u.get("role") == "staff":
-                # Staff don't subscribe — the business does. Don't show the
-                # business's subscription on their row.
-                u["sub_plan"] = None
-                u["sub_start"] = None
-                u["sub_end"] = None
-                u["sub_plan_label"] = ""
-                u["is_demo"] = False
+                staff_by_business.setdefault(u.get("business_id"), []).append(u)
             else:
-                u["is_demo"] = u.get("business_slug") == "demo"
                 u["sub_plan_label"] = settings.TIER_LABELS.get(
                     (u.get("sub_plan") or "").rsplit("_", 1)[0], u.get("sub_plan") or ""
                 )
+                u["staff_list"] = []
+                main_users.append(u)
+        for u in main_users:
+            u["staff_list"] = staff_by_business.pop(u.get("business_id"), [])
+        # Staff whose owner row is missing still appear on their own.
+        for staff in staff_by_business.values():
+            for s in staff:
+                s["sub_plan"] = None
+                s["sub_start"] = None
+                s["sub_end"] = None
+                s["sub_plan_label"] = ""
+                s["staff_list"] = []
+                main_users.append(s)
+        main_users.sort(key=lambda u: u["created_at"], reverse=True)
+        page, total_pages, offset = _admin_page(page, len(main_users))
+        users = main_users[offset : offset + ADMIN_PAGE_SIZE]
     finally:
         conn.close()
     return templates.TemplateResponse(
