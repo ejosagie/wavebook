@@ -6,6 +6,14 @@
   <title>WaveBook Admin — Visits</title>
   <link rel="stylesheet" href="/static/css/style.css">
   <link rel="icon" type="image/png" href="/static/img/icon.png">
+  <style>
+    .pagination { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 20px; flex-wrap: wrap; }
+    .page-btn { min-width: 38px; height: 38px; padding: 0 12px; border: 1px solid var(--border); border-radius: 10px; background: #fff; cursor: pointer; font-weight: 700; color: var(--text); }
+    .page-btn:hover:not(:disabled) { border-color: var(--pink); color: var(--pink); }
+    .page-btn.active { background: var(--gradient); color: #fff; border-color: transparent; }
+    .page-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .visits-count { text-align: center; color: var(--muted); font-size: 0.9rem; margin-top: 14px; }
+  </style>
 </head>
 <body>
   <div class="navbar">
@@ -62,15 +70,17 @@
             <th>Visited At</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="visits-body">
           {% for v in recent %}
-          <tr>
+          <tr class="visit-row">
             <td><strong>{{ v.page }}</strong></td>
             <td>{{ v.visited_at }}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
+      <p class="visits-count" id="visits-count"></p>
+      <div class="pagination" id="visits-pagination"></div>
       {% else %}
       <p style="color: var(--muted);">No visits recorded yet.</p>
       {% endif %}
@@ -80,5 +90,61 @@
   <div class="footer">
     <div class="container"><p>&copy; 2026 NeuroWaves Data Systems. All rights reserved.</p><p style="margin-top: 8px;">Support: <a href="mailto:support@getwavebook.com">support@getwavebook.com</a></p></div>
   </div>
+
+  {% if recent %}
+  <script>
+    const visitRows = Array.from(document.querySelectorAll('.visit-row'));
+    const visitsCountEl = document.getElementById('visits-count');
+    const visitsPaginationEl = document.getElementById('visits-pagination');
+    const ROWS_PER_PAGE = 20;
+    let visitsPage = 1;
+
+    function visitsPageNumbers(totalPages) {
+      const pages = new Set([1, totalPages]);
+      for (let p = visitsPage - 2; p <= visitsPage + 2; p++) {
+        if (p >= 1 && p <= totalPages) pages.add(p);
+      }
+      return Array.from(pages).sort((a, b) => a - b);
+    }
+
+    function renderVisits() {
+      const totalPages = Math.max(1, Math.ceil(visitRows.length / ROWS_PER_PAGE));
+      if (visitsPage > totalPages) visitsPage = totalPages;
+      const start = (visitsPage - 1) * ROWS_PER_PAGE;
+      const pageRows = visitRows.slice(start, start + ROWS_PER_PAGE);
+
+      visitRows.forEach(row => (row.style.display = 'none'));
+      pageRows.forEach(row => (row.style.display = ''));
+
+      visitsCountEl.textContent = 'Showing ' + (start + 1) + '–' + Math.min(start + ROWS_PER_PAGE, visitRows.length) + ' of ' + visitRows.length + ' visits';
+
+      if (totalPages <= 1) {
+        visitsPaginationEl.innerHTML = '';
+        return;
+      }
+      let html = '<button class="page-btn" data-page="' + (visitsPage - 1) + '"' + (visitsPage === 1 ? ' disabled' : '') + '>‹ Prev</button>';
+      let prev = 0;
+      visitsPageNumbers(totalPages).forEach(p => {
+        if (p - prev > 1) html += '<span class="page-btn" style="border:none; background:none; cursor:default;">…</span>';
+        html += '<button class="page-btn' + (p === visitsPage ? ' active' : '') + '" data-page="' + p + '">' + p + '</button>';
+        prev = p;
+      });
+      html += '<button class="page-btn" data-page="' + (visitsPage + 1) + '"' + (visitsPage === totalPages ? ' disabled' : '') + '>Next ›</button>';
+      visitsPaginationEl.innerHTML = html;
+    }
+
+    visitsPaginationEl.addEventListener('click', function (e) {
+      const btn = e.target.closest('.page-btn');
+      if (!btn || btn.disabled) return;
+      const page = Number(btn.dataset.page);
+      if (page >= 1) {
+        visitsPage = page;
+        renderVisits();
+      }
+    });
+
+    renderVisits();
+  </script>
+  {% endif %}
 </body>
 </html>

@@ -228,6 +228,30 @@ def test_admin_dashboard_paginates_businesses(client, monkeypatch):
     assert "Paginated Biz 0" in res.text
 
 
+def test_admin_visits_paginates_recent_rows(client, monkeypatch):
+    """Recent visits must render with client-side pagination so the page
+    stays short even with many recorded visits."""
+    _admin_cookie(client, monkeypatch)
+    conn = database.get_connection()
+    try:
+        for i in range(45):
+            conn.execute(
+                "INSERT INTO page_visits (page, visited_at) VALUES (?, ?)",
+                ("home", f"2026-10-22 06:00:{i:02d}"),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    res = client.get("/admin/visits")
+    assert res.status_code == 200
+    html = res.text
+    assert html.count('class="visit-row"') == 45
+    assert 'id="visits-pagination"' in html
+    assert 'id="visits-count"' in html
+    assert "ROWS_PER_PAGE" in html
+    assert "renderVisits" in html
+
+
 def test_admin_users_paginates(client, monkeypatch):
     _admin_cookie(client, monkeypatch)
     conn = database.get_connection()
