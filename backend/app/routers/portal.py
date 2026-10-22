@@ -25,7 +25,7 @@ from ..schemas import (
     StaffUpdate,
     SUPPORTED_CURRENCIES,
 )
-from ..security import create_access_token, decode_access_token, verify_password
+from ..security import create_access_token, decode_access_token, hash_password, verify_password
 from ..services.slots import DAY_LABELS, DEFAULT_WORKING_DAYS, get_availability_row
 from .web import CURRENCY_SYMBOLS
 
@@ -158,7 +158,42 @@ def portal_login_submit(request: Request, email: str = Form(...), password: str 
         conn.close()
     response = _redirect("/portal", msg="Welcome back")
     _set_portal_cookie(response, request, user["id"])
+    if user.get("must_change_password"):
+        response = _redirect("/portal/change-password", msg="Please set a new password")
+        _set_portal_cookie(response, request, user["id"])
     return response
+
+
+@router.get("/change-password", response_class=HTMLResponse)
+def portal_change_password_page(request: Request):
+    user = _require_portal_user(request)
+    return templates.TemplateResponse(
+        request,
+        "portal_change_password.html",
+        {"error": request.query_params.get("error"), "msg": request.query_params.get("msg")},
+    )
+
+
+@router.post("/change-password")
+def portal_change_password_submit(
+    request: Request, current_password: str = Form(...), new_password: str = Form(...)
+):
+    user = _require_portal_user(request)
+    if len(new_password) < 8:
+        return _redirect("/portal/change-password", error="New password must be at least 8 characters")
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT password_hash FROM users WHERE id = ?", (user["id"],)).fetchone()
+        if row is None or not verify_password(current_password, row["password_hash"]):
+            return _redirect("/portal/change-password", error="Current password is incorrect")
+        conn.execute(
+            "UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?",
+            (hash_password(new_password), user["id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return _redirect("/portal", msg="Password updated")
 
 
 @router.post("/logout")

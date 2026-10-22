@@ -64,10 +64,11 @@ def invite_staff(
                 (business["id"], data.full_name, data.phone, user_id),
             )
         else:
-            # Temporary password; staff set their own on first login (flow added later)
+            # Temporary password; staff must set their own on first login
             temp_password = secrets.token_urlsafe(9)
             cur = conn.execute(
-                "INSERT INTO users (email, password_hash, full_name, phone, role, business_id) VALUES (?, ?, ?, ?, 'staff', ?)",
+                "INSERT INTO users (email, password_hash, full_name, phone, role, business_id, must_change_password) "
+                "VALUES (?, ?, ?, ?, 'staff', ?, 1)",
                 (data.email.lower(), hash_password(temp_password), data.full_name, data.phone, business["id"]),
             )
             user_id = cur.lastrowid

@@ -198,3 +198,129 @@ def test_portal_logout_clears_cookie(client, make_business):
     assert res.status_code == 303
     assert "wavebook_portal" in res.headers.get("set-cookie", "")
     assert "Max-Age=0" in res.headers.get("set-cookie", "")
+
+
+def _capture_reset_email(monkeypatch):
+    """Monkeypatch the reset email sender and return the temp password."""
+    captured = {}
+
+    def fake_send(to, full_name, temp_password):
+        captured["to"] = to
+        captured["temp"] = temp_password
+        return {"provider": "test", "status": "sent"}
+
+    monkeypatch.setattr("app.routers.auth.send_password_reset_email", fake_send)
+    return captured
+
+
+def test_forgot_password_page_renders(client):
+    res = client.get("/forgot-password")
+    assert res.status_code == 200
+    assert "Reset your password" in res.text
+
+
+def test_forgot_password_sends_temp_password_and_forces_change(client, make_business, monkeypatch):
+    biz = make_business("portalreset")
+    captured = _capture_reset_email(monkeypatch)
+
+    res = client.post(
+        "/forgot-password", data={"email": biz["owner_email"]}, follow_redirects=False
+    )
+    assert res.status_code == 303
+    assert res.headers["location"] == "/forgot-password/sent"
+    assert captured["to"] == biz["owner_email"]
+
+    # Old password no longer works
+    res = _login(client, biz, password="ownerpass1")
+    assert "error" in res.headers["location"]
+
+    # Temp password works but sends the user to change it
+    res = client.post(
+        "/portal/login",
+        data={"email": biz["owner_email"], "password": captured["temp"]},
+        follow_redirects=False,
+    )
+    assert res.status_code == 303
+    assert res.headers["location"].startswith("/portal/change-password")
+
+    conn = database.get_connection()
+    try:
+        row = conn.execute(
+            "SELECT must_change_password FROM users WHERE email = ?", (biz["owner_email"],)
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row["must_change_password"] == 1
+
+
+def test_portal_change_password_clears_flag(client, make_business, monkeypatch):
+    biz = make_business("portalreset2")
+    captured = _capture_reset_email(monkeypatch)
+    client.post("/forgot-password", data={"email": biz["owner_email"]})
+
+    # Log in with the temporary password, then set a new one
+    client.post(
+        "/portal/login",
+        data={"email": biz["owner_email"], "password": captured["temp"]},
+        follow_redirects=False,
+    )
+    res = client.post(
+        "/portal/change-password",
+        data={"current_password": captured["temp"], "new_password": "newpass123"},
+        follow_redirects=False,
+    )
+    assert res.status_code == 303
+    assert res.headers["location"] == "/portal?msg=Password%20updated"
+
+    conn = database.get_connection()
+    try:
+        row = conn.execute(
+            "SELECT must_change_password FROM users WHERE email = ?", (biz["owner_email"],)
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row["must_change_password"] == 0
+
+    # New password logs in normally
+    res = _login(client, biz, password="newpass123")
+    assert res.status_code == 303
+    assert res.headers["location"] == "/portal?msg=Welcome%20back"
+
+
+def test_api_forgot_password_and_login_flow(client, make_business, monkeypatch):
+    biz = make_business("apireset")
+    captured = _capture_reset_email(monkeypatch)
+
+    res = client.post("/api/auth/forgot-password", json={"email": biz["owner_email"]})
+    assert res.status_code == 200
+    assert res.json() == {"ok": True}
+
+    # Login with the temp password reports must_change_password
+    res = client.post(
+        "/api/auth/login",
+        json={"email": biz["owner_email"], "password": captured["temp"]},
+    )
+    assert res.status_code == 200
+    assert res.json()["user"]["must_change_password"] == 1
+
+    # Changing the password clears the flag
+    token = res.json()["access_token"]
+    res = client.post(
+        "/api/auth/change-password",
+        json={"current_password": captured["temp"], "new_password": "brandnew123"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert res.status_code == 200
+    res = client.post(
+        "/api/auth/login",
+        json={"email": biz["owner_email"], "password": "brandnew123"},
+    )
+    assert res.status_code == 200
+    assert res.json()["user"]["must_change_password"] == 0
+
+
+def test_support_page_links_to_password_reset(client):
+    res = client.get("/support")
+    assert res.status_code == 200
+    assert "/forgot-password" in res.text
+    assert "Email us from the address on your account" not in res.text

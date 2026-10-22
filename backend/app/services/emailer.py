@@ -64,6 +64,23 @@ def send_welcome_email(to: str, full_name: str, business: dict | None = None) ->
     return send_email(to, f"Welcome to WaveBook — your {get_trial_days()}-day free trial is active", body)
 
 
+def send_password_reset_email(to: str, full_name: str, temp_password: str) -> dict:
+    """Send a temporary password after a password reset request."""
+    body = (
+        f"Hi {full_name},\n\n"
+        "You asked to reset your WaveBook password. Here is your temporary password:\n\n"
+        f"  {temp_password}\n\n"
+        "Sign in with this temporary password — you'll be asked to set a new password "
+        "the first time you log in.\n\n"
+        "If you didn't request this, you can ignore this email and your password will "
+        "stay the same.\n\n"
+        "Need help? Reply to this email or contact support@getwavebook.com.\n\n"
+        "Best regards,\nThe WaveBook Team\n"
+        "© 2026 NeuroWaves Data Systems Ltd"
+    )
+    return send_email(to, "Your WaveBook temporary password", body)
+
+
 def _booking_manage_url() -> str:
     return f"{settings.API_PUBLIC_URL}/booking/manage"
 

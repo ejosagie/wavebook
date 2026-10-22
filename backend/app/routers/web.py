@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 from ..config import settings
 from ..database import TRIAL_DAYS_KEY, get_connection, get_trial_days, row_to_dict, rows_to_dicts
 from ..phone import validate_phone
-from ..routers.auth import register_user
+from ..routers.auth import register_user, reset_password
 from ..routers.bookings import generate_reference
 from ..routers.notifications import add_notification
 from ..routers.payments import verify_payment as verify_booking_payment
@@ -183,6 +183,23 @@ def signup_submit(
 @router.get("/signup/success", response_class=HTMLResponse)
 def signup_success(request: Request):
     return templates.TemplateResponse(request, "signup_success.html", {})
+
+
+@router.get("/forgot-password", response_class=HTMLResponse)
+def forgot_password_page(request: Request):
+    return templates.TemplateResponse(request, "forgot_password.html", {"error": None})
+
+
+@router.post("/forgot-password")
+def forgot_password_submit(request: Request, email: str = Form(...)):
+    """Send a temporary password to the account's email address."""
+    reset_password(email)
+    return RedirectResponse(url="/forgot-password/sent", status_code=303)
+
+
+@router.get("/forgot-password/sent", response_class=HTMLResponse)
+def forgot_password_sent(request: Request):
+    return templates.TemplateResponse(request, "forgot_password_sent.html", {})
 
 
 @router.get("/support", response_class=HTMLResponse)

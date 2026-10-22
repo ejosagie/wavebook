@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
     phone TEXT DEFAULT '',
     role TEXT NOT NULL DEFAULT 'owner',   -- owner | staff | admin
     business_id INTEGER,
+    must_change_password INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -278,6 +279,7 @@ def init_db() -> None:
         _ensure_column(conn, "businesses", "sms_template", "sms_template TEXT DEFAULT ''")
         _ensure_column(conn, "businesses", "sms_instructions", "sms_instructions TEXT DEFAULT ''")
         _ensure_column(conn, "users", "last_login_at", "last_login_at TEXT DEFAULT ''")
+        _ensure_column(conn, "users", "must_change_password", "must_change_password INTEGER NOT NULL DEFAULT 0")
         _ensure_column(conn, "payments", "stripe_payment_intent_id", "stripe_payment_intent_id TEXT DEFAULT ''")
         _ensure_column(conn, "payments", "currency", "currency TEXT DEFAULT 'GBP'")
         _ensure_column(conn, "payments", "kind", "kind TEXT DEFAULT 'deposit'")

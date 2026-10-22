@@ -1,4 +1,6 @@
 import re
+import secrets
+import string
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -6,9 +8,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from ..database import get_connection, get_trial_days, row_to_dict
 from ..deps import get_current_user
 from ..phone import validate_phone
-from ..schemas import ChangePasswordRequest, LoginRequest, SignupRequest, TokenResponse, SUPPORTED_CURRENCIES
+from ..schemas import ChangePasswordRequest, ForgotPasswordRequest, LoginRequest, SignupRequest, TokenResponse, SUPPORTED_CURRENCIES
 from ..security import create_access_token, hash_password, verify_password
-from ..services.emailer import send_welcome_email
+from ..services.emailer import send_password_reset_email, send_welcome_email
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -112,6 +114,45 @@ def login(data: LoginRequest):
     return TokenResponse(access_token=token, user=user)
 
 
+def reset_password(email: str) -> bool:
+    """Set a temporary password for the user and email it to them.
+
+    Returns True when a matching account was found and reset.
+    """
+    conn = get_connection()
+    found = False
+    try:
+        user = row_to_dict(
+            conn.execute(
+                "SELECT * FROM users WHERE email = ?", (email.strip().lower(),)
+            ).fetchone()
+        )
+        if user:
+            found = True
+            alphabet = string.ascii_letters + string.digits
+            temp_password = "".join(secrets.choice(alphabet) for _ in range(12))
+            conn.execute(
+                "UPDATE users SET password_hash = ?, must_change_password = 1 WHERE id = ?",
+                (hash_password(temp_password), user["id"]),
+            )
+            conn.commit()
+            send_password_reset_email(user["email"], user["full_name"], temp_password)
+    finally:
+        conn.close()
+    return found
+
+
+@router.post("/forgot-password")
+def forgot_password(data: ForgotPasswordRequest):
+    """Reset a user's password to a temporary one and email it to them.
+
+    Returns ok even when the email is unknown so the endpoint can't be used
+    to probe which accounts exist.
+    """
+    reset_password(data.email)
+    return {"ok": True}
+
+
 @router.get("/me")
 def me(user: dict = Depends(get_current_user)):
     user.pop("password_hash", None)
@@ -126,7 +167,7 @@ def change_password(data: ChangePasswordRequest, user: dict = Depends(get_curren
         if not verify_password(data.current_password, row["password_hash"]):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
         conn.execute(
-            "UPDATE users SET password_hash = ? WHERE id = ?",
+            "UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?",
             (hash_password(data.new_password), user["id"]),
         )
         conn.commit()

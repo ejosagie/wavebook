@@ -5,6 +5,7 @@ class User {
   final String phone;
   final String role;
   final int? businessId;
+  final bool mustChangePassword;
 
   User({
     required this.id,
@@ -13,6 +14,7 @@ class User {
     required this.phone,
     required this.role,
     this.businessId,
+    this.mustChangePassword = false,
   });
 
   factory User.fromJson(Map<String, dynamic> json) => User(
@@ -22,6 +24,7 @@ class User {
         phone: json['phone'] as String? ?? '',
         role: json['role'] as String? ?? 'owner',
         businessId: json['business_id'] as int?,
+        mustChangePassword: (json['must_change_password'] as num?)?.toInt() == 1,
       );
 }
 

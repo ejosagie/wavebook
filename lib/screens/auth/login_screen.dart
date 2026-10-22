@@ -107,6 +107,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           : const Text('Sign In'),
                     ),
                     const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: () => launchUrl(Uri.parse('https://getwavebook.com/forgot-password')),
+                      child: const Text('Forgot your password?'),
+                    ),
+                    const SizedBox(height: 8),
                     if (defaultTargetPlatform == TargetPlatform.iOS)
                       TextButton(
                         onPressed: () => launchUrl(Uri.parse('https://getwavebook.com')),

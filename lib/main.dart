@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'screens/account/change_password_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/setup/business_setup_screen.dart';
@@ -53,6 +54,9 @@ class RootRouter extends StatelessWidget {
     }
     if (!auth.isLoggedIn) {
       return const LoginScreen();
+    }
+    if (auth.user?.mustChangePassword == true) {
+      return const ChangePasswordScreen(forced: true);
     }
     if (!auth.hasBusiness) {
       return const BusinessSetupScreen();

@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../api/api_client.dart';
+import '../../state/auth_state.dart';
 import '../../theme.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
-  const ChangePasswordScreen({super.key});
+  /// When true, the screen is shown right after login with a temporary
+  /// password and the user must set a new one before continuing.
+  final bool forced;
+
+  const ChangePasswordScreen({super.key, this.forced = false});
 
   @override
   State<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
@@ -49,6 +55,12 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         'new_password': _next.text,
       });
       if (!mounted) return;
+      if (widget.forced) {
+        // Re-fetch the user (must_change_password is now cleared) so the
+        // root router moves on to the home screen.
+        await context.read<AuthState>().restoreSession();
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password changed')));
       Navigator.of(context).pop();
     } on ApiException catch (e) {
@@ -61,10 +73,27 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Change password')),
+      appBar: AppBar(
+        title: const Text('Change password'),
+        automaticallyImplyLeading: !widget.forced,
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if (widget.forced) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: WaveBookColors.rose.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'You are using a temporary password. Please set a new password to continue.',
+                style: TextStyle(color: WaveBookColors.rose),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           TextField(
             controller: _current,
             obscureText: true,
