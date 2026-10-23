@@ -683,6 +683,9 @@
               <input type="color" name="theme_color" value="{{ business.theme_color or '#ec4899' }}">
             </div>
             <div class="form-group">
+              <label><input type="checkbox" name="dark_theme" {% if business.dark_theme %}checked{% endif %}> Dark theme — use a dark background on my website</label>
+            </div>
+            <div class="form-group">
               <label><input type="checkbox" name="storefront_enabled" {% if business.storefront_enabled %}checked{% endif %}> Enable online shop on my website</label>
             </div>
             <button type="submit" class="btn">Save Website Settings</button>

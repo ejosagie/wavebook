@@ -324,6 +324,7 @@ def init_db() -> None:
         _ensure_column(conn, "orders", "shipping_fee", "shipping_fee REAL NOT NULL DEFAULT 0")
         _ensure_column(conn, "businesses", "trial_ends_at", "trial_ends_at TEXT DEFAULT ''")
         _ensure_column(conn, "businesses", "theme_color", "theme_color TEXT DEFAULT '#ec4899'")
+        _ensure_column(conn, "businesses", "dark_theme", "dark_theme INTEGER NOT NULL DEFAULT 0")
         _ensure_column(conn, "bookings", "reference", "reference TEXT DEFAULT ''")
         _ensure_column(conn, "bookings", "reminder_sent", "reminder_sent INTEGER NOT NULL DEFAULT 0")
         _ensure_column(conn, "bookings", "assigned_staff_id", "assigned_staff_id INTEGER")

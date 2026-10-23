@@ -406,3 +406,61 @@ th { background: var(--surface-alt); font-weight: 700; }
   .about-table, .about-table tbody, .about-table tr, .about-table td { display: block; width: 100%; }
   .about-image-cell { width: 100%; text-align: center; }
 }
+
+/* ---------- Tenant dark theme ---------- */
+body.tenant-dark {
+  color-scheme: dark;
+  --bg: #0d0d13;
+  --bg-soft: #14141d;
+  --surface: #1a1a24;
+  --surface-alt: #22222e;
+  --border: #2d2d3e;
+  --ink: #f0edf5;
+  --muted: #a49eb2;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  background: var(--bg);
+  color: var(--ink);
+}
+body.tenant-dark .navbar,
+body.tenant-dark .tenant-nav {
+  background: #13131b;
+  border-bottom-color: var(--border);
+}
+body.tenant-dark .nav-links a { color: var(--muted); }
+body.tenant-dark .nav-links a:hover { color: var(--pink-light); }
+body.tenant-dark .tenant-hero {
+  background: linear-gradient(180deg, #17171f 0%, var(--bg) 100%);
+}
+body.tenant-dark .tenant-hero h1,
+body.tenant-dark .tenant-hero p { color: var(--ink); }
+body.tenant-dark .section-light { background: var(--bg-soft); }
+body.tenant-dark .card,
+body.tenant-dark .info-card,
+body.tenant-dark .service-card {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+body.tenant-dark .service-card { border: 1px solid var(--border); }
+body.tenant-dark .card p,
+body.tenant-dark .service-card .desc,
+body.tenant-dark .gallery-caption { color: var(--muted); }
+body.tenant-dark .service-card .price { color: var(--pink-light); }
+body.tenant-dark .service-card .duration,
+body.tenant-dark .about-placeholder { color: #8d8899; }
+body.tenant-dark .about-placeholder { border-color: var(--border); }
+body.tenant-dark .form-group input,
+body.tenant-dark .form-group select,
+body.tenant-dark .form-group textarea {
+  background: var(--bg-soft);
+  color: var(--ink);
+  border-color: var(--border);
+}
+body.tenant-dark .form-group input::placeholder,
+body.tenant-dark .form-group textarea::placeholder { color: #6f6a7e; }
+body.tenant-dark .hours-list li { border-bottom-color: var(--border); }
+body.tenant-dark .footer { background: #08080d; color: #7d7788; }
+body.tenant-dark .service-card .product-img { background: #12121a; }
+body.tenant-dark table { background: var(--surface); }
+body.tenant-dark th { background: var(--surface-alt); color: var(--ink); }
+body.tenant-dark td { color: var(--ink); border-bottom-color: var(--border); }

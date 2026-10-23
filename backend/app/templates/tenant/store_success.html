@@ -17,7 +17,7 @@
   </style>
   {% endif %}
 </head>
-<body class="tenant-theme">
+<body class="tenant-theme{% if business.dark_theme %} tenant-dark{% endif %}">
   <div class="navbar tenant-nav has-menu">
     <div class="container">
       <div class="brand">

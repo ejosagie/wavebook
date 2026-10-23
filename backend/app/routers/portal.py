@@ -891,6 +891,7 @@ def portal_customize_save(
     opening_hours: str = Form(""),
     theme_color: str = Form("#ec4899"),
     storefront_enabled: str = Form(""),
+    dark_theme: str = Form(""),
 ):
     user = _require_portal_user(request)
     business = _load_business(user)
@@ -911,6 +912,7 @@ def portal_customize_save(
                 tiktok=tiktok.strip(),
                 opening_hours=opening_hours.strip(),
                 theme_color=theme_color.strip() or "#ec4899",
+                dark_theme=dark_theme == "on",
                 storefront_enabled=storefront_enabled == "on",
             ),
             business=business,

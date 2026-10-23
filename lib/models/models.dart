@@ -64,6 +64,7 @@ class Business {
   final int smsCredits;
   final String trialEndsAt;
   final String themeColor;
+  final bool darkTheme;
   final double shippingFeeLocal;
   final double shippingFeeInternational;
   final String storeCountry;
@@ -104,6 +105,7 @@ class Business {
     required this.smsCredits,
     required this.trialEndsAt,
     required this.themeColor,
+    required this.darkTheme,
     required this.shippingFeeLocal,
     required this.shippingFeeInternational,
     required this.storeCountry,
@@ -145,6 +147,7 @@ class Business {
         smsCredits: json['sms_credits'] as int? ?? 0,
         trialEndsAt: json['trial_ends_at'] as String? ?? '',
         themeColor: json['theme_color'] as String? ?? '#ec4899',
+        darkTheme: (json['dark_theme'] as num?)?.toInt() == 1,
         shippingFeeLocal: (json['shipping_fee_local'] as num?)?.toDouble() ?? 0,
         shippingFeeInternational: (json['shipping_fee_international'] as num?)?.toDouble() ?? 0,
         storeCountry: json['store_country'] as String? ?? 'GB',
@@ -177,6 +180,7 @@ class Business {
         'payout_swift': payoutSwift,
         'payout_bank_address': payoutBankAddress,
         'theme_color': themeColor,
+        'dark_theme': darkTheme,
         'shipping_fee_local': shippingFeeLocal,
         'shipping_fee_international': shippingFeeInternational,
         'store_country': storeCountry,

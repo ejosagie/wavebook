@@ -63,6 +63,7 @@ class BusinessUpdate(BaseModel):
     payout_swift: str | None = None
     payout_bank_address: str | None = None
     theme_color: str | None = None
+    dark_theme: bool | None = None
     calendar_token: str | None = None
     shipping_fee_local: float | None = Field(default=None, ge=0)
     shipping_fee_international: float | None = Field(default=None, ge=0)

@@ -16,6 +16,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   final _api = ApiClient();
   Business? _business;
   String _themeColor = '#ec4899';
+  bool _darkTheme = false;
   bool _loading = true;
   bool _saving = false;
 
@@ -46,6 +47,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       setState(() {
         _business = b;
         _themeColor = b.themeColor;
+        _darkTheme = b.darkTheme;
       });
     } on ApiException {
       // Non-fatal — the screen still renders.
@@ -57,7 +59,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      await _api.patch('/api/business', body: {'theme_color': _themeColor});
+      await _api.patch('/api/business', body: {
+        'theme_color': _themeColor,
+        'dark_theme': _darkTheme,
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Website theme updated')),
@@ -138,6 +143,17 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   }).toList(),
                 ),
                 const SizedBox(height: 24),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Dark theme', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  subtitle: const Text(
+                    'Use a dark background on your booking website.',
+                    style: TextStyle(color: WaveBookColors.muted, fontSize: 13),
+                  ),
+                  value: _darkTheme,
+                  onChanged: (v) => setState(() => _darkTheme = v),
+                ),
+                const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: _saving ? null : _save,
                   child: _saving

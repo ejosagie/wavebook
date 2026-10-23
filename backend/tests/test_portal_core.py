@@ -251,3 +251,27 @@ def test_portal_bookings_search_and_pagination(client, make_business):
 
     res = client.get("/portal?tab=bookings&page=99")
     assert "Page 2 of 2" in res.text  # clamped
+
+def test_dark_theme_toggle(client, make_business):
+    biz = make_business("darkco")
+    _login(client, biz)
+
+    res = client.get("/", headers={"host": "darkco.wab.ad"})
+    assert res.status_code == 200 and "tenant-dark" not in res.text
+
+    res = client.post(
+        "/portal/customize",
+        data={"name": "Darkco Studio", "dark_theme": "on"},
+        follow_redirects=False,
+    )
+    assert res.status_code in (302, 303)
+
+    res = client.get("/", headers={"host": "darkco.wab.ad"})
+    assert "tenant-dark" in res.text
+    res = client.get("/services", headers={"host": "darkco.wab.ad"})
+    assert "tenant-dark" in res.text
+
+    # Unchecking the box removes the class
+    client.post("/portal/customize", data={"name": "Darkco Studio"}, follow_redirects=False)
+    res = client.get("/", headers={"host": "darkco.wab.ad"})
+    assert "tenant-dark" not in res.text

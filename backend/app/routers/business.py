@@ -71,7 +71,7 @@ def update_business(data: BusinessUpdate, business: dict = Depends(get_current_b
     updates = data.model_dump(exclude_unset=True, exclude_none=True)
     if not updates:
         return business
-    if "contact_phone" in updates:
+    if updates.get("contact_phone"):
         try:
             updates["contact_phone"] = validate_phone(updates["contact_phone"])
         except ValueError as exc:
