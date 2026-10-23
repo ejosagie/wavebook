@@ -51,10 +51,10 @@
     panel.classList.add('open');
     if (!greeted) {
       greeted = true;
-      addBubble("Hi! I'm the WaveBook AI Assistant. Are you here to book an appointment, or would you like to chat with us?", 'bot');
+      addBubble("Hi there! Are you looking to book an appointment, or would you like to chat with us?", 'bot');
       addPicks([
         { label: '📅 Book an appointment', onClick: () => assistantSend("I'd like to book an appointment") },
-        { label: '💬 Chat with the owner', onClick: showChatStart },
+        { label: '💬 Chat with us', onClick: showChatStart },
       ]);
     }
     assistantInput.focus();
