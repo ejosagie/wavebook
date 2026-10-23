@@ -45,6 +45,7 @@
         <button data-tab="calendar" class="{% if active_tab == 'calendar' %}active{% endif %}">Calendar</button>
         <button data-tab="staff" class="{% if active_tab == 'staff' %}active{% endif %}">Staff</button>
         <button data-tab="payments" class="{% if active_tab == 'payments' %}active{% endif %}">Payments</button>
+        <button data-tab="shop" class="{% if active_tab == 'shop' %}active{% endif %}">Shop</button>
         <button data-tab="customize" class="{% if active_tab == 'customize' %}active{% endif %}">Customize</button>
         <button data-tab="account" class="{% if active_tab == 'account' %}active{% endif %}">Account</button>
       </div>
@@ -244,6 +245,189 @@
           updatePayoutFields();
         }
       </script>
+
+      <!-- Shop -->
+      <div class="portal-panel {% if active_tab == 'shop' %}active{% endif %}" id="panel-shop">
+        <div class="card" style="margin-bottom: 24px;">
+          <h3>Shop settings</h3>
+          <p style="margin-bottom: 16px;">Turn on your online shop to sell products on your booking website. Your store lives at <a href="{{ website_url }}/store" target="_blank">{{ website_url }}/store</a>.</p>
+          <form method="post" action="/portal/shop">
+            <div class="form-group">
+              <label><input type="checkbox" name="storefront_enabled" {% if business.storefront_enabled %}checked{% endif %}> Sell products on my booking website</label>
+            </div>
+            <div class="form-group">
+              <label>Your store's country (for shipping rates)</label>
+              <select name="store_country">
+                {% set sc = (business.store_country or 'GB') | upper %}
+                {% for code, label in payout_countries %}
+                <option value="{{ code }}" {% if sc == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Local shipping fee ({{ currency_symbols.get(business.currency, '') }})</label>
+              <input type="number" name="shipping_fee_local" min="0" step="0.01" value="{{ '%.2f'|format(business.shipping_fee_local or 0) }}">
+            </div>
+            <div class="form-group">
+              <label>International shipping fee ({{ currency_symbols.get(business.currency, '') }})</label>
+              <input type="number" name="shipping_fee_international" min="0" step="0.01" value="{{ '%.2f'|format(business.shipping_fee_international or 0) }}">
+            </div>
+            <button type="submit" class="btn">Save Shop Settings</button>
+          </form>
+        </div>
+
+        <div class="card" style="margin-bottom: 24px;">
+          <h3>Your products</h3>
+          {% if products %}
+          <table style="margin-bottom: 8px;">
+            <tr><th>Product</th><th>Price</th><th>Stock</th><th>Live</th><th>Actions</th></tr>
+            {% for p in products %}
+            <tr>
+              <td><strong>{{ p.name }}</strong></td>
+              <td>{{ currency_symbols.get(business.currency, '') }}{{ '%.2f'|format(p.price) }}</td>
+              <td>
+                {% if p.stock is not none %}
+                  {% if p.stock <= 0 %}
+                    <span style="color: var(--danger); font-weight:700;">Out of stock</span>
+                  {% elif p.stock < 5 %}
+                    <span style="color: var(--danger); font-weight:700;">{{ p.stock }} left</span>
+                  {% else %}
+                    {{ p.stock }}
+                  {% endif %}
+                {% else %}
+                  <span style="color: var(--muted);">∞</span>
+                {% endif %}
+              </td>
+              <td>{{ 'Yes' if p.active else 'No' }}</td>
+              <td>
+                <button class="btn btn-sm btn-outline" type="button" onclick="document.getElementById('edit-{{ p.id }}').style.display = document.getElementById('edit-{{ p.id }}').style.display === 'none' ? 'block' : 'none'">Edit</button>
+                <form class="inline-form" method="post" action="/portal/products/{{ p.id }}/delete" onsubmit="return confirm('Delete {{ p.name }}?');">
+                  <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                </form>
+              </td>
+            </tr>
+            <tr id="edit-{{ p.id }}" style="display:none;">
+              <td colspan="5" style="background: var(--bg-soft); padding: 16px;">
+                <form method="post" action="/portal/products/{{ p.id }}">
+                  <div style="display:grid; grid-template-columns: 2fr 1fr; gap: 12px;">
+                    <div class="form-group" style="margin:0;">
+                      <label>Name</label>
+                      <input type="text" name="name" value="{{ p.name }}" required>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                      <label>Price ({{ currency_symbols.get(business.currency, '') }})</label>
+                      <input type="number" name="price" min="0" step="0.01" value="{{ '%.2f'|format(p.price) }}" required>
+                    </div>
+                  </div>
+                  <div class="form-group" style="margin-top: 12px;">
+                    <label>Description</label>
+                    <textarea name="description" rows="2">{{ p.description or '' }}</textarea>
+                  </div>
+                  <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                    <div class="form-group" style="margin:0;">
+                      <label>Stock (blank = unlimited)</label>
+                      <input type="number" name="stock" min="0" value="{{ p.stock if p.stock is not none else '' }}">
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                      <label>Sort order</label>
+                      <input type="number" name="sort_order" value="{{ p.sort_order }}">
+                    </div>
+                    <div class="form-group" style="margin:0; align-self:end;">
+                      <label><input type="checkbox" name="active" {% if p.active %}checked{% endif %}> Visible in shop</label>
+                    </div>
+                  </div>
+                  <button type="submit" class="btn btn-sm" style="margin-top: 12px;">Save Product</button>
+                </form>
+                <div style="margin-top: 16px;">
+                  <label style="font-weight:600;">Photos ({{ p.images|length }}/4)</label>
+                  <div style="display:flex; gap:8px; flex-wrap:wrap; margin: 8px 0;">
+                    {% for img in p.images %}
+                    <div style="position:relative;">
+                      <img src="{{ img.path }}" style="width:64px; height:64px; object-fit:cover; border-radius:8px;">
+                      <form class="inline-form" method="post" action="/portal/products/{{ p.id }}/images/{{ img.id }}/delete" style="position:absolute; top:-6px; right:-6px;">
+                        <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 7px; border-radius:50%;">✕</button>
+                      </form>
+                    </div>
+                    {% endfor %}
+                  </div>
+                  {% if p.images|length < 4 %}
+                  <form method="post" action="/portal/products/{{ p.id }}/images" enctype="multipart/form-data" style="display:flex; gap:8px; align-items:center;">
+                    <input type="file" name="file" accept="image/*" style="font-size:0.85rem;">
+                    <button type="submit" class="btn btn-sm btn-outline">Add Photo</button>
+                  </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </table>
+          {% else %}
+          <p style="color: var(--muted); margin-bottom: 16px;">No products yet. Add your first product below.</p>
+          {% endif %}
+
+          <h3 style="margin-top: 20px;">Add a product</h3>
+          <form method="post" action="/portal/products">
+            <div style="display:grid; grid-template-columns: 2fr 1fr; gap: 12px;">
+              <div class="form-group" style="margin:0;">
+                <label>Name</label>
+                <input type="text" name="name" required>
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label>Price ({{ currency_symbols.get(business.currency, '') }})</label>
+                <input type="number" name="price" min="0" step="0.01" required>
+              </div>
+            </div>
+            <div class="form-group" style="margin-top: 12px;">
+              <label>Description</label>
+              <textarea name="description" rows="2"></textarea>
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div class="form-group" style="margin:0;">
+                <label>Stock (blank = unlimited)</label>
+                <input type="number" name="stock" min="0" placeholder="e.g. 10">
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label>Sort order</label>
+                <input type="number" name="sort_order" value="0">
+              </div>
+            </div>
+            <button type="submit" class="btn" style="margin-top: 12px;">Add Product</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3>Orders</h3>
+          {% if orders %}
+          <table>
+            <tr><th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th></tr>
+            {% for o in orders %}
+            <tr>
+              <td><strong>#{{ o.id }}</strong><br><span style="color: var(--muted); font-size:0.85rem;">{{ o.created_at[:10] }}</span></td>
+              <td>{{ o.customer_name }}<br><span style="color: var(--muted); font-size:0.85rem;">{{ o.customer_city }}{% if o.customer_country %}, {{ o.customer_country }}{% endif %}</span></td>
+              <td>
+                {% for item in o["items"] %}
+                {{ item.name }} ×{{ item.quantity }}{% if not loop.last %}, {% endif %}
+                {% endfor %}
+              </td>
+              <td>{{ currency_symbols.get(business.currency, '') }}{{ '%.2f'|format(o.total) }}</td>
+              <td>
+                <form class="inline-form" method="post" action="/portal/orders/{{ o.id }}/status" style="display:flex; gap:6px;">
+                  <select name="status">
+                    {% for s in order_statuses %}
+                    <option value="{{ s }}" {% if o.status == s %}selected{% endif %}>{{ s }}</option>
+                    {% endfor %}
+                  </select>
+                  <button type="submit" class="btn btn-sm">Save</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </table>
+          {% else %}
+          <p style="color: var(--muted);">No orders yet. Orders from your online shop appear here.</p>
+          {% endif %}
+        </div>
+      </div>
 
       <!-- Customize -->
       <div class="portal-panel {% if active_tab == 'customize' %}active{% endif %}" id="panel-customize">

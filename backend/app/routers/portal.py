@@ -7,16 +7,24 @@ reuse the existing API router functions so business logic lives in one place.
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import APIRouter, Form, HTTPException, Request
+import json
+
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from ..config import settings
-from ..database import get_connection, row_to_dict
+from ..database import get_connection, row_to_dict, rows_to_dicts
+from ..deps import business_tier_features
 from ..routers.availability import update_availability
 from ..routers.business import update_business
 from ..routers.auth import change_password
 from ..routers.staff import invite_staff, remove_staff, update_staff
+from ..routers.products import (
+    _add_product_image,
+    _attach_images,
+    _delete_stored_image,
+)
 from ..schemas import (
     AvailabilityUpdate,
     BusinessUpdate,
@@ -240,6 +248,25 @@ def portal_dashboard(request: Request):
                WHERE s.business_id = ? ORDER BY s.id""",
             (business["id"],),
         ).fetchall()
+        products = rows_to_dicts(
+            conn.execute(
+                "SELECT * FROM products WHERE business_id = ? ORDER BY sort_order, id",
+                (business["id"],),
+            ).fetchall()
+        )
+        _attach_images(conn, products)
+        order_rows = conn.execute(
+            "SELECT * FROM orders WHERE business_id = ? ORDER BY id DESC",
+            (business["id"],),
+        ).fetchall()
+        orders = []
+        for row in order_rows:
+            order = dict(row)
+            try:
+                order["items"] = json.loads(order.get("items") or "[]")
+            except json.JSONDecodeError:
+                order["items"] = []
+            orders.append(order)
     finally:
         conn.close()
 
@@ -251,6 +278,9 @@ def portal_dashboard(request: Request):
             "business": business,
             "availability": availability,
             "staff": [dict(r) for r in staff_rows],
+            "products": products,
+            "orders": orders,
+            "order_statuses": settings.ORDER_STATUSES,
             "counts": _counts(business["id"]),
             "day_order": DAY_ORDER,
             "day_labels": DAY_LABELS,
@@ -422,6 +452,223 @@ def portal_payments_save(
     except HTTPException as exc:
         return _redirect("/portal?tab=payments", error=exc.detail)
     return _redirect("/portal?tab=payments", msg="Payment settings saved")
+
+
+# ---- Shop ----
+
+
+def _product_row(conn, business_id: int, product_id: int):
+    return conn.execute(
+        "SELECT * FROM products WHERE id = ? AND business_id = ?",
+        (product_id, business_id),
+    ).fetchone()
+
+
+def _stock_value(raw: str) -> int | None:
+    raw = (raw or "").strip()
+    return int(raw) if raw else None
+
+
+@router.post("/shop")
+def portal_shop_save(
+    request: Request,
+    storefront_enabled: str = Form(""),
+    store_country: str = Form("GB"),
+    shipping_fee_local: float = Form(0.0),
+    shipping_fee_international: float = Form(0.0),
+):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    try:
+        update_business(
+            data=BusinessUpdate(
+                storefront_enabled=storefront_enabled == "on",
+                store_country=(store_country or "GB").strip().upper(),
+                shipping_fee_local=max(0.0, shipping_fee_local),
+                shipping_fee_international=max(0.0, shipping_fee_international),
+            ),
+            business=business,
+        )
+    except HTTPException as exc:
+        return _redirect("/portal?tab=shop", error=exc.detail)
+    return _redirect("/portal?tab=shop", msg="Shop settings saved")
+
+
+@router.post("/products")
+def portal_product_add(
+    request: Request,
+    name: str = Form(...),
+    description: str = Form(""),
+    price: float = Form(0.0),
+    sort_order: int = Form(0),
+    stock: str = Form(""),
+):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    if not name.strip() or price <= 0:
+        return _redirect("/portal?tab=shop", error="Enter a product name and a price above 0")
+    max_products = business_tier_features(business)["max_products"]
+    conn = get_connection()
+    try:
+        if max_products is not None:
+            count = conn.execute(
+                "SELECT COUNT(*) AS c FROM products WHERE business_id = ?",
+                (business["id"],),
+            ).fetchone()["c"]
+            if count >= max_products:
+                return _redirect(
+                    "/portal?tab=shop",
+                    error=f"Your plan allows up to {max_products} products. Upgrade for unlimited products.",
+                )
+        conn.execute(
+            "INSERT INTO products (business_id, name, description, price, sort_order, stock) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (business["id"], name.strip(), description.strip(), price, sort_order, _stock_value(stock)),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return _redirect("/portal?tab=shop", msg="Product added")
+
+
+@router.post("/products/{product_id}")
+def portal_product_update(
+    request: Request,
+    product_id: int,
+    name: str = Form(...),
+    description: str = Form(""),
+    price: float = Form(0.0),
+    sort_order: int = Form(0),
+    stock: str = Form(""),
+    active: str = Form(""),
+):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    if not name.strip() or price <= 0:
+        return _redirect("/portal?tab=shop", error="Enter a product name and a price above 0")
+    conn = get_connection()
+    try:
+        if not _product_row(conn, business["id"], product_id):
+            return _redirect("/portal?tab=shop", error="Product not found")
+        conn.execute(
+            "UPDATE products SET name = ?, description = ?, price = ?, sort_order = ?, "
+            "stock = ?, active = ? WHERE id = ? AND business_id = ?",
+            (
+                name.strip(),
+                description.strip(),
+                price,
+                sort_order,
+                _stock_value(stock),
+                1 if active == "on" else 0,
+                product_id,
+                business["id"],
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return _redirect("/portal?tab=shop", msg="Product updated")
+
+
+@router.post("/products/{product_id}/delete")
+def portal_product_delete(request: Request, product_id: int):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    conn = get_connection()
+    try:
+        row = _product_row(conn, business["id"], product_id)
+        if not row:
+            return _redirect("/portal?tab=shop", error="Product not found")
+        stored = {r["path"] for r in conn.execute(
+            "SELECT path FROM product_images WHERE product_id = ?", (product_id,)
+        ).fetchall()}
+        if row["image_path"]:
+            stored.add(row["image_path"])
+        conn.execute("DELETE FROM products WHERE id = ? AND business_id = ?", (product_id, business["id"]))
+        conn.commit()
+    finally:
+        conn.close()
+    for path in stored:
+        _delete_stored_image(path)
+    return _redirect("/portal?tab=shop", msg="Product deleted")
+
+
+@router.post("/products/{product_id}/images")
+def portal_product_image_add(request: Request, product_id: int, file: UploadFile = File(...)):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    if not file.filename:
+        return _redirect("/portal?tab=shop", error="Choose an image first")
+    try:
+        _add_product_image(business, product_id, file)
+    except HTTPException as exc:
+        return _redirect("/portal?tab=shop", error=exc.detail)
+    return _redirect("/portal?tab=shop", msg="Photo added")
+
+
+@router.post("/products/{product_id}/images/{image_id}/delete")
+def portal_product_image_delete(request: Request, product_id: int, image_id: int):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT id, path FROM product_images WHERE id = ? AND product_id = ? AND business_id = ?",
+            (image_id, product_id, business["id"]),
+        ).fetchone()
+        if not row:
+            return _redirect("/portal?tab=shop", error="Photo not found")
+        conn.execute("DELETE FROM product_images WHERE id = ?", (image_id,))
+        remaining = conn.execute(
+            "SELECT path FROM product_images WHERE product_id = ? ORDER BY id LIMIT 1", (product_id,)
+        ).fetchone()
+        conn.execute(
+            "UPDATE products SET image_path = ? WHERE id = ? AND business_id = ?",
+            (remaining["path"] if remaining else "", product_id, business["id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    _delete_stored_image(row["path"])
+    return _redirect("/portal?tab=shop", msg="Photo removed")
+
+
+@router.post("/orders/{order_id}/status")
+def portal_order_status(request: Request, order_id: int, status: str = Form(...)):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    if status not in settings.ORDER_STATUSES:
+        return _redirect("/portal?tab=shop", error="Invalid order status")
+    conn = get_connection()
+    try:
+        order = conn.execute(
+            "SELECT id FROM orders WHERE id = ? AND business_id = ?",
+            (order_id, business["id"]),
+        ).fetchone()
+        if not order:
+            return _redirect("/portal?tab=shop", error="Order not found")
+        conn.execute(
+            "UPDATE orders SET status = ? WHERE id = ? AND business_id = ?",
+            (status, order_id, business["id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return _redirect("/portal?tab=shop", msg="Order updated")
 
 
 # ---- Customization ----
