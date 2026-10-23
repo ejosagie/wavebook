@@ -19,7 +19,18 @@
     .flash-ok { background: rgba(52, 211, 153, 0.15); color: var(--success); }
     .flash-err { background: rgba(248, 113, 113, 0.15); color: var(--danger); }
     .portal-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; align-items: start; }
-    @media (max-width: 800px) { .portal-grid { grid-template-columns: 1fr; } .day-row { grid-template-columns: 1fr 1fr; } }
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table-scroll table { min-width: 640px; }
+    .form-grid-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+    @media (max-width: 800px) {
+      .portal-grid { grid-template-columns: 1fr; }
+      .day-row { grid-template-columns: 1fr 1fr; }
+      .form-grid-2 { grid-template-columns: 1fr; }
+      .portal-tabs { gap: 6px; }
+      .portal-tabs button { padding: 8px 12px; font-size: 0.85rem; }
+      .admin-stats { grid-template-columns: repeat(2, 1fr); }
+      td .inline-form select { max-width: 120px; }
+    }
   </style>
 </head>
 <body>
@@ -43,7 +54,10 @@
       <div class="portal-tabs">
         <button data-tab="overview" class="{% if active_tab == 'overview' %}active{% endif %}">Overview</button>
         <button data-tab="calendar" class="{% if active_tab == 'calendar' %}active{% endif %}">Calendar</button>
+        <button data-tab="services" class="{% if active_tab == 'services' %}active{% endif %}">Services</button>
+        <button data-tab="bookings" class="{% if active_tab == 'bookings' %}active{% endif %}">Bookings</button>
         <button data-tab="staff" class="{% if active_tab == 'staff' %}active{% endif %}">Staff</button>
+        <button data-tab="feedback" class="{% if active_tab == 'feedback' %}active{% endif %}">Feedback</button>
         <button data-tab="payments" class="{% if active_tab == 'payments' %}active{% endif %}">Payments</button>
         <button data-tab="shop" class="{% if active_tab == 'shop' %}active{% endif %}">Shop</button>
         <button data-tab="customize" class="{% if active_tab == 'customize' %}active{% endif %}">Customize</button>
@@ -110,6 +124,132 @@
         </div>
       </div>
 
+      <!-- Services -->
+      <div class="portal-panel {% if active_tab == 'services' %}active{% endif %}" id="panel-services">
+        <div class="card">
+          <h3>Your services</h3>
+          <p style="margin-bottom: 16px;">These appear on your booking page at <a href="{{ website_url }}/booking" target="_blank">{{ website_url }}/booking</a>.</p>
+          {% if services %}
+          <div class="table-scroll">
+          <table>
+            <tr><th>Service</th><th>Price</th><th>Duration</th><th>Actions</th></tr>
+            {% for s in services %}
+            <tr>
+              <td><strong>{{ s.name }}</strong>{% if s.description %}<br><span style="color: var(--muted); font-size:0.85rem;">{{ s.description[:80] }}</span>{% endif %}</td>
+              <td>{{ currency_symbols.get(business.currency, '') }}{{ '%.2f'|format(s.price) }}</td>
+              <td>{{ s.duration_minutes }} min</td>
+              <td>
+                <button class="btn btn-sm btn-outline" type="button" onclick="document.getElementById('svc-edit-{{ s.id }}').style.display = document.getElementById('svc-edit-{{ s.id }}').style.display === 'none' ? 'table-row' : 'none'">Edit</button>
+                <form class="inline-form" method="post" action="/portal/services/{{ s.id }}/delete" onsubmit="return confirm('Delete {{ s.name }}? Existing bookings keep their details.');">
+                  <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                </form>
+              </td>
+            </tr>
+            <tr id="svc-edit-{{ s.id }}" style="display:none;">
+              <td colspan="4" style="background: var(--bg-soft); padding: 16px;">
+                <form method="post" action="/portal/services/{{ s.id }}" class="svc-form">
+                  <div class="form-grid-2">
+                    <div class="form-group" style="margin:0;">
+                      <label>Name</label>
+                      <input type="text" name="name" value="{{ s.name }}" required>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                      <label>Price ({{ currency_symbols.get(business.currency, '') }})</label>
+                      <input type="number" name="price" min="0" step="0.01" value="{{ '%.2f'|format(s.price) }}" required>
+                    </div>
+                  </div>
+                  <div class="form-group" style="margin-top: 12px;">
+                    <label>Description</label>
+                    <textarea name="description" rows="2">{{ s.description or '' }}</textarea>
+                  </div>
+                  <div class="form-grid-2">
+                    <div class="form-group" style="margin:0;">
+                      <label>Duration (minutes)</label>
+                      <input type="number" name="duration_minutes" min="5" max="1440" step="5" value="{{ s.duration_minutes }}" required>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                      <label>Sort order</label>
+                      <input type="number" name="sort_order" value="{{ s.sort_order }}">
+                    </div>
+                  </div>
+                  <button type="submit" class="btn btn-sm" style="margin-top: 12px;">Save Service</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </table>
+          </div>
+          {% else %}
+          <p style="color: var(--muted); margin-bottom: 16px;">No services yet. Add your first service below so customers can book you.</p>
+          {% endif %}
+
+          <h3 style="margin-top: 20px;">Add a service</h3>
+          <form method="post" action="/portal/services" class="svc-form">
+            <div class="form-grid-2">
+              <div class="form-group" style="margin:0;">
+                <label>Name</label>
+                <input type="text" name="name" required>
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label>Price ({{ currency_symbols.get(business.currency, '') }})</label>
+                <input type="number" name="price" min="0" step="0.01" required>
+              </div>
+            </div>
+            <div class="form-group" style="margin-top: 12px;">
+              <label>Description</label>
+              <textarea name="description" rows="2"></textarea>
+            </div>
+            <div class="form-grid-2">
+              <div class="form-group" style="margin:0;">
+                <label>Duration (minutes)</label>
+                <input type="number" name="duration_minutes" min="5" max="1440" step="5" value="60" required>
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label>Sort order</label>
+                <input type="number" name="sort_order" value="0">
+              </div>
+            </div>
+            <button type="submit" class="btn" style="margin-top: 12px;">Add Service</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Bookings -->
+      <div class="portal-panel {% if active_tab == 'bookings' %}active{% endif %}" id="panel-bookings">
+        <div class="card">
+          <h3>Bookings</h3>
+          <p style="margin-bottom: 16px;">Newest first. Confirming a booking emails and texts the customer.</p>
+          {% if bookings %}
+          <div class="table-scroll">
+          <table>
+            <tr><th>When</th><th>Customer</th><th>Service</th><th>Price</th><th>Status</th><th>Update</th></tr>
+            {% for b in bookings %}
+            <tr>
+              <td><strong>{{ b.date }}</strong><br><span style="color: var(--muted); font-size:0.85rem;">{{ b.time }}</span></td>
+              <td>{{ b.customer_name }}<br><span style="color: var(--muted); font-size:0.85rem;">{{ b.customer_email or b.customer_phone }}</span></td>
+              <td>{{ b.service_name }}</td>
+              <td>{{ currency_symbols.get(business.currency, '') }}{{ '%.2f'|format(b.service_price) }}</td>
+              <td><span class="badge badge-{{ b.status }}">{{ b.status }}</span></td>
+              <td>
+                <form class="inline-form" method="post" action="/portal/bookings/{{ b.id }}/status" style="display:flex; gap:6px;">
+                  <select name="status">
+                    {% for st in booking_statuses %}
+                    <option value="{{ st }}" {% if b.status == st %}selected{% endif %}>{{ st }}</option>
+                    {% endfor %}
+                  </select>
+                  <button type="submit" class="btn btn-sm">Save</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </table>
+          </div>
+          {% else %}
+          <p style="color: var(--muted);">No bookings yet. Share your booking link to start getting appointments.</p>
+          {% endif %}
+        </div>
+      </div>
+
       <!-- Staff -->
       <div class="portal-panel {% if active_tab == 'staff' %}active{% endif %}" id="panel-staff">
         <div class="card" style="margin-bottom: 24px;">
@@ -134,6 +274,7 @@
         <div class="card">
           <h3>Your team</h3>
           {% if staff %}
+          <div class="table-scroll">
           <table>
             <tr><th>Name</th><th>Email</th><th>Phone</th><th>Status</th><th>Actions</th></tr>
             {% for s in staff %}
@@ -154,8 +295,42 @@
             </tr>
             {% endfor %}
           </table>
+          </div>
           {% else %}
           <p>No staff members yet. Invite your first team member above.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="portal-panel {% if active_tab == 'feedback' %}active{% endif %}" id="panel-feedback">
+        <div class="card">
+          <h3>Customer feedback</h3>
+          <p style="margin-bottom: 16px;">Reviews customers leave on your site. Hidden reviews don't appear publicly.</p>
+          {% if feedback %}
+          <div class="table-scroll">
+          <table>
+            <tr><th>Customer</th><th>Rating</th><th>Comment</th><th>Shown on site</th><th>Actions</th></tr>
+            {% for f in feedback %}
+            <tr>
+              <td><strong>{{ f.customer_name or 'Anonymous' }}</strong><br><span style="color: var(--muted); font-size:0.85rem;">{{ f.created_at[:10] }}</span></td>
+              <td style="color: var(--accent); font-size:1.1rem; letter-spacing:2px;">{% for _ in range(f.rating) %}★{% endfor %}<span style="color: var(--border);">{% for _ in range(5 - f.rating) %}★{% endfor %}</span></td>
+              <td style="max-width:320px;">{{ f.comment or '—' }}</td>
+              <td>{{ 'Yes' if f.approved else 'No' }}</td>
+              <td>
+                <form class="inline-form" method="post" action="/portal/feedback/{{ f.id }}/toggle">
+                  <button type="submit" class="btn btn-sm btn-outline">{{ 'Hide' if f.approved else 'Show' }}</button>
+                </form>
+                <form class="inline-form" method="post" action="/portal/feedback/{{ f.id }}/delete" onsubmit="return confirm('Delete this review?');">
+                  <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </table>
+          </div>
+          {% else %}
+          <p style="color: var(--muted);">No reviews yet. Customers can leave feedback after their visit.</p>
           {% endif %}
         </div>
       </div>
@@ -279,6 +454,7 @@
         <div class="card" style="margin-bottom: 24px;">
           <h3>Your products</h3>
           {% if products %}
+          <div class="table-scroll">
           <table style="margin-bottom: 8px;">
             <tr><th>Product</th><th>Price</th><th>Stock</th><th>Live</th><th>Actions</th></tr>
             {% for p in products %}
@@ -361,6 +537,7 @@
             </tr>
             {% endfor %}
           </table>
+          </div>
           {% else %}
           <p style="color: var(--muted); margin-bottom: 16px;">No products yet. Add your first product below.</p>
           {% endif %}
@@ -398,6 +575,7 @@
         <div class="card">
           <h3>Orders</h3>
           {% if orders %}
+          <div class="table-scroll">
           <table>
             <tr><th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th></tr>
             {% for o in orders %}
@@ -423,6 +601,7 @@
             </tr>
             {% endfor %}
           </table>
+          </div>
           {% else %}
           <p style="color: var(--muted);">No orders yet. Orders from your online shop appear here.</p>
           {% endif %}

@@ -25,8 +25,10 @@ from ..routers.products import (
     _attach_images,
     _delete_stored_image,
 )
+from ..routers.bookings import update_booking_status
 from ..schemas import (
     AvailabilityUpdate,
+    BookingStatusUpdate,
     BusinessUpdate,
     ChangePasswordRequest,
     StaffInvite,
@@ -267,6 +269,24 @@ def portal_dashboard(request: Request):
             except json.JSONDecodeError:
                 order["items"] = []
             orders.append(order)
+        services = rows_to_dicts(
+            conn.execute(
+                "SELECT * FROM services WHERE business_id = ? ORDER BY sort_order, id",
+                (business["id"],),
+            ).fetchall()
+        )
+        bookings = rows_to_dicts(
+            conn.execute(
+                "SELECT * FROM bookings WHERE business_id = ? ORDER BY date DESC, time DESC LIMIT 200",
+                (business["id"],),
+            ).fetchall()
+        )
+        feedback = rows_to_dicts(
+            conn.execute(
+                "SELECT * FROM feedback WHERE business_id = ? ORDER BY id DESC",
+                (business["id"],),
+            ).fetchall()
+        )
     finally:
         conn.close()
 
@@ -281,6 +301,10 @@ def portal_dashboard(request: Request):
             "products": products,
             "orders": orders,
             "order_statuses": settings.ORDER_STATUSES,
+            "services": services,
+            "bookings": bookings,
+            "booking_statuses": ("pending", "confirmed", "cancelled"),
+            "feedback": feedback,
             "counts": _counts(business["id"]),
             "day_order": DAY_ORDER,
             "day_labels": DAY_LABELS,
@@ -452,6 +476,158 @@ def portal_payments_save(
     except HTTPException as exc:
         return _redirect("/portal?tab=payments", error=exc.detail)
     return _redirect("/portal?tab=payments", msg="Payment settings saved")
+
+
+# ---- Services ----
+
+
+@router.post("/services")
+def portal_service_add(
+    request: Request,
+    name: str = Form(...),
+    description: str = Form(""),
+    price: float = Form(0.0),
+    duration_minutes: int = Form(60),
+    sort_order: int = Form(0),
+):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    if not name.strip() or not (5 <= duration_minutes <= 1440) or price < 0:
+        return _redirect("/portal?tab=services", error="Enter a service name, a valid price and duration")
+    conn = get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO services (business_id, name, description, price, duration_minutes, sort_order) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (business["id"], name.strip(), description.strip(), price, duration_minutes, sort_order),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return _redirect("/portal?tab=services", msg="Service added")
+
+
+@router.post("/services/{service_id}")
+def portal_service_update(
+    request: Request,
+    service_id: int,
+    name: str = Form(...),
+    description: str = Form(""),
+    price: float = Form(0.0),
+    duration_minutes: int = Form(60),
+    sort_order: int = Form(0),
+):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    if not name.strip() or not (5 <= duration_minutes <= 1440) or price < 0:
+        return _redirect("/portal?tab=services", error="Enter a service name, a valid price and duration")
+    conn = get_connection()
+    try:
+        exists = conn.execute(
+            "SELECT id FROM services WHERE id = ? AND business_id = ?",
+            (service_id, business["id"]),
+        ).fetchone()
+        if not exists:
+            return _redirect("/portal?tab=services", error="Service not found")
+        conn.execute(
+            "UPDATE services SET name = ?, description = ?, price = ?, duration_minutes = ?, "
+            "sort_order = ? WHERE id = ? AND business_id = ?",
+            (name.strip(), description.strip(), price, duration_minutes, sort_order, service_id, business["id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return _redirect("/portal?tab=services", msg="Service updated")
+
+
+@router.post("/services/{service_id}/delete")
+def portal_service_delete(request: Request, service_id: int):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    conn = get_connection()
+    try:
+        conn.execute(
+            "DELETE FROM services WHERE id = ? AND business_id = ?",
+            (service_id, business["id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return _redirect("/portal?tab=services", msg="Service deleted")
+
+
+# ---- Bookings ----
+
+
+@router.post("/bookings/{booking_id}/status")
+def portal_booking_status(request: Request, booking_id: int, status: str = Form(...)):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    if status not in ("pending", "confirmed", "cancelled"):
+        return _redirect("/portal?tab=bookings", error="Invalid booking status")
+    try:
+        update_booking_status(
+            booking_id=booking_id,
+            data=BookingStatusUpdate(status=status),
+            business=business,
+            user=user,
+        )
+    except HTTPException as exc:
+        return _redirect("/portal?tab=bookings", error=exc.detail)
+    return _redirect("/portal?tab=bookings", msg=f"Booking {status}")
+
+
+# ---- Feedback ----
+
+
+@router.post("/feedback/{feedback_id}/toggle")
+def portal_feedback_toggle(request: Request, feedback_id: int):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT approved FROM feedback WHERE id = ? AND business_id = ?",
+            (feedback_id, business["id"]),
+        ).fetchone()
+        if not row:
+            return _redirect("/portal?tab=feedback", error="Review not found")
+        conn.execute(
+            "UPDATE feedback SET approved = ? WHERE id = ? AND business_id = ?",
+            (0 if row["approved"] else 1, feedback_id, business["id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return _redirect("/portal?tab=feedback", msg="Review updated")
+
+
+@router.post("/feedback/{feedback_id}/delete")
+def portal_feedback_delete(request: Request, feedback_id: int):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    conn = get_connection()
+    try:
+        conn.execute(
+            "DELETE FROM feedback WHERE id = ? AND business_id = ?",
+            (feedback_id, business["id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return _redirect("/portal?tab=feedback", msg="Review removed")
 
 
 # ---- Shop ----
