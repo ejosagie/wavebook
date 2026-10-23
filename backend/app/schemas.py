@@ -57,6 +57,11 @@ class BusinessUpdate(BaseModel):
     payout_account_name: str | None = None
     payout_account_number: str | None = None
     payout_sort_code: str | None = None
+    payout_country: str | None = None
+    payout_routing_number: str | None = None
+    payout_iban: str | None = None
+    payout_swift: str | None = None
+    payout_bank_address: str | None = None
     theme_color: str | None = None
     calendar_token: str | None = None
     shipping_fee_local: float | None = Field(default=None, ge=0)
@@ -76,10 +81,12 @@ class ProductCreate(BaseModel):
     description: str = ""
     price: float = Field(ge=0)
     sort_order: int = 0
+    stock: int | None = Field(default=None, ge=0)
 
 
 class ProductUpdate(BaseModel):
     name: str | None = None
+    stock: int | None = Field(default=None, ge=0)
     description: str | None = None
     price: float | None = Field(default=None, ge=0)
     image_path: str | None = None

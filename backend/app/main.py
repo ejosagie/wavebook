@@ -26,7 +26,7 @@ from .routers import (
     subscription,
     web,
 )
-from .services.emailer import send_booking_reminder_email
+from .services.emailer import send_booking_reminder_email, send_receipt_email
 from .services import invoice
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -96,11 +96,64 @@ async def _reminder_sweep() -> None:
         await asyncio.sleep(60 * 60)
 
 
+def _send_due_receipts(now: datetime) -> int:
+    """Send thank-you receipts for confirmed bookings that ended 2+ hours ago.
+
+    Returns the number of receipts emailed. Runs one pass so tests can call it
+    directly; the background loop calls it every hour.
+    """
+    sent = 0
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM bookings WHERE status = 'confirmed' AND receipt_sent = 0 "
+            "AND customer_email != ''"
+        ).fetchall()
+        for row in rows:
+            booking = row_to_dict(row)
+            try:
+                when = datetime.fromisoformat(f"{booking['date']}T{booking['time']}")
+                end = when + timedelta(minutes=int(booking.get("service_duration_minutes") or 60))
+            except ValueError:
+                continue
+            if end + timedelta(hours=2) <= now:
+                # Claim the row first so concurrent workers never double-send
+                claimed = conn.execute(
+                    "UPDATE bookings SET receipt_sent = 1 WHERE id = ? AND receipt_sent = 0",
+                    (booking["id"],),
+                ).rowcount
+                if not claimed:
+                    continue
+                business = row_to_dict(
+                    conn.execute(
+                        "SELECT * FROM businesses WHERE id = ?", (booking["business_id"],)
+                    ).fetchone()
+                )
+                if business:
+                    send_receipt_email(booking, business)
+                    sent += 1
+        conn.commit()
+    finally:
+        conn.close()
+    return sent
+
+
+async def _receipt_sweep() -> None:
+    """Email customers a thank-you receipt 2 hours after their appointment ends."""
+    while True:
+        try:
+            _send_due_receipts(datetime.now())
+        except Exception:  # pragma: no cover - keep the loop alive
+            pass
+        await asyncio.sleep(60 * 60)
+
+
 @app.on_event("startup")
 def on_startup():
     init_db()
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     asyncio.get_event_loop().create_task(_reminder_sweep())
+    asyncio.get_event_loop().create_task(_receipt_sweep())
 
 
 # API routers

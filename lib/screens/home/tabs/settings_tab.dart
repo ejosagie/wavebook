@@ -42,6 +42,11 @@ class _SettingsTabState extends State<SettingsTab> {
   final _payoutAccountName = TextEditingController();
   final _payoutAccountNumber = TextEditingController();
   final _payoutSortCode = TextEditingController();
+  final _payoutRoutingNumber = TextEditingController();
+  final _payoutIban = TextEditingController();
+  final _payoutSwift = TextEditingController();
+  final _payoutBankAddress = TextEditingController();
+  String _payoutCountry = 'GB';
   bool _storefrontEnabled = false;
   SmsBalance? _smsBalance;
   bool _bookingSound = true;
@@ -79,6 +84,10 @@ class _SettingsTabState extends State<SettingsTab> {
     _payoutAccountName.dispose();
     _payoutAccountNumber.dispose();
     _payoutSortCode.dispose();
+    _payoutRoutingNumber.dispose();
+    _payoutIban.dispose();
+    _payoutSwift.dispose();
+    _payoutBankAddress.dispose();
     super.dispose();
   }
 
@@ -114,6 +123,11 @@ class _SettingsTabState extends State<SettingsTab> {
         _payoutAccountName.text = b.payoutAccountName;
         _payoutAccountNumber.text = b.payoutAccountNumber;
         _payoutSortCode.text = b.payoutSortCode;
+        _payoutCountry = b.payoutCountry;
+        _payoutRoutingNumber.text = b.payoutRoutingNumber;
+        _payoutIban.text = b.payoutIban;
+        _payoutSwift.text = b.payoutSwift;
+        _payoutBankAddress.text = b.payoutBankAddress;
         _smsBalance = SmsBalance.fromJson(smsData as Map<String, dynamic>);
       });
     } on ApiException catch (e) {
@@ -147,6 +161,11 @@ class _SettingsTabState extends State<SettingsTab> {
         'payout_account_name': _payoutAccountName.text.trim(),
         'payout_account_number': _payoutAccountNumber.text.trim(),
         'payout_sort_code': _payoutSortCode.text.trim(),
+        'payout_country': _payoutCountry,
+        'payout_routing_number': _payoutRoutingNumber.text.trim(),
+        'payout_iban': _payoutIban.text.trim(),
+        'payout_swift': _payoutSwift.text.trim(),
+        'payout_bank_address': _payoutBankAddress.text.trim(),
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -543,10 +562,28 @@ class _SettingsTabState extends State<SettingsTab> {
         ),
         const SizedBox(height: 24),
         const Text('Payout Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 4),
+        const SizedBox(height: 12),
         const Text(
-          'We pay you for deposits and store sales by bank transfer. Add your bank details below.',
+          'We pay you for deposits and store sales by bank transfer. Choose your country so the right bank details are shown.',
           style: TextStyle(color: WaveBookColors.muted, fontSize: 13),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          initialValue: _payoutCountry,
+          decoration: const InputDecoration(labelText: 'Country'),
+          items: const [
+            DropdownMenuItem(value: 'GB', child: Text('United Kingdom')),
+            DropdownMenuItem(value: 'US', child: Text('United States')),
+            DropdownMenuItem(value: 'CA', child: Text('Canada')),
+            DropdownMenuItem(value: 'IE', child: Text('Ireland')),
+            DropdownMenuItem(value: 'AU', child: Text('Australia')),
+            DropdownMenuItem(value: 'NZ', child: Text('New Zealand')),
+            DropdownMenuItem(value: 'NG', child: Text('Nigeria')),
+            DropdownMenuItem(value: 'KE', child: Text('Kenya')),
+            DropdownMenuItem(value: 'ZA', child: Text('South Africa')),
+            DropdownMenuItem(value: 'EU', child: Text('Europe (other)')),
+          ],
+          onChanged: (v) => setState(() => _payoutCountry = v ?? 'GB'),
         ),
         const SizedBox(height: 12),
         TextFormField(
@@ -559,24 +596,80 @@ class _SettingsTabState extends State<SettingsTab> {
           decoration: const InputDecoration(labelText: 'Account Holder Name'),
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _payoutSortCode,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Sort Code'),
+        if (_payoutCountry == 'GB')
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _payoutSortCode,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Sort Code'),
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextFormField(
-                controller: _payoutAccountNumber,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Account Number'),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _payoutAccountNumber,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Account Number'),
+                ),
               ),
-            ),
-          ],
+            ],
+          )
+        else if (_payoutCountry == 'US' || _payoutCountry == 'CA')
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _payoutRoutingNumber,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: _payoutCountry == 'CA' ? 'Transit & Institution No.' : 'Routing Number',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _payoutAccountNumber,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Account Number'),
+                ),
+              ),
+            ],
+          )
+        else ...[
+          TextFormField(
+            controller: _payoutIban,
+            decoration: const InputDecoration(labelText: 'IBAN'),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _payoutSwift,
+                  decoration: const InputDecoration(labelText: 'SWIFT / BIC'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _payoutAccountNumber,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Account Number'),
+                ),
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _payoutBankAddress,
+          decoration: const InputDecoration(
+            labelText: 'Bank Address',
+            helperText: 'Street, city, postcode',
+          ),
         ),
         const SizedBox(height: 24),
         ElevatedButton(

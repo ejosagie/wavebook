@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thank You — {{ business.name }}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" type="image/png" href="/static/img/icon.png">
+  {% if business.theme_color and business.theme_color != '#ec4899' %}
+  <style>
+    :root {
+      --pink: {{ business.theme_color }};
+      --pink-dark: {{ business.theme_color_dark }};
+      --pink-light: {{ business.theme_color }};
+      --gradient: linear-gradient(135deg, {{ business.theme_color }}, {{ business.theme_color_dark }});
+    }
+  </style>
+  {% endif %}
+</head>
+<body class="tenant-theme">
+  <div class="navbar tenant-nav has-menu">
+    <div class="container">
+      <div class="brand">
+        {% if business.logo_path %}
+          <img src="{{ business.logo_path }}" alt="{{ business.name }}" style="height:40px;">
+        {% else %}
+          <img src="/static/img/icon.png" alt="logo" style="height:32px;">
+        {% endif %}
+        {{ business.name }}
+      </div>
+      <input type="checkbox" id="nav-toggle" class="nav-toggle">
+      <label for="nav-toggle" class="nav-toggle-label" aria-label="Open menu">☰</label>
+      <nav class="nav-links" onclick="document.getElementById('nav-toggle').checked=false">
+        <a href="{{ tenant_base }}/">Home</a>
+        <a href="{{ tenant_base }}/services">Services</a>
+        {% if business.storefront_enabled %}<a href="{{ tenant_base }}/store">Store</a>{% endif %}
+        <a href="{{ tenant_base }}/booking" class="btn btn-book-now">Book Again</a>
+      </nav>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="container" style="max-width: 640px;">
+      <div class="info-card" style="text-align:center; border: none; background: var(--gradient); color: #fff; padding: 40px 24px;">
+        <div style="font-size:3.2rem; margin-bottom: 8px;">💖</div>
+        <h2 style="color:#fff; margin-bottom: 6px;">Thank you, {{ booking.customer_name }}!</h2>
+        <p style="color: rgba(255,255,255,0.9);">
+          We loved having you at {{ business.name }}. We hope to see you again soon.
+        </p>
+      </div>
+
+      <div class="info-card" style="margin-top: 16px;">
+        <h3 style="margin-bottom: 16px;">Your visit</h3>
+        <table style="width:100%; font-size:0.95rem;">
+          <tr>
+            <td style="padding:6px 0; color: var(--muted);">Service</td>
+            <td style="padding:6px 0; text-align:right; font-weight:700;">{{ booking.service_name }}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color: var(--muted);">Date</td>
+            <td style="padding:6px 0; text-align:right; font-weight:700;">{{ booking.date }}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color: var(--muted);">Time</td>
+            <td style="padding:6px 0; text-align:right; font-weight:700;">{{ booking.time }}</td>
+          </tr>
+          {% if booking.reference %}
+          <tr>
+            <td style="padding:6px 0; color: var(--muted);">Booking reference</td>
+            <td style="padding:6px 0; text-align:right; font-weight:700;">{{ booking.reference }}</td>
+          </tr>
+          {% endif %}
+          <tr>
+            <td style="padding:6px 0; color: var(--muted);">Service price</td>
+            <td style="padding:6px 0; text-align:right; font-weight:700;">{{ format_price(booking.service_price, business.currency) }}</td>
+          </tr>
+          {% if total_paid > 0 %}
+          <tr>
+            <td style="padding:6px 0; color: var(--muted);">Paid</td>
+            <td style="padding:6px 0; text-align:right; font-weight:700; color: var(--success);">{{ format_price(total_paid, business.currency) }}</td>
+          </tr>
+          {% endif %}
+          {% if invoice and invoice.balance_due > 0 %}
+          <tr>
+            <td style="padding:6px 0; color: var(--muted);">Balance due</td>
+            <td style="padding:6px 0; text-align:right; font-weight:700; color: var(--danger);">{{ format_price(invoice.balance_due, business.currency) }}</td>
+          </tr>
+          {% endif %}
+        </table>
+      </div>
+
+      <div class="info-card" style="background: var(--bg-soft); border-left: 3px solid var(--success); margin-top: 16px;">
+        <p style="color: var(--muted); font-size: 0.9rem;">
+          <strong style="color: var(--success);">See you next time!</strong><br>
+          Follow {{ business.name }} on social media or book again anytime at
+          <a href="{{ tenant_base }}/booking" style="color: var(--pink-dark);">{{ tenant_base }}/booking</a>.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  {% include 'tenant/_chat_widget.html' %}
+
+  <div class="footer">
+    <div class="container">
+      <p>&copy; {{ business.name }}. Powered by <a href="/" style="color:#f9a8d4;">WaveBook</a> &middot; Support: <a href="mailto:support@getwavebook.com" style="color:#f9a8d4;">support@getwavebook.com</a></p>
+    </div>
+  </div>
+</body>
+</html>

@@ -96,7 +96,16 @@
           <h3>{{ p.name }}</h3>
           {% if p.description %}<p class="desc">{{ p.description }}</p>{% endif %}
           <div class="price">{{ format_price(p.price, business.currency) }}</div>
-          <button class="btn add-to-basket" data-id="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.price }}" style="width:100%;">Add to Basket</button>
+          {% if p.stock is not none %}
+            {% if p.stock <= 0 %}
+              <p style="color: var(--danger); font-weight:700; font-size:0.85rem; margin-bottom:8px;">Out of stock</p>
+            {% elif p.stock < 5 %}
+              <p style="color: var(--danger); font-weight:700; font-size:0.85rem; margin-bottom:8px;">Only {{ p.stock }} left</p>
+            {% else %}
+              <p style="color: var(--success); font-size:0.85rem; margin-bottom:8px;">In stock</p>
+            {% endif %}
+          {% endif %}
+          <button class="btn add-to-basket" data-id="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.price }}" data-stock="{{ p.stock if p.stock is not none else '' }}" style="width:100%;" {% if p.stock is not none and p.stock <= 0 %}disabled{% endif %}>{% if p.stock is not none and p.stock <= 0 %}Out of Stock{% else %}Add to Basket{% endif %}</button>
         </div>
         {% endfor %}
       </div>
@@ -220,8 +229,14 @@
         const id = Number(btn.dataset.id);
         const name = btn.dataset.name;
         const price = Number(btn.dataset.price);
+        const stock = btn.dataset.stock === '' ? null : Number(btn.dataset.stock);
         const current = basket.get(id);
-        basket.set(id, { id, name, price, qty: (current ? current.qty : 0) + 1 });
+        const qty = (current ? current.qty : 0) + 1;
+        if (stock !== null && qty > stock) {
+          alert('Only ' + stock + ' of ' + name + ' left in stock');
+          return;
+        }
+        basket.set(id, { id, name, price, stock, qty });
         renderCart();
         openCart();
       });
@@ -271,7 +286,12 @@
     window.changeQty = function (id, delta) {
       const item = basket.get(id);
       if (!item) return;
-      item.qty += delta;
+      const next = item.qty + delta;
+      if (item.stock !== null && next > item.stock) {
+        alert('Only ' + item.stock + ' of ' + item.name + ' left in stock');
+        return;
+      }
+      item.qty = next;
       if (item.qty <= 0) basket.delete(id);
       renderCart();
     };

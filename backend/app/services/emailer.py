@@ -81,6 +81,23 @@ def send_password_reset_email(to: str, full_name: str, temp_password: str) -> di
     return send_email(to, "Your WaveBook temporary password", body)
 
 
+def send_receipt_email(booking: dict, business: dict) -> dict:
+    """Email the customer a thank-you with a link to their branded receipt page."""
+    to = (booking.get("customer_email") or "").strip()
+    if not to:
+        return {"provider": "none", "status": "skipped", "reason": "no recipient"}
+    receipt_url = f"{settings.API_PUBLIC_URL}/t/{business['slug']}/booking/{booking['id']}/receipt"
+    body = (
+        f"Hi {booking.get('customer_name', '')},\n\n"
+        f"Thank you for visiting {business.get('name', '')} — we hope you loved your "
+        f"{booking.get('service_name', '')} on {booking.get('date', '')} at {booking.get('time', '')}!\n\n"
+        f"Your receipt is ready here:\n{receipt_url}\n\n"
+        "We'd love to see you again soon.\n\n"
+        f"Best wishes,\n{business.get('name', '')}"
+    )
+    return send_email(to, f"Thank you — your receipt from {business.get('name', '')}", body)
+
+
 def _booking_manage_url() -> str:
     return f"{settings.API_PUBLIC_URL}/booking/manage"
 

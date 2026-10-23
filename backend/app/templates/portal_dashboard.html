@@ -179,6 +179,16 @@
               <small style="color: var(--muted);">Customers pay this to confirm a booking. Set to 0 to take no deposit.</small>
             </div>
             <h3 style="margin: 20px 0 12px;">Payout details</h3>
+            <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 12px;">We pay you by bank transfer. Choose your country so the right bank details are shown.</p>
+            <div class="form-group">
+              <label>Country</label>
+              <select name="payout_country" id="payout-country">
+                {% set pc = (business.payout_country or 'GB') | upper %}
+                {% for code, label in payout_countries %}
+                <option value="{{ code }}" {% if pc == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
             <div class="form-group">
               <label>Bank name</label>
               <input type="text" name="payout_bank_name" value="{{ business.payout_bank_name or '' }}">
@@ -191,14 +201,49 @@
               <label>Account number</label>
               <input type="text" name="payout_account_number" value="{{ business.payout_account_number or '' }}">
             </div>
-            <div class="form-group">
+            <div class="form-group" id="field-sort-code">
               <label>Sort code</label>
-              <input type="text" name="payout_sort_code" value="{{ business.payout_sort_code or '' }}">
+              <input type="text" name="payout_sort_code" value="{{ business.payout_sort_code or '' }}" placeholder="e.g. 12-34-56">
+            </div>
+            <div class="form-group" id="field-routing" style="display:none;">
+              <label id="routing-label">Routing number</label>
+              <input type="text" name="payout_routing_number" value="{{ business.payout_routing_number or '' }}" placeholder="e.g. 021000021">
+            </div>
+            <div class="form-group" id="field-iban" style="display:none;">
+              <label>IBAN</label>
+              <input type="text" name="payout_iban" value="{{ business.payout_iban or '' }}">
+            </div>
+            <div class="form-group" id="field-swift" style="display:none;">
+              <label>SWIFT / BIC</label>
+              <input type="text" name="payout_swift" value="{{ business.payout_swift or '' }}">
+            </div>
+            <div class="form-group">
+              <label>Bank address</label>
+              <input type="text" name="payout_bank_address" value="{{ business.payout_bank_address or '' }}" placeholder="Street, city, postcode">
             </div>
             <button type="submit" class="btn">Save Payment Settings</button>
           </form>
         </div>
       </div>
+
+      <script>
+        function updatePayoutFields() {
+          const country = document.getElementById('payout-country').value;
+          const showSort = country === 'GB';
+          const showRouting = country === 'US' || country === 'CA';
+          const showIban = !showSort && !showRouting;
+          document.getElementById('field-sort-code').style.display = showSort ? '' : 'none';
+          document.getElementById('field-routing').style.display = showRouting ? '' : 'none';
+          document.getElementById('field-iban').style.display = showIban ? '' : 'none';
+          document.getElementById('field-swift').style.display = showIban ? '' : 'none';
+          document.getElementById('routing-label').textContent = country === 'CA' ? 'Transit & institution number' : 'Routing number';
+        }
+        const countrySelect = document.getElementById('payout-country');
+        if (countrySelect) {
+          countrySelect.addEventListener('change', updatePayoutFields);
+          updatePayoutFields();
+        }
+      </script>
 
       <!-- Customize -->
       <div class="portal-panel {% if active_tab == 'customize' %}active{% endif %}" id="panel-customize">

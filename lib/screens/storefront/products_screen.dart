@@ -249,7 +249,28 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 ),
                 ListTile(
                   title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text('${currencySymbol(_currency)}${p.price.toStringAsFixed(2)}${p.active ? '' : ' · hidden'}'),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${currencySymbol(_currency)}${p.price.toStringAsFixed(2)}${p.active ? '' : ' · hidden'}'),
+                      if (p.stock != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            p.stock! <= 0
+                                ? 'Out of stock'
+                                : p.stock! < 5
+                                    ? 'Only ${p.stock} left in stock'
+                                    : '${p.stock} in stock',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: p.stock! < 5 ? WaveBookColors.danger : WaveBookColors.success,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -518,6 +539,7 @@ class _ProductFormPageState extends State<_ProductFormPage> {
   late final TextEditingController _name;
   late final TextEditingController _description;
   late final TextEditingController _price;
+  late final TextEditingController _stock;
 
   @override
   void initState() {
@@ -527,6 +549,9 @@ class _ProductFormPageState extends State<_ProductFormPage> {
     _price = TextEditingController(
       text: widget.product != null ? widget.product!.price.toStringAsFixed(2) : '',
     );
+    _stock = TextEditingController(
+      text: widget.product?.stock != null ? widget.product!.stock.toString() : '',
+    );
   }
 
   @override
@@ -534,6 +559,7 @@ class _ProductFormPageState extends State<_ProductFormPage> {
     _name.dispose();
     _description.dispose();
     _price.dispose();
+    _stock.dispose();
     super.dispose();
   }
 
@@ -545,10 +571,19 @@ class _ProductFormPageState extends State<_ProductFormPage> {
       );
       return;
     }
+    final stockText = _stock.text.trim();
+    final stock = stockText.isEmpty ? null : int.tryParse(stockText);
+    if (stockText.isNotEmpty && stock == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Stock must be a whole number')),
+      );
+      return;
+    }
     Navigator.pop(context, {
       'name': _name.text.trim(),
       'description': _description.text.trim(),
       'price': p,
+      'stock': stock,
     });
   }
 
@@ -586,6 +621,15 @@ class _ProductFormPageState extends State<_ProductFormPage> {
               controller: _price,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: InputDecoration(labelText: 'Price (${currencySymbol(widget.currency)})'),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _stock,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Stock (optional)',
+                helperText: 'Leave empty for unlimited. Warns in red when under 5.',
+              ),
             ),
             const SizedBox(height: 24),
             ElevatedButton(onPressed: _save, child: const Text('Save product')),

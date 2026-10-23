@@ -109,8 +109,8 @@ def create_product(
                     detail=f"Your plan allows up to {max_products} products. Upgrade for unlimited products.",
                 )
         cur = conn.execute(
-            "INSERT INTO products (business_id, name, description, price, sort_order) VALUES (?, ?, ?, ?, ?)",
-            (business["id"], data.name.strip(), data.description.strip(), data.price, data.sort_order),
+            "INSERT INTO products (business_id, name, description, price, sort_order, stock) VALUES (?, ?, ?, ?, ?, ?)",
+            (business["id"], data.name.strip(), data.description.strip(), data.price, data.sort_order, data.stock),
         )
         conn.commit()
         product = row_to_dict(
@@ -330,6 +330,12 @@ def storefront_checkout(data: StorefrontCheckout):
             if not product:
                 raise HTTPException(status_code=404, detail=f"Product {item.product_id} not found")
             qty = max(1, item.quantity)
+            stock = product["stock"]
+            if stock is not None and qty > stock:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Only {stock} of {product['name']} left in stock",
+                )
             line_total = float(product["price"]) * qty
             total += line_total
             items.append(
@@ -340,6 +346,11 @@ def storefront_checkout(data: StorefrontCheckout):
                     "quantity": qty,
                 }
             )
+            if stock is not None:
+                conn.execute(
+                    "UPDATE products SET stock = stock - ? WHERE id = ?",
+                    (qty, product["id"]),
+                )
         if total <= 0:
             raise HTTPException(status_code=400, detail="Your basket is empty")
 

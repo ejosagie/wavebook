@@ -71,7 +71,7 @@
             <td>{{ b.sms_used }} / 50{% if b.sms_credits > 0 %} (+{{ b.sms_credits }}){% endif %}</td>
             <td>
               {% if b.payout_account_number %}
-                {{ b.payout_bank_name }}<br>{{ b.payout_account_name }}<br>{{ b.payout_sort_code }} {{ b.payout_account_number }}
+                {{ b.payout_bank_name }}<br>{{ b.payout_account_name }}<br>{{ b.payout_sort_code }} {{ b.payout_account_number }}<br><span style="color:var(--muted);">{{ b.payout_country or 'GB' }}</span>
               {% else %}
                 <span style="color:var(--muted);">Not set</span>
               {% endif %}

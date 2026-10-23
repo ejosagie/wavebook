@@ -307,6 +307,11 @@ def init_db() -> None:
         _ensure_column(conn, "businesses", "payout_account_name", "payout_account_name TEXT DEFAULT ''")
         _ensure_column(conn, "businesses", "payout_account_number", "payout_account_number TEXT DEFAULT ''")
         _ensure_column(conn, "businesses", "payout_sort_code", "payout_sort_code TEXT DEFAULT ''")
+        _ensure_column(conn, "businesses", "payout_country", "payout_country TEXT NOT NULL DEFAULT 'GB'")
+        _ensure_column(conn, "businesses", "payout_routing_number", "payout_routing_number TEXT DEFAULT ''")
+        _ensure_column(conn, "businesses", "payout_iban", "payout_iban TEXT DEFAULT ''")
+        _ensure_column(conn, "businesses", "payout_swift", "payout_swift TEXT DEFAULT ''")
+        _ensure_column(conn, "businesses", "payout_bank_address", "payout_bank_address TEXT DEFAULT ''")
         _ensure_column(conn, "businesses", "sms_used", "sms_used INTEGER NOT NULL DEFAULT 0")
         _ensure_column(conn, "businesses", "sms_credits", "sms_credits INTEGER NOT NULL DEFAULT 0")
         _ensure_column(conn, "businesses", "shipping_fee_local", "shipping_fee_local REAL NOT NULL DEFAULT 0")
@@ -324,6 +329,8 @@ def init_db() -> None:
         _ensure_column(conn, "bookings", "assigned_staff_id", "assigned_staff_id INTEGER")
         _ensure_column(conn, "services", "questions", "questions TEXT DEFAULT '[]'")
         _ensure_column(conn, "bookings", "intake_answers", "intake_answers TEXT DEFAULT '{}'")
+        _ensure_column(conn, "bookings", "receipt_sent", "receipt_sent INTEGER NOT NULL DEFAULT 0")
+        _ensure_column(conn, "products", "stock", "stock INTEGER")
         _ensure_column(conn, "businesses", "calendar_token", "calendar_token TEXT DEFAULT ''")
         # Move single product images (older app builds) into the multi-image table
         conn.execute(

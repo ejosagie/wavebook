@@ -1508,6 +1508,49 @@ def tenant_booking_paid(request: Request, slug: str, booking_id: int):
     )
 
 
+@router.get("/t/{slug}/booking/{booking_id}/receipt")
+def tenant_booking_receipt(request: Request, slug: str, booking_id: int):
+    """Branded thank-you / receipt page emailed to the customer after their visit."""
+    business = _get_business_by_slug(slug)
+    if not business:
+        raise HTTPException(status_code=404, detail="Business not found")
+    conn = get_connection()
+    try:
+        booking = conn.execute(
+            "SELECT * FROM bookings WHERE id = ? AND business_id = ?",
+            (booking_id, business["id"]),
+        ).fetchone()
+        if not booking:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        payments = rows_to_dicts(
+            conn.execute(
+                "SELECT * FROM payments WHERE booking_id = ? AND status = 'paid' ORDER BY created_at",
+                (booking_id,),
+            ).fetchall()
+        )
+        invoice = row_to_dict(
+            conn.execute(
+                "SELECT * FROM invoices WHERE booking_id = ? ORDER BY id DESC LIMIT 1",
+                (booking_id,),
+            ).fetchone()
+        )
+    finally:
+        conn.close()
+    total_paid = sum(float(p["amount"] or 0) for p in payments)
+    return templates.TemplateResponse(
+        request,
+        "tenant/receipt.html",
+        {
+            "business": business,
+            "booking": row_to_dict(booking),
+            "total_paid": total_paid,
+            "invoice": invoice,
+            "tenant_base": _tenant_base(request, slug),
+            "format_price": _format_price,
+        },
+    )
+
+
 # ---- Customer booking management portal (reschedule / cancel) ----
 
 

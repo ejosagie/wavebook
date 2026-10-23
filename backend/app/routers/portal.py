@@ -33,6 +33,20 @@ router = APIRouter(prefix="/portal", tags=["portal"])
 
 PORTAL_COOKIE = "wavebook_portal"
 
+# Countries we pay out to by bank transfer, with the bank fields that suit them.
+PAYOUT_COUNTRIES = [
+    ("GB", "United Kingdom"),
+    ("US", "United States"),
+    ("CA", "Canada"),
+    ("IE", "Ireland"),
+    ("AU", "Australia"),
+    ("NZ", "New Zealand"),
+    ("NG", "Nigeria"),
+    ("KE", "Kenya"),
+    ("ZA", "South Africa"),
+    ("EU", "Europe (other)"),
+]
+
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
@@ -242,6 +256,7 @@ def portal_dashboard(request: Request):
             "day_labels": DAY_LABELS,
             "currencies": sorted(SUPPORTED_CURRENCIES),
             "currency_symbols": CURRENCY_SYMBOLS,
+            "payout_countries": PAYOUT_COUNTRIES,
             "website_url": f"https://{business['slug']}.{settings.PUBLIC_BASE_DOMAIN}",
             "active_tab": request.query_params.get("tab", "overview"),
             "msg": request.query_params.get("msg"),
@@ -373,10 +388,15 @@ def portal_payments_save(
     request: Request,
     currency: str = Form("GBP"),
     deposit_amount: float = Form(0.0),
+    payout_country: str = Form("GB"),
     payout_bank_name: str = Form(""),
     payout_account_name: str = Form(""),
     payout_account_number: str = Form(""),
     payout_sort_code: str = Form(""),
+    payout_routing_number: str = Form(""),
+    payout_iban: str = Form(""),
+    payout_swift: str = Form(""),
+    payout_bank_address: str = Form(""),
 ):
     user = _require_portal_user(request)
     business = _load_business(user)
@@ -387,10 +407,15 @@ def portal_payments_save(
             data=BusinessUpdate(
                 currency=currency,
                 deposit_amount=max(0.0, deposit_amount),
+                payout_country=payout_country.strip().upper(),
                 payout_bank_name=payout_bank_name.strip(),
                 payout_account_name=payout_account_name.strip(),
                 payout_account_number=payout_account_number.strip(),
                 payout_sort_code=payout_sort_code.strip(),
+                payout_routing_number=payout_routing_number.strip(),
+                payout_iban=payout_iban.strip(),
+                payout_swift=payout_swift.strip(),
+                payout_bank_address=payout_bank_address.strip(),
             ),
             business=business,
         )

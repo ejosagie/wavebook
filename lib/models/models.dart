@@ -55,6 +55,11 @@ class Business {
   final String payoutAccountName;
   final String payoutAccountNumber;
   final String payoutSortCode;
+  final String payoutCountry;
+  final String payoutRoutingNumber;
+  final String payoutIban;
+  final String payoutSwift;
+  final String payoutBankAddress;
   final int smsUsed;
   final int smsCredits;
   final String trialEndsAt;
@@ -90,6 +95,11 @@ class Business {
     required this.payoutAccountName,
     required this.payoutAccountNumber,
     required this.payoutSortCode,
+    required this.payoutCountry,
+    required this.payoutRoutingNumber,
+    required this.payoutIban,
+    required this.payoutSwift,
+    required this.payoutBankAddress,
     required this.smsUsed,
     required this.smsCredits,
     required this.trialEndsAt,
@@ -126,6 +136,11 @@ class Business {
         payoutAccountName: json['payout_account_name'] as String? ?? '',
         payoutAccountNumber: json['payout_account_number'] as String? ?? '',
         payoutSortCode: json['payout_sort_code'] as String? ?? '',
+        payoutCountry: json['payout_country'] as String? ?? 'GB',
+        payoutRoutingNumber: json['payout_routing_number'] as String? ?? '',
+        payoutIban: json['payout_iban'] as String? ?? '',
+        payoutSwift: json['payout_swift'] as String? ?? '',
+        payoutBankAddress: json['payout_bank_address'] as String? ?? '',
         smsUsed: json['sms_used'] as int? ?? 0,
         smsCredits: json['sms_credits'] as int? ?? 0,
         trialEndsAt: json['trial_ends_at'] as String? ?? '',
@@ -156,6 +171,11 @@ class Business {
         'payout_account_name': payoutAccountName,
         'payout_account_number': payoutAccountNumber,
         'payout_sort_code': payoutSortCode,
+        'payout_country': payoutCountry,
+        'payout_routing_number': payoutRoutingNumber,
+        'payout_iban': payoutIban,
+        'payout_swift': payoutSwift,
+        'payout_bank_address': payoutBankAddress,
         'theme_color': themeColor,
         'shipping_fee_local': shippingFeeLocal,
         'shipping_fee_international': shippingFeeInternational,
@@ -184,6 +204,7 @@ class Product {
   final List<ProductImage> images;
   final bool active;
   final int sortOrder;
+  final int? stock;
 
   Product({
     required this.id,
@@ -194,6 +215,7 @@ class Product {
     required this.images,
     required this.active,
     required this.sortOrder,
+    this.stock,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) => Product(
@@ -207,6 +229,7 @@ class Product {
             .toList(),
         active: (json['active'] as num?)?.toInt() == 1,
         sortOrder: json['sort_order'] as int? ?? 0,
+        stock: json['stock'] as int?,
       );
 }
 
