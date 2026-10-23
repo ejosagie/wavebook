@@ -39,7 +39,10 @@ def test_owner_address_falls_back_to_account_email(make_business, sent):
     assert emailer._owner_address({"id": biz["id"], "contact_email": ""}) == biz["owner_email"]
 
 
-def test_deposit_payment_emails_customer_confirmation(make_business, make_booking, client, monkeypatch, sent):
+def test_deposit_payment_emails_customer_confirmation(make_business, make_booking, client, monkeypatch, sent, tmp_path):
+    from app.services import invoice as invoice_service
+
+    invoice_service.UPLOAD_DIR = tmp_path
     biz = make_business("payco", contact_email="pay@wavebook.com", deposit=20.0)
     booking_id = make_booking(biz["id"], customer_email="jane@wavebook.com", status="pending", service_price=50.0)
     monkeypatch.setattr(
@@ -57,8 +60,13 @@ def test_deposit_payment_emails_customer_confirmation(make_business, make_bookin
     res = client.get(f"/api/payments/verify?tx_ref=WB-BK-{booking_id}-abcd&transaction_id=tx-deposit")
     assert res.status_code == 200, res.text
     customer = [m for m in sent if m["to"] == "jane@wavebook.com"]
-    assert len(customer) == 1
-    assert customer[0]["subject"].startswith("Booking confirmed")
+    assert len(customer) == 2
+    subjects = {m["subject"] for m in customer}
+    assert any(s.startswith("Booking confirmed") for s in subjects)
+    assert any(s.startswith("Invoice INV-") for s in subjects)
+    invoice_email = next(m for m in customer if m["subject"].startswith("Invoice INV-"))
+    assert "/uploads/invoices/INV-" in invoice_email["body"]
+    assert "Balance due" in invoice_email["body"]
 
 
 def test_paid_order_emails_customer_and_owner_once(client, make_business, monkeypatch, sent):

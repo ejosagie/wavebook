@@ -10,6 +10,7 @@ from ..routers.notifications import add_notification
 from ..schemas import PaymentIntentCreate
 from ..services import flutterwave
 from ..services.emailer import send_booking_confirmation_email, send_order_paid_emails
+from ..services.invoice import create_invoice, send_invoice_email
 from ..services.notifier import send_booking_confirmation_sms
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
@@ -148,6 +149,9 @@ def _verify_booking(tx_ref: str, data: dict) -> dict:
         conn.commit()
         booking_data = row_to_dict(booking)
         business_data = row_to_dict(business)
+        # Generate and email a formal PDF invoice (total, deposit paid, balance due)
+        invoice = create_invoice(conn, booking_data, business_data, paid)
+        send_invoice_email(invoice, booking_data, business_data)
         # Send the customer a confirmation text
         send_booking_confirmation_sms(booking_data, business_data)
     finally:

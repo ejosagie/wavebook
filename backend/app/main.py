@@ -27,6 +27,7 @@ from .routers import (
     web,
 )
 from .services.emailer import send_booking_reminder_email
+from .services import invoice
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOADS_DIR = BASE_DIR / "uploads"
@@ -47,6 +48,7 @@ async def tenant_subdomain_rewrite(request: Request, call_next):
 # Wire upload dir into the business and products routers
 business.UPLOAD_DIR = UPLOADS_DIR
 products.UPLOAD_DIR = UPLOADS_DIR
+invoice.UPLOAD_DIR = UPLOADS_DIR
 
 # Static files (CSS, uploaded images)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")

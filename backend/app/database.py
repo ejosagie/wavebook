@@ -121,6 +121,21 @@ CREATE TABLE IF NOT EXISTS payments (
     FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS invoices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    business_id INTEGER NOT NULL,
+    booking_id INTEGER NOT NULL,
+    number TEXT NOT NULL,
+    total REAL NOT NULL DEFAULT 0,
+    deposit_paid REAL NOT NULL DEFAULT 0,
+    balance_due REAL NOT NULL DEFAULT 0,
+    currency TEXT DEFAULT 'GBP',
+    status TEXT NOT NULL DEFAULT 'partial',  -- partial | paid
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
+    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS subscriptions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     business_id INTEGER NOT NULL,
