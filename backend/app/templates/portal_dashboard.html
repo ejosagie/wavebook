@@ -219,6 +219,15 @@
         <div class="card">
           <h3>Bookings</h3>
           <p style="margin-bottom: 16px;">Newest first. Confirming a booking emails and texts the customer.</p>
+          <form method="get" action="/portal" style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+            <input type="hidden" name="tab" value="bookings">
+            <input type="text" name="q" value="{{ booking_q }}" placeholder="Search name, email, phone or booking ID" style="flex:1; min-width:200px; max-width:400px;">
+            <button type="submit" class="btn btn-sm">Search</button>
+            {% if booking_q %}<a class="btn btn-sm btn-outline" href="/portal?tab=bookings">Clear</a>{% endif %}
+          </form>
+          {% if booking_q %}
+          <p style="color: var(--muted); margin-bottom: 12px;">{{ booking_total }} result{{ 's' if booking_total != 1 }} for "{{ booking_q }}"</p>
+          {% endif %}
           {% if bookings %}
           <div class="table-scroll">
           <table>
@@ -245,7 +254,18 @@
           </table>
           </div>
           {% else %}
-          <p style="color: var(--muted);">No bookings yet. Share your booking link to start getting appointments.</p>
+          <p style="color: var(--muted);">{% if booking_q %}No bookings match "{{ booking_q }}".{% else %}No bookings yet. Share your booking link to start getting appointments.{% endif %}</p>
+          {% endif %}
+          {% if booking_pages > 1 %}
+          <div style="display:flex; gap:8px; align-items:center; margin-top:16px; flex-wrap:wrap;">
+            {% if booking_page > 1 %}
+            <a class="btn btn-sm btn-outline" href="/portal?tab=bookings&page={{ booking_page - 1 }}{% if booking_q %}&q={{ booking_q }}{% endif %}">← Previous</a>
+            {% endif %}
+            <span style="color: var(--muted); font-size: 0.9rem;">Page {{ booking_page }} of {{ booking_pages }}</span>
+            {% if booking_page < booking_pages %}
+            <a class="btn btn-sm btn-outline" href="/portal?tab=bookings&page={{ booking_page + 1 }}{% if booking_q %}&q={{ booking_q }}{% endif %}">Next →</a>
+            {% endif %}
+          </div>
           {% endif %}
         </div>
       </div>

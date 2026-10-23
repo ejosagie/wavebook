@@ -33,22 +33,40 @@ def list_bookings(
     business: dict = Depends(get_current_business),
     date: str | None = Query(default=None),
     status_filter: str | None = Query(default=None, alias="status"),
+    q: str | None = Query(default=None),
+    limit: int | None = Query(default=None, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
 ):
-    query = (
-        "SELECT *, (SELECT u.full_name FROM staff s JOIN users u ON u.id = s.user_id "
-        "WHERE s.id = bookings.assigned_staff_id) AS assigned_staff_name "
-        "FROM bookings WHERE business_id = ?"
-    )
+    where = "FROM bookings WHERE business_id = ?"
     params: list = [business["id"]]
     if date:
-        query += " AND date = ?"
+        where += " AND date = ?"
         params.append(date)
     if status_filter:
-        query += " AND status = ?"
+        where += " AND status = ?"
         params.append(status_filter)
-    query += " ORDER BY date DESC, time DESC"
+    if q and q.strip():
+        where += (
+            " AND (customer_name LIKE ? OR customer_email LIKE ? OR customer_phone LIKE ? "
+            "OR reference LIKE ? OR CAST(id AS TEXT) = ?)"
+        )
+        term = f"%{q.strip()}%"
+        params.extend([term, term, term, term, q.strip()])
     conn = get_connection()
     try:
+        total = None
+        if limit is not None:
+            total = conn.execute(
+                f"SELECT COUNT(*) AS c {where}", params
+            ).fetchone()["c"]
+        query = (
+            "SELECT *, (SELECT u.full_name FROM staff s JOIN users u ON u.id = s.user_id "
+            "WHERE s.id = bookings.assigned_staff_id) AS assigned_staff_name "
+            f"{where} ORDER BY date DESC, time DESC"
+        )
+        if limit is not None:
+            query += " LIMIT ? OFFSET ?"
+            params = params + [limit, offset]
         rows = rows_to_dicts(conn.execute(query, params).fetchall())
         for row in rows:
             try:
@@ -57,6 +75,8 @@ def list_bookings(
                 row["intake_answers"] = {}
     finally:
         conn.close()
+    if limit is not None:
+        return {"items": rows, "total": total, "offset": offset, "limit": limit}
     return rows
 
 

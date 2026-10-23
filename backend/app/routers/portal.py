@@ -275,10 +275,31 @@ def portal_dashboard(request: Request):
                 (business["id"],),
             ).fetchall()
         )
+        # Bookings tab supports ?q= (name/email/phone/reference/id) and ?page=
+        bq = (request.query_params.get("q") or "").strip()
+        try:
+            bpage = max(1, int(request.query_params.get("page") or 1))
+        except ValueError:
+            bpage = 1
+        bwhere = "FROM bookings WHERE business_id = ?"
+        bparams: list = [business["id"]]
+        if bq:
+            bwhere += (
+                " AND (customer_name LIKE ? OR customer_email LIKE ? OR customer_phone LIKE ? "
+                "OR reference LIKE ? OR CAST(id AS TEXT) = ?)"
+            )
+            term = f"%{bq}%"
+            bparams += [term, term, term, term, bq]
+        booking_total = conn.execute(
+            f"SELECT COUNT(*) AS c {bwhere}", bparams
+        ).fetchone()["c"]
+        per_page = 20
+        booking_pages = max(1, (booking_total + per_page - 1) // per_page)
+        bpage = min(bpage, booking_pages)
         bookings = rows_to_dicts(
             conn.execute(
-                "SELECT * FROM bookings WHERE business_id = ? ORDER BY date DESC, time DESC LIMIT 200",
-                (business["id"],),
+                f"SELECT * {bwhere} ORDER BY date DESC, time DESC LIMIT ? OFFSET ?",
+                (*bparams, per_page, (bpage - 1) * per_page),
             ).fetchall()
         )
         feedback = rows_to_dicts(
@@ -304,6 +325,10 @@ def portal_dashboard(request: Request):
             "services": services,
             "bookings": bookings,
             "booking_statuses": ("pending", "confirmed", "cancelled"),
+            "booking_q": bq,
+            "booking_page": bpage,
+            "booking_pages": booking_pages,
+            "booking_total": booking_total,
             "feedback": feedback,
             "counts": _counts(business["id"]),
             "day_order": DAY_ORDER,

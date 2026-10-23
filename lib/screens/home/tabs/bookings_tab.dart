@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../api/api_client.dart';
 import '../../../models/models.dart';
 import '../../../theme.dart';
+
+const int _pageSize = 20;
 
 class BookingsTab extends StatefulWidget {
   const BookingsTab({super.key});
@@ -16,8 +20,13 @@ class _BookingsTabState extends State<BookingsTab> {
   final _api = ApiClient();
   List<Booking> _bookings = [];
   bool _loading = true;
+  bool _loadingMore = false;
   String? _error;
   String _filter = 'all';
+  int _total = 0;
+  String _search = '';
+  final _searchCtrl = TextEditingController();
+  Timer? _debounce;
   List<StaffMember> _staff = [];
   bool _canAssign = false;
   List<Service> _services = [];
@@ -29,17 +38,64 @@ class _BookingsTabState extends State<BookingsTab> {
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final data = await _api.get('/api/bookings');
-      if (!mounted) return;
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchBookings({bool append = false}) async {
+    if (!append) {
       setState(() {
-        _bookings = (data as List).map((b) => Booking.fromJson(b as Map<String, dynamic>)).toList();
+        _loading = true;
+        _error = null;
       });
+    } else {
+      setState(() => _loadingMore = true);
+    }
+    try {
+      final offset = append ? _bookings.length : 0;
+      final params = <String, String>{
+        'limit': '$_pageSize',
+        'offset': '$offset',
+        if (_filter != 'all') 'status': _filter,
+        if (_search.isNotEmpty) 'q': _search,
+      };
+      final uri = Uri(queryParameters: params).query;
+      final data = await _api.get('/api/bookings?$uri') as Map<String, dynamic>;
+      if (!mounted) return;
+      final items = (data['items'] as List)
+          .map((b) => Booking.fromJson(b as Map<String, dynamic>))
+          .toList();
+      setState(() {
+        _bookings = append ? [..._bookings, ...items] : items;
+        _total = data['total'] as int? ?? items.length;
+      });
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadingMore = false;
+        });
+      }
+    }
+  }
+
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      _search = value.trim();
+      _fetchBookings();
+    });
+  }
+
+  Future<void> _load() async {
+    await _fetchBookings();
+    if (!mounted) return;
+    try {
       try {
         final businessData = await _api.get('/api/business') as Map<String, dynamic>;
         if (mounted) setState(() => _businessSlug = businessData['slug']?.toString() ?? '');
@@ -194,10 +250,7 @@ class _BookingsTabState extends State<BookingsTab> {
     }
   }
 
-  List<Booking> get _filtered {
-    if (_filter == 'all') return _bookings;
-    return _bookings.where((b) => b.status == _filter).toList();
-  }
+  List<Booking> get _filtered => _bookings;
 
   @override
   Widget build(BuildContext context) {
@@ -208,6 +261,30 @@ class _BookingsTabState extends State<BookingsTab> {
       ),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: _onSearchChanged,
+              decoration: InputDecoration(
+                hintText: 'Search name, email, phone or booking ID',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchCtrl.text.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          _debounce?.cancel();
+                          _search = '';
+                          _fetchBookings();
+                        },
+                      ),
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: FittedBox(
@@ -220,7 +297,10 @@ class _BookingsTabState extends State<BookingsTab> {
                   ButtonSegment(value: 'cancelled', label: Text('Cancelled', maxLines: 1)),
                 ],
                 selected: {_filter},
-                onSelectionChanged: (s) => setState(() => _filter = s.first),
+                onSelectionChanged: (s) {
+                  setState(() => _filter = s.first);
+                  _fetchBookings();
+                },
               ),
             ),
           ),
@@ -246,25 +326,57 @@ class _BookingsTabState extends State<BookingsTab> {
     }
     final bookings = _filtered;
     if (bookings.isEmpty) {
-      return const Center(
-        child: Text('No bookings found', style: TextStyle(color: WaveBookColors.muted)),
+      return Center(
+        child: Text(
+          _search.isEmpty ? 'No bookings found' : 'No bookings match "$_search"',
+          style: const TextStyle(color: WaveBookColors.muted),
+        ),
       );
     }
+    final hasMore = _bookings.length < _total;
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: bookings.length,
-        itemBuilder: (context, i) => _BookingCard(
-          booking: bookings[i],
-          intakeLabels: _intakeLabels(bookings[i]),
-          onConfirm: () => _setStatus(bookings[i], 'confirmed'),
-          onCancel: () => _setStatus(bookings[i], 'cancelled'),
-          onDelete: () => _delete(bookings[i]),
-          onAddToCalendar: _openSchedule,
-          onAssign: () => _assign(bookings[i]),
-          canAssign: _canAssign,
-        ),
+        itemCount: bookings.length + 2,
+        itemBuilder: (context, i) {
+          if (i == 0) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                '${bookings.length} of $_total bookings',
+                style: const TextStyle(color: WaveBookColors.muted, fontSize: 13),
+              ),
+            );
+          }
+          if (i == bookings.length + 1) {
+            if (!hasMore) return const SizedBox.shrink();
+            return Center(
+              child: _loadingMore
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: CircularProgressIndicator(),
+                    )
+                  : TextButton.icon(
+                      onPressed: () => _fetchBookings(append: true),
+                      icon: const Icon(Icons.expand_more),
+                      label: Text('Load more ($_total - ${_bookings.length} remaining)'),
+                    ),
+            );
+          }
+          final index = i - 1;
+          final b = bookings[index];
+          return _BookingCard(
+            booking: b,
+            intakeLabels: _intakeLabels(b),
+            onConfirm: () => _setStatus(b, 'confirmed'),
+            onCancel: () => _setStatus(b, 'cancelled'),
+            onDelete: () => _delete(b),
+            onAddToCalendar: _openSchedule,
+            onAssign: () => _assign(b),
+            canAssign: _canAssign,
+          );
+        },
       ),
     );
   }

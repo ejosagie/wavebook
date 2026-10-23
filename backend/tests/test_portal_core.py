@@ -182,3 +182,72 @@ def test_portal_new_tabs_render(client, make_business):
     assert "Jane" in res.text and "pending" in res.text
     res = client.get("/portal?tab=feedback")
     assert "Lovely" in res.text
+
+def _make_bookings(business_id, count, name="Jane"):
+    conn = database.get_connection()
+    try:
+        for i in range(count):
+            conn.execute(
+                "INSERT INTO bookings (business_id, customer_name, customer_email, customer_phone, "
+                "service_name, service_price, date, time, status, reference) "
+                "VALUES (?, ?, ?, ?, 'Cut', 30, '2026-11-01', '10:00', 'confirmed', ?)",
+                (business_id, f"{name}{i}", f"{name}{i}@x.com", f"+199{i:04d}", f"REF{i:03d}"),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_api_bookings_search_and_pagination(client, make_business):
+    biz = make_business("bksearch")
+    _make_bookings(biz["id"], 25)
+    from conftest import auth
+    headers = auth(biz["owner_token"])
+
+    res = client.get("/api/bookings?limit=10&offset=0", headers=headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["total"] == 25 and len(data["items"]) == 10
+
+    res = client.get("/api/bookings?limit=10&offset=20", headers=headers)
+    data = res.json()
+    assert len(data["items"]) == 5
+
+    res = client.get("/api/bookings?q=Jane0@x.com&limit=10", headers=headers)
+    data = res.json()
+    assert data["total"] == 1 and data["items"][0]["customer_name"] == "Jane0"
+
+    res = client.get("/api/bookings?q=+1990005&limit=10", headers=headers)
+    data = res.json()
+    assert data["total"] == 1
+
+    bid = data["items"][0]["id"]
+    res = client.get(f"/api/bookings?q={bid}&limit=200", headers=headers)
+    items = res.json()["items"]
+    assert any(b["id"] == bid for b in items)
+
+    res = client.get("/api/bookings?q=REF000&limit=10", headers=headers)
+    assert res.json()["total"] == 1
+
+    # No params keeps the legacy list response for existing callers
+    res = client.get("/api/bookings", headers=headers)
+    assert isinstance(res.json(), list) and len(res.json()) == 25
+
+
+def test_portal_bookings_search_and_pagination(client, make_business):
+    biz = make_business("bkpage")
+    _login(client, biz)
+    _make_bookings(biz["id"], 25)
+
+    res = client.get("/portal?tab=bookings&q=Jane0@x.com")
+    assert "Jane0" in res.text and "1 result" in res.text
+    assert "Jane1<" not in res.text
+
+    res = client.get("/portal?tab=bookings&q=zzzz")
+    assert "No bookings match" in res.text
+
+    res = client.get("/portal?tab=bookings&page=2")
+    assert "Page 2 of 2" in res.text
+
+    res = client.get("/portal?tab=bookings&page=99")
+    assert "Page 2 of 2" in res.text  # clamped
