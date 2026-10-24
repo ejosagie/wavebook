@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 import json
+import uuid
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -24,7 +25,9 @@ from ..routers.products import (
     _add_product_image,
     _attach_images,
     _delete_stored_image,
+    _upload_dir,
 )
+from ..services.uploads import image_content_type
 from ..routers.bookings import update_booking_status
 from ..schemas import (
     AvailabilityUpdate,
@@ -308,8 +311,18 @@ def portal_dashboard(request: Request):
                 (business["id"],),
             ).fetchall()
         )
+        gallery_rows = conn.execute(
+            "SELECT slot, path, caption FROM gallery WHERE business_id = ? ORDER BY slot",
+            (business["id"],),
+        ).fetchall()
     finally:
         conn.close()
+
+    gallery_by_slot = {r["slot"]: dict(r) for r in gallery_rows}
+    gallery = [
+        gallery_by_slot.get(i) or {"slot": i, "path": "", "caption": ""}
+        for i in range(8)
+    ]
 
     return templates.TemplateResponse(
         request,
@@ -330,6 +343,7 @@ def portal_dashboard(request: Request):
             "booking_pages": booking_pages,
             "booking_total": booking_total,
             "feedback": feedback,
+            "gallery": gallery,
             "counts": _counts(business["id"]),
             "day_order": DAY_ORDER,
             "day_labels": DAY_LABELS,
@@ -920,6 +934,122 @@ def portal_customize_save(
     except HTTPException as exc:
         return _redirect("/portal?tab=customize", error=exc.detail)
     return _redirect("/portal?tab=customize", msg="Website settings saved")
+
+
+# ---- Website photos (logo / owner photo / gallery) ----
+
+
+def _save_portal_image(business: dict, file: UploadFile, prefix: str) -> str:
+    """Store an uploaded image locally and return its /uploads path."""
+    if image_content_type(file) is None:
+        raise HTTPException(status_code=400, detail="Use JPG, PNG, GIF or WebP")
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "png"
+    filename = f"{prefix}_{business['id']}_{uuid.uuid4().hex[:8]}.{ext}"
+    uploads = _upload_dir()
+    uploads.mkdir(parents=True, exist_ok=True)
+    (uploads / filename).write_bytes(file.file.read())
+    return f"/uploads/{filename}"
+
+
+@router.post("/images/{kind}")
+def portal_image_upload(request: Request, kind: str, file: UploadFile = File(...)):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    column = {"logo": "logo_path", "about": "about_image"}.get(kind)
+    if column is None:
+        return _redirect("/portal?tab=customize", error="Unknown image type")
+    try:
+        path = _save_portal_image(business, file, kind)
+    except HTTPException as exc:
+        return _redirect("/portal?tab=customize", error=str(exc.detail))
+    conn = get_connection()
+    try:
+        conn.execute(
+            f"UPDATE businesses SET {column} = ? WHERE id = ?", (path, business["id"])
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return _redirect("/portal?tab=customize", msg="Image uploaded")
+
+
+@router.post("/gallery/{slot}")
+def portal_gallery_upload(request: Request, slot: int, file: UploadFile = File(...)):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    if slot < 0 or slot > 7:
+        return _redirect("/portal?tab=customize", error="Slot must be 0-7")
+    try:
+        path = _save_portal_image(business, file, f"gallery_{slot}")
+    except HTTPException as exc:
+        return _redirect("/portal?tab=customize", error=str(exc.detail))
+    conn = get_connection()
+    try:
+        old = conn.execute(
+            "SELECT path FROM gallery WHERE business_id = ? AND slot = ?",
+            (business["id"], slot),
+        ).fetchone()
+        cur = conn.execute(
+            "UPDATE gallery SET path = ?, caption = '' WHERE business_id = ? AND slot = ?",
+            (path, business["id"], slot),
+        )
+        if cur.rowcount == 0:
+            conn.execute(
+                "INSERT INTO gallery (business_id, slot, path, caption) VALUES (?, ?, ?, '')",
+                (business["id"], slot, path),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    if old and old["path"]:
+        _delete_stored_image(old["path"])
+    return _redirect("/portal?tab=customize", msg="Gallery image saved")
+
+
+@router.post("/gallery/{slot}/caption")
+def portal_gallery_caption(request: Request, slot: int, caption: str = Form("")):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE gallery SET caption = ? WHERE business_id = ? AND slot = ?",
+            (caption.strip(), business["id"], slot),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return _redirect("/portal?tab=customize", msg="Caption saved")
+
+
+@router.post("/gallery/{slot}/delete")
+def portal_gallery_delete(request: Request, slot: int):
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT path FROM gallery WHERE business_id = ? AND slot = ?",
+            (business["id"], slot),
+        ).fetchone()
+        conn.execute(
+            "UPDATE gallery SET path = '', caption = '' WHERE business_id = ? AND slot = ?",
+            (business["id"], slot),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    if row and row["path"]:
+        _delete_stored_image(row["path"])
+    return _redirect("/portal?tab=customize", msg="Gallery image removed")
 
 
 # ---- Account ----

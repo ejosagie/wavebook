@@ -275,3 +275,52 @@ def test_dark_theme_toggle(client, make_business):
     client.post("/portal/customize", data={"name": "Darkco Studio"}, follow_redirects=False)
     res = client.get("/", headers={"host": "darkco.wab.ad"})
     assert "tenant-dark" not in res.text
+
+
+def test_portal_photo_management(client, make_business):
+    biz = make_business("photoco")
+    _login(client, biz)
+    png = ("photo.png", b"\x89PNG\r\n\x1a\nfakeimg", "image/png")
+
+    # Logo and owner photo uploads update the business row
+    res = client.post("/portal/images/logo", files={"file": png}, follow_redirects=False)
+    assert res.status_code == 303
+    res = client.post("/portal/images/about", files={"file": png}, follow_redirects=False)
+    assert res.status_code == 303
+
+    conn = database.get_connection()
+    try:
+        bizrow = dict(conn.execute("SELECT * FROM businesses WHERE id = ?", (biz["id"],)).fetchone())
+    finally:
+        conn.close()
+    assert bizrow["logo_path"].startswith("/uploads/logo_")
+    assert bizrow["about_image"].startswith("/uploads/about_")
+
+    # Gallery upload, caption, then delete
+    res = client.post("/portal/gallery/2", files={"file": png}, follow_redirects=False)
+    assert res.status_code == 303
+    conn = database.get_connection()
+    try:
+        g = dict(conn.execute(
+            "SELECT * FROM gallery WHERE business_id = ? AND slot = 2", (biz["id"],)
+        ).fetchone())
+    finally:
+        conn.close()
+    assert g["path"].startswith("/uploads/gallery_2_")
+
+    res = client.post("/portal/gallery/2/caption", data={"caption": "Fresh install"}, follow_redirects=False)
+    assert res.status_code == 303
+    res = client.post("/portal/gallery/2/delete", follow_redirects=False)
+    assert res.status_code == 303
+    conn = database.get_connection()
+    try:
+        g = dict(conn.execute(
+            "SELECT * FROM gallery WHERE business_id = ? AND slot = 2", (biz["id"],)
+        ).fetchone())
+    finally:
+        conn.close()
+    assert g["path"] == "" and g["caption"] == ""
+
+    # Dashboard renders the gallery slots without errors
+    res = client.get("/portal?tab=customize")
+    assert res.status_code == 200 and "Gallery photos" in res.text

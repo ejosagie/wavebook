@@ -1,11 +1,15 @@
 from app import database
 from app.routers import web as web_router
+from app.services import assistant as assistant_svc
 from conftest import auth
 
 
 def _open_slots(monkeypatch, slots=None):
     monkeypatch.setattr(web_router, "get_available_time_slots", lambda *a, **k: slots or ["10:00", "14:00", "16:00"])
     monkeypatch.setattr(web_router, "is_date_blocked", lambda *a, **k: False)
+    # build_assistant_response uses its own imported reference; patch it too so
+    # tests don't depend on which weekday "tomorrow" happens to be.
+    monkeypatch.setattr(assistant_svc, "is_date_blocked", lambda *a, **k: False)
 
 
 def _rename_service(business_id, name):
