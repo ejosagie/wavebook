@@ -37,13 +37,6 @@ class Settings:
     # which sends them with mail(). Leave NOTIFY_TOKEN empty to log emails instead.
     NOTIFY_URL: str = os.getenv("NOTIFY_URL", "https://neurowavesdatasystems.ng/notification/notification.php")
     NOTIFY_TOKEN: str = os.getenv("NOTIFY_TOKEN", "")
-    # Direct SMTP delivery (used when SMTP_HOST is set; falls back to the PHP relay).
-    SMTP_HOST: str = os.getenv("SMTP_HOST", "")
-    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "465"))
-    SMTP_USERNAME: str = os.getenv("SMTP_USERNAME", "")
-    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
-    SMTP_FROM: str = os.getenv("SMTP_FROM", "support@getwavebook.com")
-    SMTP_USE_SSL: bool = os.getenv("SMTP_USE_SSL", "1") == "1"
     # Google Cloud Storage (product/shop images + backups). Leave empty to store
     # images on the local disk (backend/uploads) instead of GCS.
     GCS_BUCKET_NAME: str = os.getenv("GCS_BUCKET_NAME", "")  # public bucket for product images

@@ -1,6 +1,4 @@
 from app import database
-from app.config import settings
-from app.services import emailer
 from conftest import auth
 
 
@@ -175,33 +173,3 @@ def test_portal_customize_rejects_unknown_style(client, make_business):
     assert res.status_code == 303
     assert "error=" in res.headers["location"]
     assert _business_row(biz["id"])["theme_style"] != "neon"
-
-
-def test_smtp_send_email(monkeypatch):
-    sent = []
-
-    class FakeSMTP:
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            return False
-
-        def login(self, user, password):
-            sent.append(("login", user, password))
-
-        def send_message(self, msg):
-            sent.append(("send", msg["To"], msg["Subject"]))
-
-    monkeypatch.setattr(emailer.smtplib, "SMTP_SSL", FakeSMTP)
-    monkeypatch.setattr(settings, "SMTP_HOST", "mail.test")
-    monkeypatch.setattr(settings, "SMTP_USERNAME", "support@test.com")
-    monkeypatch.setattr(settings, "SMTP_PASSWORD", "secret")
-    result = emailer.send_email("jane@test.com", "Hello", "Body text")
-    assert result["provider"] == "smtp"
-    assert result["status"] == "sent"
-    assert sent[0] == ("login", "support@test.com", "secret")
-    assert sent[1] == ("send", "jane@test.com", "Hello")

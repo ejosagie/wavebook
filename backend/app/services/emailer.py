@@ -1,15 +1,12 @@
-"""Email delivery.
+"""Email delivery via the PHP relay on the NeuroWaves hosting.
 
-Preferred provider: direct SMTP (SMTP_HOST configured, e.g. privateemail.com).
-Fallback: the PHP relay on the NeuroWaves hosting, which POSTs JSON to
-NOTIFY_URL with the NOTIFY_TOKEN header. When neither is configured, emails
-are logged so the platform keeps working during development and testing.
+The VPS POSTs JSON to NOTIFY_URL with the NOTIFY_TOKEN header; the PHP script
+sends the mail with the hosting's mail(). When NOTIFY_TOKEN is not set, emails
+are logged instead so the platform keeps working during development and testing.
 """
 import json
 import logging
-import smtplib
 import urllib.request
-from email.message import EmailMessage
 
 from ..config import settings
 from ..database import get_connection, get_trial_days
@@ -17,35 +14,10 @@ from ..database import get_connection, get_trial_days
 logger = logging.getLogger("wavebook")
 
 
-def _send_via_smtp(to: str, subject: str, body_text: str) -> dict:
-    msg = EmailMessage()
-    msg["From"] = settings.SMTP_FROM
-    msg["To"] = to
-    msg["Subject"] = subject
-    msg.set_content(body_text)
-    try:
-        if settings.SMTP_USE_SSL:
-            with smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=30) as server:
-                server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-                server.send_message(msg)
-        else:
-            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=30) as server:
-                server.starttls()
-                server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-                server.send_message(msg)
-        return {"provider": "smtp", "status": "sent", "to": to}
-    except Exception as exc:  # pragma: no cover
-        logger.error("[email] SMTP send failed: %s", exc)
-        return {"provider": "smtp", "status": "error", "error": str(exc)}
-
-
 def send_email(to: str, subject: str, body_text: str) -> dict:
     """Send a plain-text email. Returns delivery info."""
     if not to:
         return {"provider": "none", "status": "skipped", "reason": "no recipient"}
-
-    if settings.SMTP_HOST:
-        return _send_via_smtp(to, subject, body_text)
 
     if settings.NOTIFY_TOKEN:
         payload = json.dumps({"to": to, "subject": subject, "body": body_text}).encode("utf-8")
