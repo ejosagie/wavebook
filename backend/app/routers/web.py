@@ -28,6 +28,7 @@ from ..services.slots import (
     get_available_time_slots,
     is_date_blocked,
 )
+from ..services.themes import THEME_STYLES, resolve_font_stack
 
 router = APIRouter(tags=["web"])
 
@@ -47,6 +48,13 @@ def _get_business_by_slug(slug: str) -> dict | None:
     finally:
         conn.close()
     if business:
+        style = THEME_STYLES.get(business.get("theme_style") or "")
+        if style:
+            business["theme_color"] = style["accent"]
+            business["dark_theme"] = 1 if style["dark"] else 0
+            business["theme_font"] = resolve_font_stack(style["font"])
+        else:
+            business["theme_font"] = resolve_font_stack(business.get("theme_font") or "")
         business["theme_color_dark"] = _darken_hex(business.get("theme_color") or "#ec4899")
     return business
 
@@ -248,6 +256,7 @@ def subscribe_page(request: Request):
             "price_gbp": settings.SUBSCRIPTION_PRICE_GBP,
             "plans": settings.SUBSCRIPTION_PLANS,
             "interval_labels": settings.INTERVAL_LABELS,
+            "currencies": settings.SUBSCRIPTION_CURRENCIES,
         },
     )
 
@@ -292,8 +301,17 @@ def subscribe_verify(request: Request, tx_ref: str = "", transaction_id: str = "
     if not business_id:
         return templates.TemplateResponse(request, "subscribe_cancel.html", {})
 
+    # The transaction currency is authoritative; it must be one we support and
+    # must match the currency requested at checkout when present in meta.
+    currency = (data.get("currency") or settings.FLW_CURRENCY).upper()
+    currency_info = settings.SUBSCRIPTION_CURRENCIES.get(currency)
+    meta_currency = ((data.get("meta") or {}).get("currency") or "").upper()
+    if currency_info is None or (meta_currency and meta_currency != currency):
+        return templates.TemplateResponse(request, "subscribe_cancel.html", {})
+
     paid = float(data.get("amount") or 0)
-    if paid < plan["price"]:
+    expected = round(plan["price"] * currency_info["rate"], 2)
+    if paid < expected:
         return templates.TemplateResponse(request, "subscribe_cancel.html", {})
 
     conn = get_connection()
@@ -310,9 +328,9 @@ def subscribe_verify(request: Request, tx_ref: str = "", transaction_id: str = "
             (business_id,),
         )
         conn.execute(
-            "INSERT INTO subscriptions (business_id, stripe_subscription_id, status, plan, amount) "
-            "VALUES (?, ?, 'active', ?, ?)",
-            (business_id, tx_ref, plan_key, paid),
+            "INSERT INTO subscriptions (business_id, stripe_subscription_id, status, plan, amount, currency) "
+            "VALUES (?, ?, 'active', ?, ?, ?)",
+            (business_id, tx_ref, plan_key, paid, currency),
         )
         conn.commit()
     finally:

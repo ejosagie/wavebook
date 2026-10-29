@@ -8,6 +8,7 @@ from ..database import get_connection, get_trial_days, row_to_dict, rows_to_dict
 from ..deps import get_current_business, get_current_user, require_owner
 from ..phone import validate_phone
 from ..schemas import BusinessCreate, BusinessUpdate, SUPPORTED_CURRENCIES
+from ..services.themes import THEME_STYLES
 from ..services.uploads import image_content_type
 
 router = APIRouter(prefix="/api/business", tags=["business"])
@@ -39,7 +40,7 @@ def create_business(data: BusinessCreate, user: dict = Depends(get_current_user)
 
         trial_ends = (datetime.utcnow() + timedelta(days=get_trial_days())).strftime("%Y-%m-%d")
         cur = conn.execute(
-            "INSERT INTO businesses (slug, name, trial_ends_at, currency) VALUES (?, ?, ?, ?)",
+            "INSERT INTO businesses (slug, name, trial_ends_at, currency, theme_style) VALUES (?, ?, ?, ?, 'rose')",
             (slug, data.name.strip(), trial_ends, currency),
         )
         business_id = cur.lastrowid
@@ -80,6 +81,15 @@ def update_business(data: BusinessUpdate, business: dict = Depends(get_current_b
         updates["currency"] = (updates["currency"] or "GBP").upper()
         if updates["currency"] not in SUPPORTED_CURRENCIES:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unsupported currency")
+    if "theme_style" in updates:
+        style_key = updates["theme_style"]
+        if style_key not in THEME_STYLES and style_key != "custom":
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unknown website style")
+        if style_key in THEME_STYLES:
+            style = THEME_STYLES[style_key]
+            updates["theme_color"] = style["accent"]
+            updates["dark_theme"] = 1 if style["dark"] else 0
+            updates["theme_font"] = style["font"]
     conn = get_connection()
     try:
         fields = ", ".join(f"{k} = ?" for k in updates)

@@ -28,6 +28,7 @@ from ..routers.products import (
     _upload_dir,
 )
 from ..services.uploads import image_content_type
+from ..services.themes import FONT_OPTIONS, THEME_STYLES
 from ..routers.bookings import update_booking_status
 from ..schemas import (
     AvailabilityUpdate,
@@ -349,6 +350,8 @@ def portal_dashboard(request: Request):
             "day_labels": DAY_LABELS,
             "currencies": sorted(SUPPORTED_CURRENCIES),
             "currency_symbols": CURRENCY_SYMBOLS,
+            "theme_styles": THEME_STYLES,
+            "font_options": FONT_OPTIONS,
             "payout_countries": PAYOUT_COUNTRIES,
             "website_url": f"https://{business['slug']}.{settings.PUBLIC_BASE_DOMAIN}",
             "active_tab": request.query_params.get("tab", "overview"),
@@ -906,11 +909,24 @@ def portal_customize_save(
     theme_color: str = Form("#ec4899"),
     storefront_enabled: str = Form(""),
     dark_theme: str = Form(""),
+    theme_style: str = Form("custom"),
+    theme_font: str = Form("default"),
 ):
     user = _require_portal_user(request)
     business = _load_business(user)
     if business is None:
         return _redirect("/portal/login", error="No business is linked to this account")
+    style_key = theme_style.strip() or "custom"
+    if style_key not in THEME_STYLES and style_key != "custom":
+        return _redirect("/portal?tab=customize", error="Unknown website style")
+    if style_key in THEME_STYLES:
+        style = THEME_STYLES[style_key]
+        theme_color = style["accent"]
+        dark_theme = "on" if style["dark"] else ""
+        theme_font = style["font"]
+    font_key = theme_font.strip() or "default"
+    if font_key not in FONT_OPTIONS:
+        return _redirect("/portal?tab=customize", error="Unknown font")
     try:
         update_business(
             data=BusinessUpdate(
@@ -927,6 +943,8 @@ def portal_customize_save(
                 opening_hours=opening_hours.strip(),
                 theme_color=theme_color.strip() or "#ec4899",
                 dark_theme=dark_theme == "on",
+                theme_style=style_key,
+                theme_font=font_key,
                 storefront_enabled=storefront_enabled == "on",
             ),
             business=business,

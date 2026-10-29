@@ -17,8 +17,35 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   Business? _business;
   String _themeColor = '#ec4899';
   bool _darkTheme = false;
+  String _themeStyle = 'rose';
+  String _themeFont = 'default';
   bool _loading = true;
   bool _saving = false;
+
+  // Acuity-style website presets: (label, key, accent, dark, font).
+  static const _styles = [
+    ('Rose', 'rose', '#ec4899', false, 'default'),
+    ('Midnight', 'midnight', '#d4a017', true, 'georgia'),
+    ('Ocean', 'ocean', '#0ea5e9', false, 'default'),
+    ('Forest', 'forest', '#10b981', false, 'default'),
+    ('Sunset', 'sunset', '#f97316', false, 'default'),
+    ('Violet', 'violet', '#8b5cf6', true, 'default'),
+    ('Mono', 'mono', '#111827', false, 'courier'),
+  ];
+
+  // Font choices: (key, label).
+  static const _fonts = [
+    ('default', 'Default (system)'),
+    ('georgia', 'Georgia'),
+    ('times', 'Times New Roman'),
+    ('arial', 'Arial'),
+    ('helvetica', 'Helvetica'),
+    ('verdana', 'Verdana'),
+    ('tahoma', 'Tahoma'),
+    ('trebuchet', 'Trebuchet MS'),
+    ('courier', 'Courier New'),
+    ('palatino', 'Palatino'),
+  ];
 
   static const _themes = [
     ('Pink', '#ec4899'),
@@ -48,6 +75,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _business = b;
         _themeColor = b.themeColor;
         _darkTheme = b.darkTheme;
+        _themeStyle = b.themeStyle;
+        _themeFont = b.themeFont;
       });
     } on ApiException {
       // Non-fatal — the screen still renders.
@@ -62,6 +91,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       await _api.patch('/api/business', body: {
         'theme_color': _themeColor,
         'dark_theme': _darkTheme,
+        'theme_style': _themeStyle,
+        'theme_font': _themeFont,
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -96,9 +127,88 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     onTap: () => _openWebsite(slug),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 const Text(
-                  'Theme colour',
+                  'Website style',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Pick a ready-made style, or use a custom colour below.',
+                  style: TextStyle(color: WaveBookColors.muted, fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: _styles.map((style) {
+                    final (label, key, accent, dark, font) = style;
+                    final selected = _themeStyle == key;
+                    final accentColor = Color(int.parse('FF${accent.substring(1)}', radix: 16));
+                    return GestureDetector(
+                      onTap: () => setState(() {
+                        _themeStyle = key;
+                        _themeColor = accent;
+                        _darkTheme = dark;
+                        _themeFont = font;
+                      }),
+                      child: Container(
+                        width: 104,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: dark ? const Color(0xFF14141D) : Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: selected ? accentColor : const Color(0xFFE5E0E8),
+                            width: selected ? 2.5 : 1,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 18,
+                                  height: 18,
+                                  decoration: BoxDecoration(
+                                    color: accentColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const Spacer(),
+                                if (dark)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF2A2A35),
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: const Text(
+                                      'Dark',
+                                      style: TextStyle(fontSize: 9, color: Colors.white70),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              label,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: dark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Custom colour',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 4),
@@ -114,7 +224,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     final (label, color) = theme;
                     final selected = _themeColor.toLowerCase() == color;
                     return GestureDetector(
-                      onTap: () => setState(() => _themeColor = color),
+                      onTap: () => setState(() {
+                        _themeColor = color;
+                        _themeStyle = 'custom';
+                      }),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -143,6 +256,33 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   }).toList(),
                 ),
                 const SizedBox(height: 24),
+                const Text(
+                  'Font',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Choose the font used across your booking website and store.',
+                  style: TextStyle(color: WaveBookColors.muted, fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _fonts.map((font) {
+                    final (key, label) = font;
+                    final selected = _themeFont == key;
+                    return ChoiceChip(
+                      label: Text(label, style: const TextStyle(fontSize: 12)),
+                      selected: selected,
+                      onSelected: (_) => setState(() {
+                        _themeFont = key;
+                        _themeStyle = 'custom';
+                      }),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 24),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Dark theme', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
@@ -151,7 +291,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     style: TextStyle(color: WaveBookColors.muted, fontSize: 13),
                   ),
                   value: _darkTheme,
-                  onChanged: (v) => setState(() => _darkTheme = v),
+                  onChanged: (v) => setState(() {
+                    _darkTheme = v;
+                    _themeStyle = 'custom';
+                  }),
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(

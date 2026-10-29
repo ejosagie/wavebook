@@ -140,6 +140,7 @@ a:hover { text-decoration: underline; }
 .plan-features li.hl { color: var(--pink); font-weight: 700; }
 .plan-features li.hl::before { content: "\2605  "; color: var(--pink); }
 .duration-picker { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 8px; }
+.currency-label { align-self: center; font-weight: 700; font-size: 0.95rem; color: var(--muted); }
 .duration-option label {
   display: block; padding: 12px 18px; cursor: pointer; font-weight: 700; font-size: 0.95rem;
   background: var(--surface); color: var(--ink); border: 2px solid var(--border); border-radius: 12px;
@@ -193,6 +194,7 @@ a:hover { text-decoration: underline; }
 body.tenant-theme {
   background: #fdf8fb;
   color: var(--ink);
+  font-family: var(--font, "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif);
 }
 body.tenant-theme .navbar {
   background: rgba(253, 248, 251, 0.92);

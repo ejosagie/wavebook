@@ -84,6 +84,16 @@
             {% endfor %}
           </div>
 
+          <div class="duration-picker" style="margin-top: 18px;">
+            <span class="currency-label">Pay in:</span>
+            {% for key, info in currencies.items() %}
+            <div class="duration-option">
+              <input type="radio" name="currency" id="currency-{{ key }}" value="{{ key }}"{% if key == 'GBP' %} checked{% endif %}>
+              <label for="currency-{{ key }}">{{ info.symbol }} {{ key }}</label>
+            </div>
+            {% endfor %}
+          </div>
+
           <div class="plan-checkout">
             <p class="plan-summary" id="plan-summary" style="text-align:center;"></p>
             <input type="hidden" id="plan" name="plan" value="basic_monthly">
@@ -113,20 +123,28 @@
     const INTERVAL_LABELS = { {% for key, label in interval_labels.items() %}'{{ key }}': '{{ label }}', {% endfor %} };
     const INTERVAL_SUFFIX = { monthly: '/month', quarterly: '/3 months', biannual: '/6 months', yearly: '/year' };
     const TIER_NAMES = { basic: 'WaveBook Basic', shop: 'WaveBook + Shop', premium: 'WaveBook Premium' };
+    const CURRENCIES = { {% for key, info in currencies.items() %}'{{ key }}': { symbol: '{{ info.symbol }}', rate: {{ info.rate }} }, {% endfor %} };
+    function selectedCurrency() {
+      return document.querySelector('input[name="currency"]:checked').value;
+    }
+    function formatPrice(gbpPrice) {
+      const cur = CURRENCIES[selectedCurrency()];
+      return cur.symbol + (gbpPrice * cur.rate).toFixed(2);
+    }
     function refreshPlanSelector() {
       const tier = document.querySelector('input[name="tier"]:checked').value;
       const interval = document.querySelector('input[name="interval"]:checked').value;
       const key = tier + '_' + interval;
       document.getElementById('plan').value = key;
-      document.getElementById('plan-summary').textContent = TIER_NAMES[tier] + ' · ' + INTERVAL_LABELS[interval] + ' · £' + PRICES[key].toFixed(2);
+      document.getElementById('plan-summary').textContent = TIER_NAMES[tier] + ' · ' + INTERVAL_LABELS[interval] + ' · ' + formatPrice(PRICES[key]);
       document.querySelectorAll('.plan-price').forEach(function (el) {
         const amount = el.querySelector('[data-amount]');
         const tierKey = amount.closest('.plan-option').querySelector('input[name="tier"]').value;
-        amount.textContent = '£' + PRICES[tierKey + '_' + interval].toFixed(2);
+        amount.textContent = formatPrice(PRICES[tierKey + '_' + interval]);
         el.querySelector('[data-suffix]').textContent = INTERVAL_SUFFIX[interval];
       });
     }
-    document.querySelectorAll('input[name="tier"], input[name="interval"]').forEach(function (input) {
+    document.querySelectorAll('input[name="tier"], input[name="interval"], input[name="currency"]').forEach(function (input) {
       input.addEventListener('change', refreshPlanSelector);
     });
     refreshPlanSelector();
@@ -144,7 +162,8 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: document.getElementById('email').value,
-            plan: document.getElementById('plan').value
+            plan: document.getElementById('plan').value,
+            currency: selectedCurrency()
           })
         });
         const data = await res.json().catch(() => ({}));

@@ -70,13 +70,14 @@ def create_payment_link(
     meta: dict,
     title: str,
     description: str,
+    country: str | None = None,
 ) -> str:
     """Create a hosted Flutterwave payment link and return its URL."""
     payload = {
         "tx_ref": tx_ref,
         "amount": str(amount),
         "currency": currency,
-        "country": settings.FLW_COUNTRY,
+        "country": country or settings.FLW_COUNTRY,
         "redirect_url": redirect_url,
         "customer": {"email": customer_email},
         "meta": meta,

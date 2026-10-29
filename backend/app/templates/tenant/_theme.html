@@ -1,0 +1,11 @@
+{% if business.theme_color and business.theme_color != '#ec4899' %}
+  <style>
+    :root {
+      --pink: {{ business.theme_color }};
+      --pink-dark: {{ business.theme_color_dark }};
+      --pink-light: {{ business.theme_color }};
+      --gradient: linear-gradient(135deg, {{ business.theme_color }}, {{ business.theme_color_dark }});
+      {% if business.theme_font %}--font: {{ business.theme_font }};{% endif %}
+    }
+  </style>
+  {% endif %}

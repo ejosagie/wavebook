@@ -64,6 +64,8 @@ class BusinessUpdate(BaseModel):
     payout_bank_address: str | None = None
     theme_color: str | None = None
     dark_theme: bool | None = None
+    theme_style: str | None = None
+    theme_font: str | None = None
     calendar_token: str | None = None
     shipping_fee_local: float | None = Field(default=None, ge=0)
     shipping_fee_international: float | None = Field(default=None, ge=0)
@@ -73,6 +75,7 @@ class BusinessUpdate(BaseModel):
 # ---- Subscription ----
 class SubscriptionCheckoutRequest(BaseModel):
     email: EmailStr | None = None  # required for website visitors (no session)
+    currency: str = "GBP"
     plan: str = "basic_monthly"
 
 

@@ -55,6 +55,11 @@ def create_checkout(
     plan = settings.SUBSCRIPTION_PLANS.get(plan_key)
     if plan is None:
         raise HTTPException(status_code=400, detail="Unknown plan")
+    currency = ((payload.currency if payload else None) or "GBP").upper()
+    currency_info = settings.SUBSCRIPTION_CURRENCIES.get(currency)
+    if currency_info is None:
+        raise HTTPException(status_code=400, detail="Unsupported currency")
+    amount = round(plan["price"] * currency_info["rate"], 2)
 
     conn = get_connection()
     try:
@@ -96,14 +101,16 @@ def create_checkout(
     tx_ref = f"WB-SUB-{business['id']}-{plan_key}-{secrets.token_hex(4)}"
     payment_link = flutterwave.create_payment_link(
         tx_ref=tx_ref,
-        amount=plan["price"],
-        currency=settings.FLW_CURRENCY,
+        amount=amount,
+        currency=currency,
+        country=currency_info["country"],
         redirect_url=f"{settings.API_PUBLIC_URL}/subscribe/verify",
         customer_email=user["email"],
         meta={
             "business_id": str(business["id"]),
             "type": "subscription",
             "plan": plan_key,
+            "currency": currency,
         },
         title=f"{tier} — {interval_label}",
         description=f"{interval_label} subscription for {business['name']}",

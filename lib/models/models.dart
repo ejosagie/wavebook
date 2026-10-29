@@ -65,6 +65,8 @@ class Business {
   final String trialEndsAt;
   final String themeColor;
   final bool darkTheme;
+  final String themeStyle;
+  final String themeFont;
   final double shippingFeeLocal;
   final double shippingFeeInternational;
   final String storeCountry;
@@ -106,6 +108,8 @@ class Business {
     required this.trialEndsAt,
     required this.themeColor,
     required this.darkTheme,
+    required this.themeStyle,
+    required this.themeFont,
     required this.shippingFeeLocal,
     required this.shippingFeeInternational,
     required this.storeCountry,
@@ -148,6 +152,8 @@ class Business {
         trialEndsAt: json['trial_ends_at'] as String? ?? '',
         themeColor: json['theme_color'] as String? ?? '#ec4899',
         darkTheme: (json['dark_theme'] as num?)?.toInt() == 1,
+        themeStyle: json['theme_style'] as String? ?? 'rose',
+        themeFont: json['theme_font'] as String? ?? '',
         shippingFeeLocal: (json['shipping_fee_local'] as num?)?.toDouble() ?? 0,
         shippingFeeInternational: (json['shipping_fee_international'] as num?)?.toDouble() ?? 0,
         storeCountry: json['store_country'] as String? ?? 'GB',
@@ -181,6 +187,8 @@ class Business {
         'payout_bank_address': payoutBankAddress,
         'theme_color': themeColor,
         'dark_theme': darkTheme,
+        'theme_style': themeStyle,
+        'theme_font': themeFont,
         'shipping_fee_local': shippingFeeLocal,
         'shipping_fee_international': shippingFeeInternational,
         'store_country': storeCountry,

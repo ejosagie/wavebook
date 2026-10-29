@@ -10,6 +10,12 @@
     .portal-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
     .portal-tabs button { border: 1px solid var(--border); background: var(--surface); color: var(--ink); padding: 10px 18px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 0.92rem; }
     .portal-tabs button.active { background: var(--gradient); color: #fff; border-color: transparent; }
+    .preset-option { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 8px; cursor: pointer; border: 2px solid var(--border); border-radius: 12px; background: var(--surface); font-weight: 700; font-size: 0.85rem; color: var(--ink); transition: border-color 0.15s; }
+    .preset-option:hover { border-color: var(--pink-light); }
+    .preset-option input { position: absolute; opacity: 0; pointer-events: none; }
+    .preset-option input:checked + .preset-swatch { box-shadow: 0 0 0 3px var(--pink); }
+    .preset-option input:checked ~ span:last-child { color: var(--pink); }
+    .preset-swatch { width: 34px; height: 34px; border-radius: 50%; border: 2px solid rgba(0,0,0,0.08); }
     .portal-panel { display: none; }
     .portal-panel.active { display: block; }
     .day-row { display: grid; grid-template-columns: 140px 1fr 1fr; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
@@ -679,6 +685,32 @@
               <input type="text" name="tiktok" value="{{ business.tiktok or '' }}">
             </div>
             <div class="form-group">
+              <label>Website style</label>
+              <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:10px;">
+                <label class="preset-option">
+                  <input type="radio" name="theme_style" value="custom" {% if business.theme_style == 'custom' or not business.theme_style %}checked{% endif %}>
+                  <span class="preset-swatch" style="background:linear-gradient(135deg,#ec4899,#be185d);"></span>
+                  <span>Custom</span>
+                </label>
+                {% for key, style in theme_styles.items() %}
+                <label class="preset-option" data-accent="{{ style.accent }}" data-dark="{% if style.dark %}on{% endif %}" data-font="{{ style.font }}">
+                  <input type="radio" name="theme_style" value="{{ key }}" {% if business.theme_style == key %}checked{% endif %}>
+                  <span class="preset-swatch" style="background:{{ style.accent }};"></span>
+                  <span>{{ style.label }}</span>
+                </label>
+                {% endfor %}
+              </div>
+              <p style="font-size:0.85rem; color:var(--muted); margin-top:6px;">Pick a ready-made style, or choose Custom and set your own colour below.</p>
+            </div>
+            <div class="form-group">
+              <label>Font</label>
+              <select name="theme_font">
+                {% for key, font in font_options.items() %}
+                <option value="{{ key }}" {% if business.theme_font == key %}selected{% endif %}>{{ font.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
               <label>Theme color</label>
               <input type="color" name="theme_color" value="{{ business.theme_color or '#ec4899' }}">
             </div>
@@ -784,13 +816,25 @@
     (function () {
       var buttons = document.querySelectorAll('.portal-tabs button');
       var panels = document.querySelectorAll('.portal-panel');
-      function show(name) {
-        buttons.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === name); });
-        panels.forEach(function (p) { p.classList.toggle('active', p.id === 'panel-' + name); });
-        history.replaceState(null, '', '/portal?tab=' + name);
+
+      function show(tab) {
+        buttons.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tab); });
+        panels.forEach(function (p) { p.classList.toggle('active', p.id === 'panel-' + tab); });
       }
       buttons.forEach(function (b) {
         b.addEventListener('click', function () { show(b.dataset.tab); });
+      });
+
+      // Selecting a preset style updates the colour picker and dark-theme checkbox.
+      var styleInputs = document.querySelectorAll('input[name="theme_style"]');
+      styleInputs.forEach(function (input) {
+        input.addEventListener('change', function () {
+          var label = input.closest('label');
+          if (!label || !label.dataset.accent) return; // custom option
+          document.querySelector('input[name="theme_color"]').value = label.dataset.accent;
+          document.querySelector('input[name="dark_theme"]').checked = label.dataset.dark === 'on';
+          document.querySelector('select[name="theme_font"]').value = label.dataset.font || 'default';
+        });
       });
     })();
   </script>

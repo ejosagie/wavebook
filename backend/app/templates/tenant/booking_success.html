@@ -6,16 +6,7 @@
   <title>Booking Submitted — {{ business.name }}</title>
   <link rel="stylesheet" href="/static/css/style.css">
   <link rel="icon" type="image/png" href="/static/img/icon.png">
-  {% if business.theme_color and business.theme_color != '#ec4899' %}
-  <style>
-    :root {
-      --pink: {{ business.theme_color }};
-      --pink-dark: {{ business.theme_color_dark }};
-      --pink-light: {{ business.theme_color }};
-      --gradient: linear-gradient(135deg, {{ business.theme_color }}, {{ business.theme_color_dark }});
-    }
-  </style>
-  {% endif %}
+  {% include 'tenant/_theme.html' %}
 </head>
 <body class="tenant-theme{% if business.dark_theme %} tenant-dark{% endif %}">
   <div class="navbar tenant-nav has-menu">
