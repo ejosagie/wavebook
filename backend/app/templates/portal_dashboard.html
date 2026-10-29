@@ -10,12 +10,20 @@
     .portal-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
     .portal-tabs button { border: 1px solid var(--border); background: var(--surface); color: var(--ink); padding: 10px 18px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 0.92rem; }
     .portal-tabs button.active { background: var(--gradient); color: #fff; border-color: transparent; }
-    .preset-option { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 8px; cursor: pointer; border: 2px solid var(--border); border-radius: 12px; background: var(--surface); font-weight: 700; font-size: 0.85rem; color: var(--ink); transition: border-color 0.15s; }
+    .preset-option { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px; cursor: pointer; border: 2px solid var(--border); border-radius: 12px; background: var(--surface); font-weight: 700; font-size: 0.85rem; color: var(--ink); transition: border-color 0.15s, box-shadow 0.15s; }
     .preset-option:hover { border-color: var(--pink-light); }
     .preset-option input { position: absolute; opacity: 0; pointer-events: none; }
-    .preset-option input:checked + .preset-swatch { box-shadow: 0 0 0 3px var(--pink); }
-    .preset-option input:checked ~ span:last-child { color: var(--pink); }
-    .preset-swatch { width: 34px; height: 34px; border-radius: 50%; border: 2px solid rgba(0,0,0,0.08); }
+    .preset-option:has(input:checked) { border-color: var(--pink); box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15); }
+    .preset-option input:checked ~ .preset-name { color: var(--pink); }
+    .preset-option input:checked ~ .preset-check { display: flex; }
+    .preset-preview { width: 100%; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: 700; }
+    .preset-check { position: absolute; top: 6px; right: 6px; width: 18px; height: 18px; border-radius: 50%; background: var(--pink); color: #fff; font-size: 11px; display: none; align-items: center; justify-content: center; }
+    .font-option { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 8px; cursor: pointer; border: 2px solid var(--border); border-radius: 12px; background: var(--surface); font-size: 0.85rem; color: var(--ink); font-weight: 700; transition: border-color 0.15s, box-shadow 0.15s; }
+    .font-option:hover { border-color: var(--pink-light); }
+    .font-option input { position: absolute; opacity: 0; pointer-events: none; }
+    .font-option:has(input:checked) { border-color: var(--pink); box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15); }
+    .font-option input:checked ~ span:last-child { color: var(--pink); }
+    .font-preview { width: 100%; height: 34px; border-radius: 8px; background: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 1.15rem; font-weight: 700; color: var(--ink); }
     .portal-panel { display: none; }
     .portal-panel.active { display: block; }
     .day-row { display: grid; grid-template-columns: 140px 1fr 1fr; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
@@ -689,14 +697,16 @@
               <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:10px;">
                 <label class="preset-option">
                   <input type="radio" name="theme_style" value="custom" {% if business.theme_style == 'custom' or not business.theme_style %}checked{% endif %}>
-                  <span class="preset-swatch" style="background:linear-gradient(135deg,#ec4899,#be185d);"></span>
-                  <span>Custom</span>
+                  <span class="preset-preview" style="background:linear-gradient(135deg,#ec4899,#be185d); color:#fff;">Aa</span>
+                  <span class="preset-name">Custom</span>
+                  <span class="preset-check">&#10003;</span>
                 </label>
                 {% for key, style in theme_styles.items() %}
                 <label class="preset-option" data-accent="{{ style.accent }}" data-dark="{% if style.dark %}on{% endif %}" data-font="{{ style.font }}">
                   <input type="radio" name="theme_style" value="{{ key }}" {% if business.theme_style == key %}checked{% endif %}>
-                  <span class="preset-swatch" style="background:{{ style.accent }};"></span>
-                  <span>{{ style.label }}</span>
+                  <span class="preset-preview" style="background:{% if style.dark %}#1e1e28{% else %}#f7f5f9{% endif %}; color:{{ style.accent }}; font-family:{{ font_options[style.font].stack }};">Aa</span>
+                  <span class="preset-name">{{ style.label }}</span>
+                  <span class="preset-check">&#10003;</span>
                 </label>
                 {% endfor %}
               </div>
@@ -704,11 +714,15 @@
             </div>
             <div class="form-group">
               <label>Font</label>
-              <select name="theme_font">
+              <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px;">
                 {% for key, font in font_options.items() %}
-                <option value="{{ key }}" {% if business.theme_font == key %}selected{% endif %}>{{ font.label }}</option>
+                <label class="font-option">
+                  <input type="radio" name="theme_font" value="{{ key }}" {% if business.theme_font == key %}checked{% endif %}>
+                  <span class="font-preview" style="font-family:{{ font.stack }};">Aa</span>
+                  <span>{{ font.label }}</span>
+                </label>
                 {% endfor %}
-              </select>
+              </div>
             </div>
             <div class="form-group">
               <label>Theme color</label>
@@ -833,7 +847,8 @@
           if (!label || !label.dataset.accent) return; // custom option
           document.querySelector('input[name="theme_color"]').value = label.dataset.accent;
           document.querySelector('input[name="dark_theme"]').checked = label.dataset.dark === 'on';
-          document.querySelector('select[name="theme_font"]').value = label.dataset.font || 'default';
+          var fontInput = document.querySelector('input[name="theme_font"][value="' + (label.dataset.font || 'default') + '"]');
+          if (fontInput) fontInput.checked = true;
         });
       });
     })();

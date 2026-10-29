@@ -21,6 +21,16 @@
         <h2 style="margin-bottom:8px;">Choose your WaveBook plan</h2>
         <p>Pick a plan, choose how often you pay, then enter the email you signed up with. Your features unlock automatically in the app.</p>
         <form id="checkout-form">
+          <div class="duration-picker" style="margin-bottom: 24px;">
+            <span class="currency-label">Pay in:</span>
+            {% for key, info in currencies.items() %}
+            <div class="duration-option">
+              <input type="radio" name="currency" id="currency-{{ key }}" value="{{ key }}"{% if key == 'GBP' %} checked{% endif %}>
+              <label for="currency-{{ key }}">{{ info.symbol }} {{ key }}</label>
+            </div>
+            {% endfor %}
+          </div>
+
           <div class="plan-picker">
             <div class="plan-option">
               <input type="radio" name="tier" id="tier-basic" value="basic" checked>
@@ -80,16 +90,6 @@
             <div class="duration-option">
               <input type="radio" name="interval" id="interval-{{ key }}" value="{{ key }}"{% if key == 'monthly' %} checked{% endif %}>
               <label for="interval-{{ key }}">{{ label }}</label>
-            </div>
-            {% endfor %}
-          </div>
-
-          <div class="duration-picker" style="margin-top: 18px;">
-            <span class="currency-label">Pay in:</span>
-            {% for key, info in currencies.items() %}
-            <div class="duration-option">
-              <input type="radio" name="currency" id="currency-{{ key }}" value="{{ key }}"{% if key == 'GBP' %} checked{% endif %}>
-              <label for="currency-{{ key }}">{{ info.symbol }} {{ key }}</label>
             </div>
             {% endfor %}
           </div>

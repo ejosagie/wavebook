@@ -57,8 +57,34 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     ('Teal', '#14b8a6'),
     ('Blue', '#3b82f6'),
     ('Indigo', '#6366f1'),
-    ('Purple', '#a855f7'),
+    ('Purple', '#8b5cf6'),
   ];
+
+  // Font key -> Flutter font family (null = system default).
+  static String? _fontFamily(String key) {
+    switch (key) {
+      case 'georgia':
+        return 'Georgia';
+      case 'times':
+        return 'Times New Roman';
+      case 'arial':
+        return 'Arial';
+      case 'helvetica':
+        return 'Helvetica';
+      case 'verdana':
+        return 'Verdana';
+      case 'tahoma':
+        return 'Tahoma';
+      case 'trebuchet':
+        return 'Trebuchet MS';
+      case 'courier':
+        return 'Courier New';
+      case 'palatino':
+        return 'Palatino';
+      default:
+        return null;
+    }
+  }
 
   @override
   void initState() {
@@ -153,8 +179,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                         _themeFont = font;
                       }),
                       child: Container(
-                        width: 104,
-                        padding: const EdgeInsets.all(10),
+                        width: 118,
                         decoration: BoxDecoration(
                           color: dark ? const Color(0xFF14141D) : Colors.white,
                           borderRadius: BorderRadius.circular(14),
@@ -162,42 +187,54 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                             color: selected ? accentColor : const Color(0xFFE5E0E8),
                             width: selected ? 2.5 : 1,
                           ),
+                          boxShadow: selected
+                              ? [BoxShadow(color: accentColor.withValues(alpha: 0.25), blurRadius: 10)]
+                              : null,
                         ),
+                        clipBehavior: Clip.antiAlias,
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Row(
-                              children: [
-                                Container(
-                                  width: 18,
-                                  height: 18,
-                                  decoration: BoxDecoration(
-                                    color: accentColor,
-                                    shape: BoxShape.circle,
-                                  ),
+                            Container(
+                              height: 46,
+                              color: dark ? const Color(0xFF1E1E28) : const Color(0xFFF7F5F9),
+                              alignment: Alignment.center,
+                              child: Text(
+                                'Aa',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  color: accentColor,
+                                  fontFamily: _fontFamily(font),
                                 ),
-                                const Spacer(),
-                                if (dark)
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              child: Row(
+                                children: [
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    width: 10,
+                                    height: 10,
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF2A2A35),
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                    child: const Text(
-                                      'Dark',
-                                      style: TextStyle(fontSize: 9, color: Colors.white70),
+                                      color: accentColor,
+                                      shape: BoxShape.circle,
                                     ),
                                   ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              label,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: dark ? Colors.white : Colors.black87,
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      label,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: dark ? Colors.white : Colors.black87,
+                                      ),
+                                    ),
+                                  ),
+                                  if (selected)
+                                    Icon(Icons.check_circle, color: accentColor, size: 16),
+                                ],
                               ),
                             ),
                           ],
@@ -273,7 +310,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     final (key, label) = font;
                     final selected = _themeFont == key;
                     return ChoiceChip(
-                      label: Text(label, style: const TextStyle(fontSize: 12)),
+                      label: Text(
+                        label,
+                        style: TextStyle(fontSize: 12, fontFamily: _fontFamily(key)),
+                      ),
                       selected: selected,
                       onSelected: (_) => setState(() {
                         _themeFont = key;
