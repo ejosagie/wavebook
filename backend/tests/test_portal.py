@@ -56,6 +56,21 @@ def test_portal_session_expires_after_12_hours(client, make_business):
     assert expected - 1 <= remaining_hours <= expected + 1
 
 
+def test_app_token_expires_after_30_days(client, make_business):
+    biz = make_business("apptoken")
+    res = client.post(
+        "/api/auth/login",
+        json={"email": biz["owner_email"], "password": "ownerpass1"},
+    )
+    assert res.status_code == 200, res.text
+    token = res.json()["access_token"]
+    payload = pyjwt.decode(token, options={"verify_signature": False})
+    exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+    remaining_days = (exp - datetime.now(timezone.utc)).total_seconds() / 86400
+    expected = settings.ACCESS_TOKEN_EXPIRE_MINUTES / 1440
+    assert expected - 1 <= remaining_days <= expected + 1
+
+
 def test_portal_dashboard_shows_business(client, make_business):
     biz = make_business("portaldash")
     _login(client, biz)

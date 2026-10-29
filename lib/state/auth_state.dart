@@ -31,6 +31,13 @@ class AuthState extends ChangeNotifier {
   bool loading = false;
   String? error;
 
+  AuthState() {
+    api.onUnauthorized = () {
+      user = null;
+      notifyListeners();
+    };
+  }
+
   bool get isLoggedIn => user != null;
   bool get hasBusiness => user?.businessId != null;
 

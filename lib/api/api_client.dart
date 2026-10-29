@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -26,6 +27,10 @@ class ApiException implements Exception {
 
 class ApiClient {
   static const _tokenKey = 'wavebook_token';
+
+  /// Called when the server rejects the stored token (expired session).
+  /// AuthState uses this to return the user to the login screen.
+  void Function()? onUnauthorized;
 
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -154,9 +159,21 @@ class ApiClient {
     if (res.statusCode >= 200 && res.statusCode < 300) {
       return data;
     }
+    if (res.statusCode == 401) {
+      unawaited(_expireSession());
+    }
     final message = (data is Map && data['detail'] != null)
         ? data['detail'].toString()
         : 'Request failed (${res.statusCode})';
     throw ApiException(res.statusCode, message);
+  }
+
+  /// Called on a 401: if a token was stored, the session has expired, so clear
+  /// it and let AuthState return the user to the login screen.
+  Future<void> _expireSession() async {
+    final token = await getToken();
+    if (token == null) return;
+    await clearToken();
+    onUnauthorized?.call();
   }
 }
