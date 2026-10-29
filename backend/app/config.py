@@ -44,7 +44,10 @@ class Settings:
     GCS_BACKUP_BUCKET: str = os.getenv("GCS_BACKUP_BUCKET", "")  # private bucket for DB + uploads backups
 
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 30  # 30 days
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 30  # 30 days (mobile app)
+    # Web sessions (portal + admin) are shorter-lived for security.
+    PORTAL_SESSION_MINUTES: int = 12 * 60  # 12 hours
+    ADMIN_SESSION_MINUTES: int = 12 * 60  # 12 hours
     SUBSCRIPTION_PRICE_GBP: float = 19.99
     # Subscription plans: tier x billing interval.
     # basic = booking + store (5 products), shop = unlimited products,

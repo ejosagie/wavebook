@@ -17,10 +17,11 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: int, expires_minutes: int | None = None) -> str:
+    minutes = expires_minutes if expires_minutes is not None else settings.ACCESS_TOKEN_EXPIRE_MINUTES
     payload = {
         "sub": str(user_id),
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=minutes),
     }
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
@@ -33,10 +34,11 @@ def decode_access_token(token: str) -> int | None:
         return None
 
 
-def create_admin_token() -> str:
+def create_admin_token(expires_minutes: int | None = None) -> str:
+    minutes = expires_minutes if expires_minutes is not None else settings.ADMIN_SESSION_MINUTES
     payload = {
         "role": "admin",
-        "exp": datetime.now(timezone.utc) + timedelta(days=7),
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=minutes),
     }
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 

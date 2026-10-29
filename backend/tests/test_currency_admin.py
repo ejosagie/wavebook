@@ -1,5 +1,7 @@
 from datetime import date, timedelta
 
+import jwt as pyjwt
+
 from app import database
 from app.config import settings
 from app.routers.web import _format_price
@@ -15,6 +17,23 @@ def _admin_cookie(client, monkeypatch):
     for k, v in res.cookies.items():
         client.cookies.set(k, v)
     return client.cookies
+
+
+def test_admin_session_expires_after_12_hours(client, monkeypatch):
+    from datetime import datetime, timezone
+
+    monkeypatch.setattr(settings, "ADMIN_PASSWORD", "test-admin-pass")
+    res = client.post(
+        "/admin/login", data={"password": "test-admin-pass"}, follow_redirects=False
+    )
+    assert res.status_code == 303
+    cookie = res.cookies.get("wavebook_admin")
+    assert cookie
+    payload = pyjwt.decode(cookie, options={"verify_signature": False})
+    exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+    remaining_hours = (exp - datetime.now(timezone.utc)).total_seconds() / 3600
+    expected = settings.ADMIN_SESSION_MINUTES / 60
+    assert expected - 1 <= remaining_hours <= expected + 1
 
 
 def _add_subscription(business_id, amount, created_at, plan="basic_monthly"):

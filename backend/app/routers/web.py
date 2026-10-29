@@ -135,11 +135,11 @@ def _is_admin(request: Request) -> bool:
 def _set_admin_cookie(response, request: Request) -> None:
     response.set_cookie(
         "wavebook_admin",
-        create_admin_token(),
+        create_admin_token(expires_minutes=settings.ADMIN_SESSION_MINUTES),
         httponly=True,
         samesite="lax",
         secure=request.url.scheme == "https",
-        max_age=7 * 24 * 3600,
+        max_age=settings.ADMIN_SESSION_MINUTES * 60,
     )
 
 

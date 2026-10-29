@@ -1,6 +1,11 @@
 """Tests for the browser owner portal (/portal)."""
 
+from datetime import datetime, timezone
+
+import jwt as pyjwt
+
 from app import database
+from app.config import settings
 from app.services.slots import get_availability_row
 
 
@@ -37,6 +42,18 @@ def test_portal_login_sets_cookie_and_redirects(client, make_business):
     assert res.status_code == 303
     assert res.headers["location"] == "/portal?msg=Welcome%20back"
     assert "wavebook_portal" in res.headers.get("set-cookie", "")
+
+
+def test_portal_session_expires_after_12_hours(client, make_business):
+    biz = make_business("portalsess")
+    res = _login(client, biz)
+    cookie = res.cookies.get("wavebook_portal")
+    assert cookie
+    payload = pyjwt.decode(cookie, options={"verify_signature": False})
+    exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+    remaining_hours = (exp - datetime.now(timezone.utc)).total_seconds() / 3600
+    expected = settings.PORTAL_SESSION_MINUTES / 60
+    assert expected - 1 <= remaining_hours <= expected + 1
 
 
 def test_portal_dashboard_shows_business(client, make_business):

@@ -121,11 +121,11 @@ def _redirect(path: str, msg: str | None = None, error: str | None = None) -> Re
 def _set_portal_cookie(response: RedirectResponse, request: Request, user_id: int) -> None:
     response.set_cookie(
         PORTAL_COOKIE,
-        create_access_token(user_id),
+        create_access_token(user_id, expires_minutes=settings.PORTAL_SESSION_MINUTES),
         httponly=True,
         samesite="lax",
         secure=request.url.scheme == "https",
-        max_age=7 * 24 * 3600,
+        max_age=settings.PORTAL_SESSION_MINUTES * 60,
     )
 
 
