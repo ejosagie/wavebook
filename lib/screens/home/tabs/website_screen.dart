@@ -22,15 +22,15 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   bool _loading = true;
   bool _saving = false;
 
-  // Acuity-style website presets: (label, key, accent, dark, font).
+  // Acuity-style website presets: (label, key, accent, dark, font, pattern).
   static const _styles = [
-    ('Rose', 'rose', '#ec4899', false, 'default'),
-    ('Midnight', 'midnight', '#d4a017', true, 'georgia'),
-    ('Ocean', 'ocean', '#0ea5e9', false, 'default'),
-    ('Forest', 'forest', '#10b981', false, 'default'),
-    ('Sunset', 'sunset', '#f97316', false, 'default'),
-    ('Violet', 'violet', '#8b5cf6', true, 'default'),
-    ('Mono', 'mono', '#111827', false, 'courier'),
+    ('Rose', 'rose', '#ec4899', false, 'default', '🌸'),
+    ('Midnight', 'midnight', '#d4a017', true, 'georgia', '🌙'),
+    ('Ocean', 'ocean', '#0ea5e9', false, 'default', '🌊'),
+    ('Forest', 'forest', '#10b981', false, 'default', '🍃'),
+    ('Sunset', 'sunset', '#f97316', false, 'default', '🌅'),
+    ('Violet', 'violet', '#8b5cf6', true, 'default', '✨'),
+    ('Mono', 'mono', '#111827', false, 'courier', '▦'),
   ];
 
   // Font choices: (key, label).
@@ -168,7 +168,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   spacing: 12,
                   runSpacing: 12,
                   children: _styles.map((style) {
-                    final (label, key, accent, dark, font) = style;
+                    final (label, key, accent, dark, font, pattern) = style;
                     final selected = _themeStyle == key;
                     final accentColor = Color(int.parse('FF${accent.substring(1)}', radix: 16));
                     return GestureDetector(
@@ -196,17 +196,47 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Container(
-                              height: 46,
+                              height: 64,
                               color: dark ? const Color(0xFF1E1E28) : const Color(0xFFF7F5F9),
-                              alignment: Alignment.center,
-                              child: Text(
-                                'Aa',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w700,
-                                  color: accentColor,
-                                  fontFamily: _fontFamily(font),
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Container(height: 8, color: accentColor),
+                                  Expanded(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(pattern, style: const TextStyle(fontSize: 11)),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Aa',
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w700,
+                                            color: accentColor,
+                                            fontFamily: _fontFamily(font),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: accentColor,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: const Text(
+                                            'Book now',
+                                            style: TextStyle(
+                                              fontSize: 6,
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             Padding(

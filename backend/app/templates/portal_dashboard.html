@@ -16,7 +16,12 @@
     .preset-option:has(input:checked) { border-color: var(--pink); box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15); }
     .preset-option input:checked ~ .preset-name { color: var(--pink); }
     .preset-option input:checked ~ .preset-check { display: flex; }
-    .preset-preview { width: 100%; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: 700; }
+    .preset-preview { position: relative; width: 100%; height: 64px; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
+    .mock-nav { height: 8px; flex-shrink: 0; }
+    .mock-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 4px; }
+    .mock-pattern { font-size: 11px; line-height: 1; }
+    .mock-head { font-size: 0.95rem; font-weight: 700; line-height: 1; }
+    .mock-btn { font-size: 6px; font-weight: 700; color: #fff; padding: 2px 7px; border-radius: 3px; line-height: 1.3; }
     .preset-check { position: absolute; top: 6px; right: 6px; width: 18px; height: 18px; border-radius: 50%; background: var(--pink); color: #fff; font-size: 11px; display: none; align-items: center; justify-content: center; }
     .font-option { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 8px; cursor: pointer; border: 2px solid var(--border); border-radius: 12px; background: var(--surface); font-size: 0.85rem; color: var(--ink); font-weight: 700; transition: border-color 0.15s, box-shadow 0.15s; }
     .font-option:hover { border-color: var(--pink-light); }
@@ -697,14 +702,27 @@
               <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:10px;">
                 <label class="preset-option">
                   <input type="radio" name="theme_style" value="custom" {% if business.theme_style == 'custom' or not business.theme_style %}checked{% endif %}>
-                  <span class="preset-preview" style="background:linear-gradient(135deg,#ec4899,#be185d); color:#fff;">Aa</span>
+                  <span class="preset-preview" style="background:linear-gradient(135deg,#ec4899,#be185d);">
+                    <span class="mock-nav" style="background:rgba(255,255,255,0.35);"></span>
+                    <span class="mock-body">
+                      <span class="mock-head" style="color:#fff;">Aa</span>
+                      <span class="mock-btn" style="background:rgba(255,255,255,0.92); color:#be185d;">Book now</span>
+                    </span>
+                  </span>
                   <span class="preset-name">Custom</span>
                   <span class="preset-check">&#10003;</span>
                 </label>
                 {% for key, style in theme_styles.items() %}
                 <label class="preset-option" data-accent="{{ style.accent }}" data-dark="{% if style.dark %}on{% endif %}" data-font="{{ style.font }}">
                   <input type="radio" name="theme_style" value="{{ key }}" {% if business.theme_style == key %}checked{% endif %}>
-                  <span class="preset-preview" style="background:{% if style.dark %}#1e1e28{% else %}#f7f5f9{% endif %}; color:{{ style.accent }}; font-family:{{ font_options[style.font].stack }};">Aa</span>
+                  <span class="preset-preview" style="background:{% if style.dark %}#1e1e28{% else %}#f7f5f9{% endif %};">
+                    <span class="mock-nav" style="background:{{ style.accent }};"></span>
+                    <span class="mock-body">
+                      <span class="mock-pattern">{{ style.pattern }}</span>
+                      <span class="mock-head" style="color:{{ style.accent }}; font-family:{{ font_options[style.font].stack }};">Aa</span>
+                      <span class="mock-btn" style="background:{{ style.accent }};">Book now</span>
+                    </span>
+                  </span>
                   <span class="preset-name">{{ style.label }}</span>
                   <span class="preset-check">&#10003;</span>
                 </label>
