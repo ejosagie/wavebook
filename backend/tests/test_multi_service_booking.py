@@ -143,7 +143,7 @@ def test_booking_completes_with_instructions_when_payments_off(client, make_busi
     res = _book(client, "offpay", ids)
     assert res.status_code == 200, res.text
     assert "Booking Submitted" in res.text
-    assert "instructions by email or text" in res.text
+    assert "bank details below" in res.text
     assert "Pay Deposit" not in res.text  # no online payment step
 
 
@@ -364,9 +364,6 @@ def test_automatic_booking_owner_notified_only_after_payment(
             "currency": "GBP",
         },
     )
-    monkeypatch.setattr(
-        payments_router, "send_booking_confirmation_sms", lambda *a, **k: {"status": "skipped"}
-    )
     res = client.get(f"/api/payments/verify?tx_ref=WB-BK-{booking_id}-abcd&transaction_id=tx-deposit")
     assert res.status_code == 200, res.text
 
@@ -376,6 +373,33 @@ def test_automatic_booking_owner_notified_only_after_payment(
         m for m in sent if m["to"] == "owner@autonotify.wavebook.com" and "New booking" in m["subject"]
     ]
     assert len(owner_emails) == 1
+
+    # The booking is paid but still pending — it is only confirmed by the owner
+    conn = database.get_connection()
+    try:
+        row = conn.execute(
+            "SELECT status, payment_status FROM bookings WHERE id = ?", (booking_id,)
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row["status"] == "pending"
+    assert row["payment_status"] == "paid"
+    # The customer has not been told the booking is confirmed yet
+    assert not [
+        m for m in sent if m["to"] == "ada@example.com" and "Booking confirmed" in m["subject"]
+    ]
+
+    # When the owner confirms the booking, the customer gets the confirmation
+    res = client.patch(
+        f"/api/bookings/{booking_id}/status",
+        json={"status": "confirmed"},
+        headers=auth(biz["owner_token"]),
+    )
+    assert res.status_code == 200, res.text
+    customer_emails = [
+        m for m in sent if m["to"] == "ada@example.com" and "Booking confirmed" in m["subject"]
+    ]
+    assert len(customer_emails) == 1
 
 
 def test_manual_booking_notifies_owner_immediately(client, make_business, monkeypatch, tmp_path, sent):
@@ -391,7 +415,7 @@ def test_manual_booking_notifies_owner_immediately(client, make_business, monkey
     res = _book(client, "manualnotify", ids)
     assert res.status_code == 200, res.text
     assert "Booking Submitted" in res.text
-    assert "instructions by email or text" in res.text
+    assert "bank details below" in res.text
 
     assert _new_booking_notification_count(biz["id"]) == 1
     assert len(sms_calls) == 1

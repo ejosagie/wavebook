@@ -1,7 +1,6 @@
 """Tests for the deposit auto-invoice flow."""
 
 from app import database
-from app.routers import payments as payments_router
 from app.services import flutterwave
 from app.services import invoice as invoice_service
 
@@ -18,7 +17,6 @@ def _pay_deposit(client, monkeypatch, booking_id, amount=20.0, currency="GBP"):
             "currency": currency,
         },
     )
-    monkeypatch.setattr(payments_router, "send_booking_confirmation_sms", lambda *a, **k: {"status": "skipped"})
     return client.get(f"/api/payments/verify?tx_ref=WB-BK-{booking_id}-abcd&transaction_id=tx-deposit")
 
 

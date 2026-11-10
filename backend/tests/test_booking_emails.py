@@ -1,5 +1,4 @@
 from app.routers import bookings as bookings_router
-from app.routers import payments as payments_router
 from app.services import emailer, flutterwave
 from conftest import auth
 
@@ -56,17 +55,26 @@ def test_deposit_payment_emails_customer_confirmation(make_business, make_bookin
             "currency": "GBP",
         },
     )
-    monkeypatch.setattr(payments_router, "send_booking_confirmation_sms", lambda *a, **k: {"status": "skipped"})
     res = client.get(f"/api/payments/verify?tx_ref=WB-BK-{booking_id}-abcd&transaction_id=tx-deposit")
     assert res.status_code == 200, res.text
+    # After payment the customer gets the invoice receipt, but not the confirmation
     customer = [m for m in sent if m["to"] == "jane@wavebook.com"]
-    assert len(customer) == 2
+    assert len(customer) == 1
+    assert customer[0]["subject"].startswith("Invoice INV-")
+    assert "/uploads/invoices/INV-" in customer[0]["body"]
+    assert "Balance due" in customer[0]["body"]
+
+    # The confirmation is only sent once the owner confirms the booking
+    res = client.patch(
+        f"/api/bookings/{booking_id}/status",
+        json={"status": "confirmed"},
+        headers=auth(biz["owner_token"]),
+    )
+    assert res.status_code == 200, res.text
+    customer = [m for m in sent if m["to"] == "jane@wavebook.com"]
     subjects = {m["subject"] for m in customer}
     assert any(s.startswith("Booking confirmed") for s in subjects)
     assert any(s.startswith("Invoice INV-") for s in subjects)
-    invoice_email = next(m for m in customer if m["subject"].startswith("Invoice INV-"))
-    assert "/uploads/invoices/INV-" in invoice_email["body"]
-    assert "Balance due" in invoice_email["body"]
 
 
 def test_paid_order_emails_customer_and_owner_once(client, make_business, monkeypatch, sent):
