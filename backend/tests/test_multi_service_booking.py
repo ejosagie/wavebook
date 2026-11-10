@@ -1,6 +1,8 @@
 from app import database
 from app.config import settings
+from app.routers import payments as payments_router
 from app.routers import web
+from app.services import flutterwave
 from conftest import auth
 
 
@@ -50,7 +52,7 @@ def test_booking_with_multiple_services_stores_totals_and_items(client, make_bus
 
     res = _book(client, "multico", ids)
     assert res.status_code == 200, res.text
-    assert "Booking Submitted" in res.text
+    assert "Booking Received" in res.text
     assert "Service 1" in res.text and "Service 2" in res.text  # item list on the page
     assert "Deposit Due Now" in res.text
 
@@ -294,3 +296,119 @@ def test_owner_marks_booking_deposit_paid(client, make_business, monkeypatch, tm
     finally:
         conn.close()
     assert row["deposit_paid"] == 1
+
+
+def _new_booking_notification_count(business_id):
+    conn = database.get_connection()
+    try:
+        return conn.execute(
+            "SELECT COUNT(*) AS c FROM notifications WHERE business_id = ? AND title = 'New booking received'",
+            (business_id,),
+        ).fetchone()["c"]
+    finally:
+        conn.close()
+
+
+def _set_contact_phone(business_id):
+    conn = database.get_connection()
+    try:
+        conn.execute(
+            "UPDATE businesses SET contact_phone = '07123456789' WHERE id = ?", (business_id,)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_automatic_booking_owner_notified_only_after_payment(
+    client, make_business, monkeypatch, tmp_path, sent
+):
+    _open_slot(monkeypatch)
+    biz = make_business("autonotify", plan="premium_monthly", deposit=25.0)
+    ids = _make_services(client, biz["owner_token"])
+
+    sms_calls = []
+    monkeypatch.setattr(web, "send_business_sms", lambda *a, **k: sms_calls.append(a) or {})
+    monkeypatch.setattr(
+        payments_router, "send_business_sms", lambda *a, **k: sms_calls.append(a) or {}
+    )
+
+    res = _book(client, "autonotify", ids)
+    assert res.status_code == 200, res.text
+    assert "Booking Received" in res.text
+    assert "instructions by email or text" not in res.text  # manual text is manual-only
+
+    conn = database.get_connection()
+    try:
+        booking_id = conn.execute(
+            "SELECT id FROM bookings WHERE business_id = ?", (biz["id"],)
+        ).fetchone()["id"]
+    finally:
+        conn.close()
+
+    # Owner is NOT notified at booking time in automatic mode
+    assert _new_booking_notification_count(biz["id"]) == 0
+    assert sms_calls == []
+    assert not [m for m in sent if m["to"] == "owner@autonotify.wavebook.com"]
+
+    # After the Flutterwave payment succeeds, the owner is notified
+    _set_contact_phone(biz["id"])
+    monkeypatch.setattr(
+        flutterwave,
+        "verify_transaction",
+        lambda transaction_id: {
+            "status": "successful",
+            "tx_ref": f"WB-BK-{booking_id}-abcd",
+            "amount": 25.0,
+            "id": "tx-deposit",
+            "currency": "GBP",
+        },
+    )
+    monkeypatch.setattr(
+        payments_router, "send_booking_confirmation_sms", lambda *a, **k: {"status": "skipped"}
+    )
+    res = client.get(f"/api/payments/verify?tx_ref=WB-BK-{booking_id}-abcd&transaction_id=tx-deposit")
+    assert res.status_code == 200, res.text
+
+    assert _new_booking_notification_count(biz["id"]) == 1
+    assert len(sms_calls) == 1
+    owner_emails = [
+        m for m in sent if m["to"] == "owner@autonotify.wavebook.com" and "New booking" in m["subject"]
+    ]
+    assert len(owner_emails) == 1
+
+
+def test_manual_booking_notifies_owner_immediately(client, make_business, monkeypatch, tmp_path, sent):
+    _open_slot(monkeypatch)
+    biz = make_business("manualnotify", plan="premium_monthly", deposit=25.0)
+    _disable_online_payments(biz["id"])
+    _set_contact_phone(biz["id"])
+    ids = _make_services(client, biz["owner_token"])
+
+    sms_calls = []
+    monkeypatch.setattr(web, "send_business_sms", lambda *a, **k: sms_calls.append(a) or {})
+
+    res = _book(client, "manualnotify", ids)
+    assert res.status_code == 200, res.text
+    assert "Booking Submitted" in res.text
+    assert "instructions by email or text" in res.text
+
+    assert _new_booking_notification_count(biz["id"]) == 1
+    assert len(sms_calls) == 1
+    owner_emails = [
+        m for m in sent if m["to"] == "owner@manualnotify.wavebook.com" and "New booking" in m["subject"]
+    ]
+    assert len(owner_emails) == 1
+
+
+def test_automatic_booking_without_deposit_notifies_owner_immediately(
+    client, make_business, monkeypatch, tmp_path
+):
+    _open_slot(monkeypatch)
+    biz = make_business("nodepauto", plan="premium_monthly", deposit=0.0)
+    ids = _make_services(client, biz["owner_token"])
+
+    res = _book(client, "nodepauto", ids)
+    assert res.status_code == 200, res.text
+    assert "No deposit required" in res.text
+    assert _new_booking_notification_count(biz["id"]) == 1

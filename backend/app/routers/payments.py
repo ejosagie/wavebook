@@ -9,9 +9,13 @@ from ..deps import get_current_business, require_owner
 from ..routers.notifications import add_notification
 from ..schemas import PaymentIntentCreate
 from ..services import flutterwave
-from ..services.emailer import send_booking_confirmation_email, send_order_paid_emails
+from ..services.emailer import (
+    send_booking_confirmation_email,
+    send_order_paid_emails,
+    send_owner_new_booking_email,
+)
 from ..services.invoice import create_invoice, send_invoice_email
-from ..services.notifier import send_booking_confirmation_sms
+from ..services.notifier import send_booking_confirmation_sms, send_business_sms
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
@@ -142,6 +146,14 @@ def _verify_booking(tx_ref: str, data: dict) -> dict:
             booking_id,
             type_="payment",
         )
+        # In automatic mode the owner is only notified once the deposit is paid
+        add_notification(
+            conn,
+            booking["business_id"],
+            "New booking received",
+            f"{booking['customer_name']} booked {booking['service_name']} on {booking['date']} at {booking['time']}",
+            booking_id,
+        )
         conn.commit()
         booking_data = row_to_dict(booking)
         business_data = row_to_dict(business)
@@ -152,6 +164,16 @@ def _verify_booking(tx_ref: str, data: dict) -> dict:
         send_booking_confirmation_sms(booking_data, business_data)
     finally:
         conn.close()
+    # Alert the owner by text and email that the booking is now paid and confirmed
+    if business_data.get("contact_phone"):
+        send_business_sms(
+            business_data,
+            business_data["contact_phone"],
+            f"New booking: {booking_data['customer_name']} booked {booking_data['service_name']} "
+            f"on {booking_data['date']} at {booking_data['time']} ({business_data['name']}). "
+            f"Ref: {booking_data.get('reference', booking_id)}",
+        )
+    send_owner_new_booking_email(booking_data, business_data)
     send_booking_confirmation_email(booking_data, business_data)
     return {"status": "paid", "booking_id": booking_id}
 

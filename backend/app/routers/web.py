@@ -1512,15 +1512,24 @@ async def tenant_booking_submit(
                 "VALUES (?, ?, ?, ?, ?)",
                 (booking_id, svc["id"], svc["name"], svc["price"], svc["duration_minutes"]),
             )
-        conn.execute(
-            "INSERT INTO notifications (business_id, type, title, message, booking_id) VALUES (?, 'booking', ?, ?, ?)",
-            (
-                business["id"],
-                "New booking received",
-                f"{name.strip()} booked {summary_name} on {date} at {time}",
-                booking_id,
-            ),
+        deposit_amount = (
+            min(float(business["deposit_amount"] or 0), total_price)
+            if business.get("online_payments_enabled", 1)
+            else 0.0
         )
+        # In automatic (Flutterwave) mode with a deposit due, the owner is only
+        # notified once the payment succeeds; otherwise notify them immediately.
+        notify_owner_now = not business.get("online_payments_enabled", 1) or deposit_amount <= 0
+        if notify_owner_now:
+            conn.execute(
+                "INSERT INTO notifications (business_id, type, title, message, booking_id) VALUES (?, 'booking', ?, ?, ?)",
+                (
+                    business["id"],
+                    "New booking received",
+                    f"{name.strip()} booked {summary_name} on {date} at {time}",
+                    booking_id,
+                ),
+            )
         conn.commit()
         booking = row_to_dict(conn.execute("SELECT * FROM bookings WHERE id = ?", (booking_id,)).fetchone())
         booking_items = rows_to_dicts(
@@ -1531,18 +1540,19 @@ async def tenant_booking_submit(
     finally:
         conn.close()
 
-    # Notify the owner by text message
-    if business.get("contact_phone"):
-        send_business_sms(
-            business,
-            business["contact_phone"],
-            f"New booking: {name.strip()} booked {summary_name} on {date} at {time} "
-            f"({business['name']}). Ref: {booking.get('reference', booking_id)}",
-        )
+    if notify_owner_now:
+        # Notify the owner by text message
+        if business.get("contact_phone"):
+            send_business_sms(
+                business,
+                business["contact_phone"],
+                f"New booking: {name.strip()} booked {summary_name} on {date} at {time} "
+                f"({business['name']}). Ref: {booking.get('reference', booking_id)}",
+            )
+        send_owner_new_booking_email(booking, business)
 
     # Email the customer their booking reference and manage link
     send_booking_received_email(booking, business)
-    send_owner_new_booking_email(booking, business)
 
     return templates.TemplateResponse(
         request,
@@ -1551,11 +1561,7 @@ async def tenant_booking_submit(
             "business": business,
             "booking": booking,
             "booking_items": booking_items,
-            "deposit_amount": (
-                min(float(business["deposit_amount"] or 0), total_price)
-                if business.get("online_payments_enabled", 1)
-                else 0.0
-            ),
+            "deposit_amount": deposit_amount,
             "tenant_base": _tenant_base(request, slug),
             "format_price": _format_price,
         },
