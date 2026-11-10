@@ -216,15 +216,13 @@ def send_owner_deposit_paid_email(booking: dict, business: dict) -> dict:
     if not to:
         return {"provider": "none", "status": "skipped", "reason": "no owner email"}
     body = (
-        f"A customer says they have paid the deposit for {business.get('name', '')}:\n\n"
-        f"  Customer: {booking.get('customer_name', '')}\n"
-        f"  Email: {booking.get('customer_email', '')}\n"
-        f"  Phone: {booking.get('customer_phone', '')}\n"
+        f"Payment for a booking was made manually to the bank account by {booking.get('customer_name', '')}:\n\n"
+        f"  Business: {business.get('name', '')}\n"
         f"  Service: {booking.get('service_name', '')}\n"
         f"  Date: {booking.get('date', '')}\n"
         f"  Time: {booking.get('time', '')}\n"
         f"  Booking reference: {booking.get('reference', '')}\n\n"
-        "Please check your bank account for the transfer, then confirm the booking in the WaveBook app."
+        "Please confirm the payment, and then confirm the booking in your WaveBook app."
         "\n\nWaveBook"
     )
     return send_email(to, f"Deposit paid — {booking.get('customer_name', '')} ({booking.get('reference', '')})", body)

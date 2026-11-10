@@ -1636,8 +1636,9 @@ def tenant_booking_deposit_paid(slug: str, booking_id: int):
             send_business_sms(
                 business,
                 business["contact_phone"],
-                f"Deposit paid: {booking['customer_name']} says they've paid the deposit "
-                f"({business['name']}). Ref: {booking.get('reference', booking_id)}",
+                f"Payment made manually to your bank account by {booking['customer_name']} "
+                f"({business['name']}). Please confirm the payment, then confirm the booking "
+                f"in the WaveBook app. Ref: {booking.get('reference', booking_id)}",
             )
         send_owner_deposit_paid_email(booking, business)
 
