@@ -345,6 +345,7 @@ def init_db() -> None:
         _ensure_column(conn, "services", "questions", "questions TEXT DEFAULT '[]'")
         _ensure_column(conn, "bookings", "intake_answers", "intake_answers TEXT DEFAULT '{}'")
         _ensure_column(conn, "bookings", "receipt_sent", "receipt_sent INTEGER NOT NULL DEFAULT 0")
+        _ensure_column(conn, "bookings", "deposit_paid", "deposit_paid INTEGER NOT NULL DEFAULT 0")
         _ensure_column(conn, "products", "stock", "stock INTEGER")
         _ensure_column(conn, "businesses", "calendar_token", "calendar_token TEXT DEFAULT ''")
         # Move single product images (older app builds) into the multi-image table

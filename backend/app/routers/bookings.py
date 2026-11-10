@@ -266,6 +266,30 @@ def update_booking_status(
     return {**booking, "sms": sms}
 
 
+@router.patch("/{booking_id}/deposit-paid")
+def mark_booking_deposit_paid(
+    booking_id: int,
+    business: dict = Depends(get_current_business),
+    user: dict = Depends(require_owner),
+):
+    """Mark a booking's deposit as paid (manual bank transfer mode)."""
+    conn = get_connection()
+    try:
+        existing = conn.execute(
+            "SELECT * FROM bookings WHERE id = ? AND business_id = ?", (booking_id, business["id"])
+        ).fetchone()
+        if not existing:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found")
+        conn.execute(
+            "UPDATE bookings SET deposit_paid = 1 WHERE id = ?", (booking_id,)
+        )
+        conn.commit()
+        booking = row_to_dict(conn.execute("SELECT * FROM bookings WHERE id = ?", (booking_id,)).fetchone())
+    finally:
+        conn.close()
+    return booking
+
+
 @router.patch("/{booking_id}/assign")
 def assign_booking(
     booking_id: int,

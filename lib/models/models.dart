@@ -418,6 +418,7 @@ class Booking {
   final String notes;
   final Map<String, String> intakeAnswers;
   final String status;
+  final bool depositPaid;
   final String confirmationFile;
   final String reference;
   final String createdAt;
@@ -438,6 +439,7 @@ class Booking {
     required this.notes,
     this.intakeAnswers = const {},
     required this.status,
+    required this.depositPaid,
     required this.confirmationFile,
     required this.reference,
     required this.createdAt,
@@ -460,6 +462,7 @@ class Booking {
         intakeAnswers: (json['intake_answers'] as Map? ?? {})
             .map((k, v) => MapEntry(k.toString(), v.toString())),
         status: json['status'] as String? ?? 'pending',
+        depositPaid: (json['deposit_paid'] as num?)?.toInt() == 1,
         confirmationFile: json['confirmation_file'] as String? ?? '',
         reference: json['reference'] as String? ?? '',
         createdAt: json['created_at'] as String? ?? '',

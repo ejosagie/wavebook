@@ -18,7 +18,11 @@ from ..security import create_admin_token, decode_admin_token
 from ..services import flutterwave
 from ..services.assistant import build_assistant_response
 from ..services.ics import build_business_feed_ics
-from ..services.emailer import send_booking_received_email, send_owner_new_booking_email
+from ..services.emailer import (
+    send_booking_received_email,
+    send_owner_deposit_paid_email,
+    send_owner_new_booking_email,
+)
 from ..services import emailer
 from ..services.notifier import send_business_sms
 from ..services.slots import (
@@ -1593,6 +1597,51 @@ def tenant_booking_paid(request: Request, slug: str, booking_id: int):
             "format_price": _format_price,
         },
     )
+
+
+@router.post("/t/{slug}/booking/{booking_id}/deposit-paid")
+def tenant_booking_deposit_paid(slug: str, booking_id: int):
+    """Customer says they have paid the deposit by bank transfer (manual payment mode).
+
+    Marks the booking as deposit-paid and alerts the business owner by text and email.
+    """
+    business = _get_business_by_slug(slug)
+    if not business:
+        raise HTTPException(status_code=404, detail="Business not found")
+    conn = get_connection()
+    try:
+        booking = conn.execute(
+            "SELECT * FROM bookings WHERE id = ? AND business_id = ?",
+            (booking_id, business["id"]),
+        ).fetchone()
+        if not booking:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        if booking["status"] == "cancelled":
+            raise HTTPException(status_code=400, detail="This booking was cancelled")
+        already = bool(booking["deposit_paid"])
+        if not already:
+            conn.execute(
+                "UPDATE bookings SET deposit_paid = 1 WHERE id = ?", (booking_id,)
+            )
+            conn.commit()
+            booking = row_to_dict(
+                conn.execute("SELECT * FROM bookings WHERE id = ?", (booking_id,)).fetchone()
+            )
+    finally:
+        conn.close()
+
+    if not already:
+        # Alert the owner by text and email so they can check their bank account
+        if business.get("contact_phone"):
+            send_business_sms(
+                business,
+                business["contact_phone"],
+                f"Deposit paid: {booking['customer_name']} says they've paid the deposit "
+                f"({business['name']}). Ref: {booking.get('reference', booking_id)}",
+            )
+        send_owner_deposit_paid_email(booking, business)
+
+    return {"ok": True, "already": already}
 
 
 @router.get("/t/{slug}/booking/{booking_id}/receipt")

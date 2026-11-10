@@ -54,6 +54,24 @@
             </p>
           </div>
 
+          {% if not business.online_payments_enabled and booking.status != 'cancelled' %}
+          <div style="text-align:left; margin-bottom: 20px; padding: 14px; background: var(--bg-soft); border-radius: 10px;">
+            <h4 style="margin-bottom: 10px;">Deposit</h4>
+            {% if booking.deposit_paid %}
+            <p style="color: var(--success); font-weight:700;">✅ Deposit paid — thank you! The business will confirm your booking shortly.</p>
+            {% else %}
+            <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 10px;">
+              Paid the deposit by bank transfer? Let the business know so they can confirm your booking.
+            </p>
+            <button id="deposit-paid-button" class="btn" style="width:100%;">I've Paid the Deposit</button>
+            <p id="deposit-paid-note" style="display:none; margin-top: 10px; font-size: 0.9rem; color: var(--success); font-weight:700;">
+              ✅ Thanks! The business has been notified and will confirm your booking once they receive the payment.
+            </p>
+            <p id="deposit-paid-error" style="display:none; margin-top: 10px; font-size: 0.9rem; color: var(--danger);"></p>
+            {% endif %}
+          </div>
+          {% endif %}
+
           {% if booking.status != 'cancelled' %}
           <div style="text-align:left; margin-bottom: 20px;">
             <h4 style="margin-bottom: 10px;">Reschedule</h4>
@@ -96,24 +114,48 @@
 
   {% if booking and booking.status != 'cancelled' %}
   <script>
+    const slug = '{{ business.slug }}';
     const dateInput = document.getElementById('date');
     const timeSelect = document.getElementById('time');
-    const slug = '{{ business.slug }}';
-    const serviceId = {{ booking.service_id or 0 }};
-    dateInput.addEventListener('change', async function () {
-      timeSelect.innerHTML = '<option value="">Loading times…</option>';
-      try {
-        const res = await fetch('/t/' + slug + '/api/slots?date=' + dateInput.value + '&service_id=' + serviceId);
-        const data = await res.json();
-        if (data.blocked || !data.slots || data.slots.length === 0) {
-          timeSelect.innerHTML = '<option value="">No times available</option>';
-          return;
+    if (dateInput && timeSelect) {
+      const serviceId = {{ booking.service_id or 0 }};
+      dateInput.addEventListener('change', async function () {
+        timeSelect.innerHTML = '<option value="">Loading times…</option>';
+        try {
+          const res = await fetch('/t/' + slug + '/api/slots?date=' + dateInput.value + '&service_id=' + serviceId);
+          const data = await res.json();
+          if (data.blocked || !data.slots || data.slots.length === 0) {
+            timeSelect.innerHTML = '<option value="">No times available</option>';
+            return;
+          }
+          timeSelect.innerHTML = data.slots.map(s => '<option value="' + s + '">' + s + '</option>').join('');
+        } catch (e) {
+          timeSelect.innerHTML = '<option value="">Could not load times</option>';
         }
-        timeSelect.innerHTML = data.slots.map(s => '<option value="' + s + '">' + s + '</option>').join('');
-      } catch (e) {
-        timeSelect.innerHTML = '<option value="">Could not load times</option>';
-      }
-    });
+      });
+    }
+    const depositPaidButton = document.getElementById('deposit-paid-button');
+    if (depositPaidButton) {
+      const depositPaidNote = document.getElementById('deposit-paid-note');
+      const depositPaidError = document.getElementById('deposit-paid-error');
+      depositPaidButton.addEventListener('click', async () => {
+        depositPaidButton.disabled = true;
+        depositPaidError.style.display = 'none';
+        try {
+          const res = await fetch('/t/' + slug + '/booking/{{ booking.id }}/deposit-paid', {
+            method: 'POST'
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || 'Could not submit');
+          depositPaidButton.style.display = 'none';
+          depositPaidNote.style.display = 'block';
+        } catch (err) {
+          depositPaidError.textContent = err.message;
+          depositPaidError.style.display = 'block';
+          depositPaidButton.disabled = false;
+        }
+      });
+    }
   </script>
   {% endif %}
 </body>

@@ -216,3 +216,81 @@ def test_admin_payment_mode_switches_all_businesses(client, make_business, monke
     finally:
         conn.close()
     assert all(r["online_payments_enabled"] == 1 for r in rows)
+
+
+def test_customer_deposit_paid_notifies_owner(client, make_business, monkeypatch, tmp_path):
+    _open_slot(monkeypatch)
+    biz = make_business("depnotify", plan="premium_monthly", deposit=25.0)
+    _disable_online_payments(biz["id"])
+    ids = _make_services(client, biz["owner_token"])
+    res = _book(client, "depnotify", ids)
+    assert res.status_code == 200, res.text
+    assert "I've Paid the Deposit" in res.text
+
+    conn = database.get_connection()
+    try:
+        conn.execute(
+            "UPDATE businesses SET contact_phone = '07123456789' WHERE id = ?", (biz["id"],)
+        )
+        conn.commit()
+        booking_id = conn.execute(
+            "SELECT id FROM bookings WHERE business_id = ?", (biz["id"],)
+        ).fetchone()["id"]
+    finally:
+        conn.close()
+
+    sms_calls = []
+    monkeypatch.setattr(web, "send_business_sms", lambda *a, **k: sms_calls.append(a) or {})
+    monkeypatch.setattr(web, "send_owner_deposit_paid_email", lambda *a, **k: {})
+
+    res = client.post(f"/t/depnotify/booking/{booking_id}/deposit-paid")
+    assert res.status_code == 200
+    assert res.json()["ok"] is True
+    assert len(sms_calls) == 1
+
+    conn = database.get_connection()
+    try:
+        row = conn.execute("SELECT deposit_paid FROM bookings WHERE id = ?", (booking_id,)).fetchone()
+    finally:
+        conn.close()
+    assert row["deposit_paid"] == 1
+
+    # Idempotent: second call does not re-notify
+    res = client.post(f"/t/depnotify/booking/{booking_id}/deposit-paid")
+    assert res.status_code == 200
+    assert res.json()["already"] is True
+    assert len(sms_calls) == 1
+
+    # Success page now shows the paid confirmation instead of the button
+    res = client.get(f"/t/depnotify/booking/{booking_id}/paid")
+    assert res.status_code == 200
+    assert "I've Paid the Deposit" not in res.text
+
+
+def test_owner_marks_booking_deposit_paid(client, make_business, monkeypatch, tmp_path):
+    _open_slot(monkeypatch)
+    biz = make_business("depowner", plan="premium_monthly", deposit=25.0)
+    ids = _make_services(client, biz["owner_token"])
+    res = _book(client, "depowner", ids)
+    assert res.status_code == 200, res.text
+
+    conn = database.get_connection()
+    try:
+        booking_id = conn.execute(
+            "SELECT id FROM bookings WHERE business_id = ?", (biz["id"],)
+        ).fetchone()["id"]
+    finally:
+        conn.close()
+
+    res = client.patch(
+        f"/api/bookings/{booking_id}/deposit-paid", headers=auth(biz["owner_token"])
+    )
+    assert res.status_code == 200
+    assert res.json()["deposit_paid"] == 1
+
+    conn = database.get_connection()
+    try:
+        row = conn.execute("SELECT deposit_paid FROM bookings WHERE id = ?", (booking_id,)).fetchone()
+    finally:
+        conn.close()
+    assert row["deposit_paid"] == 1

@@ -164,6 +164,21 @@ class _BookingsTabState extends State<BookingsTab> {
     }
   }
 
+  Future<void> _markDepositPaid(Booking booking) async {
+    try {
+      await _api.patch('/api/bookings/${booking.id}/deposit-paid');
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Deposit marked as paid')),
+      );
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
   Future<void> _assign(Booking booking) async {
     if (_staff.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -371,6 +386,7 @@ class _BookingsTabState extends State<BookingsTab> {
             intakeLabels: _intakeLabels(b),
             onConfirm: () => _setStatus(b, 'confirmed'),
             onCancel: () => _setStatus(b, 'cancelled'),
+            onMarkDepositPaid: () => _markDepositPaid(b),
             onDelete: () => _delete(b),
             onAddToCalendar: _openSchedule,
             onAssign: () => _assign(b),
@@ -387,6 +403,7 @@ class _BookingCard extends StatelessWidget {
   final Map<String, String> intakeLabels;
   final VoidCallback onConfirm;
   final VoidCallback onCancel;
+  final VoidCallback onMarkDepositPaid;
   final VoidCallback onDelete;
   final VoidCallback onAddToCalendar;
   final VoidCallback onAssign;
@@ -397,6 +414,7 @@ class _BookingCard extends StatelessWidget {
     this.intakeLabels = const {},
     required this.onConfirm,
     required this.onCancel,
+    required this.onMarkDepositPaid,
     required this.onDelete,
     required this.onAddToCalendar,
     required this.onAssign,
@@ -463,6 +481,8 @@ class _BookingCard extends StatelessWidget {
             ],
             if (booking.assignedStaffName != null)
               _InfoRow(icon: Icons.badge_outlined, text: 'Assigned to ${booking.assignedStaffName}'),
+            if (booking.depositPaid)
+              _InfoRow(icon: Icons.payments_outlined, text: 'Deposit paid', iconColor: WaveBookColors.success, textColor: WaveBookColors.success),
             const SizedBox(height: 12),
             if (booking.status != 'cancelled') ...[
               Row(
@@ -476,6 +496,20 @@ class _BookingCard extends StatelessWidget {
                         ),
                         onPressed: onConfirm,
                         child: const Text('Confirm'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  if (booking.status == 'pending' && !booking.depositPaid) ...[
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: WaveBookColors.success,
+                          side: const BorderSide(color: WaveBookColors.success),
+                          minimumSize: const Size(0, 40),
+                        ),
+                        onPressed: onMarkDepositPaid,
+                        child: const Text('Deposit Paid'),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -526,8 +560,10 @@ class _BookingCard extends StatelessWidget {
 class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String text;
+  final Color? iconColor;
+  final Color? textColor;
 
-  const _InfoRow({required this.icon, required this.text});
+  const _InfoRow({required this.icon, required this.text, this.iconColor, this.textColor});
 
   @override
   Widget build(BuildContext context) {
@@ -535,9 +571,14 @@ class _InfoRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: WaveBookColors.muted),
+          Icon(icon, size: 16, color: iconColor ?? WaveBookColors.muted),
           const SizedBox(width: 8),
-          Expanded(child: Text(text, style: const TextStyle(fontSize: 14))),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 14, color: textColor),
+            ),
+          ),
         ],
       ),
     );
