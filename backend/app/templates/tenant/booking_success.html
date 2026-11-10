@@ -65,7 +65,25 @@
       </div>
       {% endif %}
 
-      {% if deposit_amount > 0 %}
+      {% if not business.online_payments_enabled %}
+      <div class="info-card" style="border-color: var(--success);">
+        <h3 style="color: var(--success);">Booking Submitted!</h3>
+        <p>Your booking is complete. You will receive instructions by email or text on how to pay the deposit and secure your spot.</p>
+        {% if business.payout_bank_name or business.payout_account_number or business.payout_iban %}
+        <div style="margin-top: 14px; padding: 14px; background: var(--bg-soft); border-radius: 10px; font-size: 0.95rem;">
+          <p style="font-weight:700; margin-bottom: 6px;">Pay the deposit by bank transfer:</p>
+          {% if business.payout_bank_name %}<p style="margin: 2px 0;">Bank: {{ business.payout_bank_name }}</p>{% endif %}
+          {% if business.payout_account_name %}<p style="margin: 2px 0;">Account name: {{ business.payout_account_name }}</p>{% endif %}
+          {% if business.payout_account_number %}<p style="margin: 2px 0;">Account number: {{ business.payout_account_number }}</p>{% endif %}
+          {% if business.payout_sort_code %}<p style="margin: 2px 0;">Sort code: {{ business.payout_sort_code }}</p>{% endif %}
+          {% if business.payout_routing_number %}<p style="margin: 2px 0;">Routing number: {{ business.payout_routing_number }}</p>{% endif %}
+          {% if business.payout_iban %}<p style="margin: 2px 0;">IBAN: {{ business.payout_iban }}</p>{% endif %}
+          {% if business.payout_swift %}<p style="margin: 2px 0;">SWIFT/BIC: {{ business.payout_swift }}</p>{% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      {% elif deposit_amount > 0 %}
       <div class="info-card">
         <h3>Confirm Your Booking — Pay Online</h3>
         <p style="color: var(--pink-dark); font-weight:700; font-size:1.2rem; margin-bottom: 12px;">

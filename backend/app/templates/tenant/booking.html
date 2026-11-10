@@ -37,12 +37,21 @@
   <section class="section">
     <div class="container">
       <div class="info-card" style="max-width:600px; margin: 0 auto 24px; border-color: var(--pink);">
+        {% if business.online_payments_enabled %}
         <p style="font-weight:700; color: var(--pink-dark); font-size:1.1rem;">
           Minimum Deposit Required: {{ format_price(business.deposit_amount, business.currency) }}
         </p>
         <p style="font-size:0.9rem; color: var(--muted); margin-top:4px;">
-          A minimum deposit is required to confirm your booking slot. Pay securely by card (Stripe) or bank transfer after submitting your booking.
+          A minimum deposit is required to confirm your booking slot. Pay securely by card after submitting your booking.
         </p>
+        {% else %}
+        <p style="font-weight:700; color: var(--pink-dark); font-size:1.1rem;">
+          Deposit: {{ format_price(business.deposit_amount, business.currency) }}
+        </p>
+        <p style="font-size:0.9rem; color: var(--muted); margin-top:4px;">
+          A deposit secures your spot. After submitting your booking, you will receive instructions by email or text on how to pay it.
+        </p>
+        {% endif %}
       </div>
 
       <div class="form-container">
@@ -60,21 +69,32 @@
             <input type="tel" name="phone" required>
           </div>
           <div class="form-group">
-            <label>Services *</label>
-            <div id="service-list">
+            <label>Service *</label>
+            <select name="service_id" id="service-select" required>
+              <option value="">-- Select a Service --</option>
               {% for svc in services %}
-              <label class="service-option">
-                <input type="checkbox" name="service_id" value="{{ svc.id }}" class="service-check" required
-                       data-name="{{ svc.name }}" data-price="{{ svc.price }}" data-duration="{{ svc.duration_minutes }}"
-                       {% if selected_service == svc.id %}checked{% endif %}>
-                <span>
-                  <strong>{{ svc.name }}</strong><br>
-                  <small>{{ format_price(svc.price, business.currency) }} &middot; {{ format_duration(svc.duration_minutes) }}</small>
-                </span>
-              </label>
+              <option value="{{ svc.id }}" data-name="{{ svc.name }}" data-price="{{ svc.price }}" data-duration="{{ svc.duration_minutes }}"
+                      {% if selected_service == svc.id %}selected{% endif %}>
+                {{ svc.name }} — {{ format_price(svc.price, business.currency) }} ({{ format_duration(svc.duration_minutes) }})
+              </option>
               {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Add more services or add-ons</label>
+            <div style="display:flex; gap:8px;">
+              <select id="addon-select" style="flex:1;">
+                <option value="">-- Optional: add another service --</option>
+                {% for svc in services %}
+                <option value="{{ svc.id }}" data-name="{{ svc.name }}" data-price="{{ svc.price }}" data-duration="{{ svc.duration_minutes }}">
+                  {{ svc.name }} — {{ format_price(svc.price, business.currency) }} ({{ format_duration(svc.duration_minutes) }})
+                </option>
+                {% endfor %}
+              </select>
+              <button type="button" id="addon-add" class="btn" style="white-space:nowrap;">Add</button>
             </div>
-            <p id="service-summary" style="font-size:0.9rem; color: var(--muted); margin-top:6px;">Select at least one service.</p>
+            <div id="addon-list"></div>
+            <p id="service-summary" style="font-size:0.9rem; color: var(--muted); margin-top:6px;">Select a service to continue.</p>
           </div>
           <div class="form-group">
             <label>Preferred Date *</label>
@@ -122,38 +142,82 @@
 
     const intakeContainer = document.getElementById('intake-questions');
     const serviceSummary = document.getElementById('service-summary');
+    const serviceSelect = document.getElementById('service-select');
+    const addonSelect = document.getElementById('addon-select');
+    const addonList = document.getElementById('addon-list');
+    const addonAdd = document.getElementById('addon-add');
+    const addedServices = [];
 
     function selectedServices() {
-      return Array.from(document.querySelectorAll('.service-check:checked'));
+      const list = [];
+      if (serviceSelect.value) {
+        const opt = serviceSelect.selectedOptions[0];
+        list.push({
+          id: serviceSelect.value,
+          name: opt.dataset.name,
+          price: parseFloat(opt.dataset.price) || 0,
+          duration: parseInt(opt.dataset.duration) || 0,
+        });
+      }
+      addedServices.forEach(s => list.push(s));
+      return list;
     }
 
     function selectedDuration() {
-      return selectedServices().reduce((sum, el) => sum + (parseInt(el.dataset.duration) || 0), 0);
+      return selectedServices().reduce((sum, s) => sum + s.duration, 0);
     }
 
     function updateServiceSummary() {
-      const checked = selectedServices();
-      if (checked.length === 0) {
-        serviceSummary.textContent = 'Select at least one service.';
+      const list = selectedServices();
+      if (list.length === 0) {
+        serviceSummary.textContent = 'Select a service to continue.';
         serviceSummary.style.color = 'var(--danger)';
         return;
       }
       let total = 0;
-      const names = checked.map(el => {
-        total += parseFloat(el.dataset.price) || 0;
-        return el.dataset.name;
+      const names = list.map(s => {
+        total += s.price;
+        return s.name;
       });
       serviceSummary.textContent = names.join(' + ') + ' — Total: ' + total.toFixed(2);
       serviceSummary.style.color = 'var(--success)';
+    }
+
+    function renderAddonList() {
+      addonList.innerHTML = '';
+      addedServices.forEach((s, i) => {
+        const row = document.createElement('div');
+        row.className = 'addon-row';
+        const hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = 'service_id';
+        hidden.value = s.id;
+        const span = document.createElement('span');
+        span.textContent = s.name;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'addon-remove';
+        remove.textContent = '×';
+        remove.title = 'Remove';
+        remove.addEventListener('click', () => {
+          addedServices.splice(i, 1);
+          renderAddonList();
+          onServiceChange();
+        });
+        row.appendChild(hidden);
+        row.appendChild(span);
+        row.appendChild(remove);
+        addonList.appendChild(row);
+      });
     }
 
     function renderIntakeQuestions() {
       const checked = selectedServices();
       intakeContainer.innerHTML = '';
       const questions = [];
-      checked.forEach(el => {
-        (serviceQuestions[el.value] || []).forEach(q => {
-          questions.push({ serviceName: el.dataset.name, ...q });
+      checked.forEach(s => {
+        (serviceQuestions[s.id] || []).forEach(q => {
+          questions.push({ serviceName: s.name, ...q });
         });
       });
       if (questions.length === 0) return;
@@ -201,7 +265,25 @@
       }
     }
 
-    document.querySelectorAll('.service-check').forEach(el => el.addEventListener('change', onServiceChange));
+    serviceSelect.addEventListener('change', onServiceChange);
+    addonAdd.addEventListener('click', () => {
+      const id = addonSelect.value;
+      if (!id) return;
+      const opt = addonSelect.selectedOptions[0];
+      if (addedServices.some(s => s.id === id) || id === serviceSelect.value) {
+        addonSelect.value = '';
+        return;
+      }
+      addedServices.push({
+        id,
+        name: opt.dataset.name,
+        price: parseFloat(opt.dataset.price) || 0,
+        duration: parseInt(opt.dataset.duration) || 0,
+      });
+      addonSelect.value = '';
+      renderAddonList();
+      onServiceChange();
+    });
 
     // Render questions and summary immediately (including when preselected via ?service=)
     updateServiceSummary();
@@ -246,7 +328,7 @@
 
     function loadTimeSlots(date) {
       timeSelect.innerHTML = '<option value="">Loading...</option>';
-      const serviceIds = selectedServices().map(el => el.value).join(',');
+      const serviceIds = selectedServices().map(s => s.id).join(',');
       fetch('/t/' + slug + '/api/slots?date=' + encodeURIComponent(date) + '&service_ids=' + encodeURIComponent(serviceIds))
         .then(r => r.json())
         .then(data => {

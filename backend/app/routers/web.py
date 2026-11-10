@@ -1519,7 +1519,11 @@ async def tenant_booking_submit(
             "business": business,
             "booking": booking,
             "booking_items": booking_items,
-            "deposit_amount": min(float(business["deposit_amount"] or 0), total_price),
+            "deposit_amount": (
+                min(float(business["deposit_amount"] or 0), total_price)
+                if business.get("online_payments_enabled", 1)
+                else 0.0
+            ),
             "tenant_base": _tenant_base(request, slug),
             "format_price": _format_price,
         },

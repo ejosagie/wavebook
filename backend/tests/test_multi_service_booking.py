@@ -118,3 +118,56 @@ def test_slots_uses_combined_duration_for_multiple_services(client, make_busines
     res = client.get("/t/slotco/api/slots?date=2099-01-15")
     assert res.status_code == 200
     assert captured["duration"] == 60  # default when no services selected
+
+
+def _disable_online_payments(business_id):
+    conn = database.get_connection()
+    try:
+        conn.execute(
+            "UPDATE businesses SET online_payments_enabled = 0 WHERE id = ?", (business_id,)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_booking_completes_with_instructions_when_payments_off(client, make_business, monkeypatch, tmp_path):
+    _open_slot(monkeypatch)
+    biz = make_business("offpay", plan="premium_monthly", deposit=25.0)
+    _disable_online_payments(biz["id"])
+    ids = _make_services(client, biz["owner_token"])
+
+    res = _book(client, "offpay", ids)
+    assert res.status_code == 200, res.text
+    assert "Booking Submitted" in res.text
+    assert "instructions by email or text" in res.text
+    assert "Pay Deposit" not in res.text  # no online payment step
+
+
+def test_booking_page_shows_instructions_notice_when_payments_off(client, make_business, tmp_path):
+    biz = make_business("offpage", plan="premium_monthly", deposit=25.0)
+    _disable_online_payments(biz["id"])
+    res = client.get("/t/offpage/booking")
+    assert res.status_code == 200
+    assert "instructions by email or text" in res.text
+    assert "Minimum Deposit Required" not in res.text
+
+
+def test_payment_init_blocked_when_payments_off(client, make_business, monkeypatch, tmp_path):
+    _open_slot(monkeypatch)
+    biz = make_business("offinit", plan="premium_monthly", deposit=25.0)
+    ids = _make_services(client, biz["owner_token"])
+    res = _book(client, "offinit", ids)
+    assert res.status_code == 200, res.text
+    conn = database.get_connection()
+    try:
+        booking_id = conn.execute(
+            "SELECT id FROM bookings WHERE business_id = ?", (biz["id"],)
+        ).fetchone()["id"]
+    finally:
+        conn.close()
+    _disable_online_payments(biz["id"])
+
+    res = client.post("/api/payments/init", json={"booking_id": booking_id})
+    assert res.status_code == 400
+    assert "disabled" in res.json()["detail"].lower()

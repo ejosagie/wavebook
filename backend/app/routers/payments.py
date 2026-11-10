@@ -34,6 +34,8 @@ def init_payment(data: PaymentIntentCreate):
         business = conn.execute(
             "SELECT * FROM businesses WHERE id = ?", (booking["business_id"],)
         ).fetchone()
+        if "online_payments_enabled" in business.keys() and not business["online_payments_enabled"]:
+            raise HTTPException(status_code=400, detail="Online payments are disabled for this business")
 
         deposit = float(business["deposit_amount"] or 0)
         price = float(booking["service_price"] or 0)

@@ -53,6 +53,7 @@ class BusinessUpdate(BaseModel):
     currency: str | None = None
     sms_instructions: str | None = None
     storefront_enabled: bool | None = None
+    online_payments_enabled: bool | None = None
     payout_bank_name: str | None = None
     payout_account_name: str | None = None
     payout_account_number: str | None = None

@@ -312,6 +312,7 @@ def init_db() -> None:
         conn.execute("UPDATE payments SET kind = 'order' WHERE booking_id IS NULL")
         _ensure_column(conn, "payments", "method", "method TEXT DEFAULT 'card'")
         _ensure_column(conn, "businesses", "storefront_enabled", "storefront_enabled INTEGER NOT NULL DEFAULT 0")
+        _ensure_column(conn, "businesses", "online_payments_enabled", "online_payments_enabled INTEGER NOT NULL DEFAULT 1")
         _ensure_column(conn, "businesses", "currency", "currency TEXT NOT NULL DEFAULT 'GBP'")
         _ensure_column(conn, "businesses", "payout_bank_name", "payout_bank_name TEXT DEFAULT ''")
         _ensure_column(conn, "businesses", "payout_account_name", "payout_account_name TEXT DEFAULT ''")

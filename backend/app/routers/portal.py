@@ -484,6 +484,7 @@ def portal_payments_save(
     request: Request,
     currency: str = Form("GBP"),
     deposit_amount: float = Form(0.0),
+    online_payments_enabled: str = Form(""),
     payout_country: str = Form("GB"),
     payout_bank_name: str = Form(""),
     payout_account_name: str = Form(""),
@@ -503,6 +504,7 @@ def portal_payments_save(
             data=BusinessUpdate(
                 currency=currency,
                 deposit_amount=max(0.0, deposit_amount),
+                online_payments_enabled=online_payments_enabled == "on",
                 payout_country=payout_country.strip().upper(),
                 payout_bank_name=payout_bank_name.strip(),
                 payout_account_name=payout_account_name.strip(),

@@ -129,13 +129,20 @@ def send_booking_received_email(booking: dict, business: dict) -> dict:
     if not to:
         return {"provider": "none", "status": "skipped", "reason": "no recipient"}
     reference = booking.get("reference") or ""
+    payment_note = ""
+    if not business.get("online_payments_enabled", 1):
+        payment_note = (
+            "\nTo secure your spot, you will receive instructions on how to pay the deposit "
+            f"({business.get('name', '')} will contact you by text or email).\n"
+        )
     body = (
         f"Hi {booking.get('customer_name', '')},\n\n"
         f"We've received your booking request with {business.get('name', '')}:\n"
         f"  Service: {booking.get('service_name', '')}\n"
         f"  Date: {booking.get('date', '')}\n"
         f"  Time: {booking.get('time', '')}\n"
-        f"  Booking reference: {reference}\n\n"
+        f"  Booking reference: {reference}\n"
+        f"{payment_note}\n"
         "The business will confirm shortly. Need to change or cancel? Use your email "
         f"address and booking reference above at:\n{_booking_manage_url()}\n\n"
         f"Thanks,\n{business.get('name', '')}"
