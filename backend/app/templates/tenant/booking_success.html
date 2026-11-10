@@ -49,6 +49,22 @@
         <p style="margin-top: 8px;">Please confirm your booking slot by paying the minimum deposit below.</p>
       </div>
 
+      {% if booking_items %}
+      <div class="info-card">
+        <h3>Your Services</h3>
+        {% for item in booking_items %}
+        <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border, #eee);">
+          <span>{{ item.service_name }}</span>
+          <span style="font-weight:700;">{{ format_price(item.service_price, business.currency) }}</span>
+        </div>
+        {% endfor %}
+        <div style="display:flex; justify-content:space-between; padding:8px 0; font-weight:800;">
+          <span>Total</span>
+          <span>{{ format_price(booking.service_price, business.currency) }}</span>
+        </div>
+      </div>
+      {% endif %}
+
       {% if deposit_amount > 0 %}
       <div class="info-card">
         <h3>Confirm Your Booking — Pay Online</h3>

@@ -1283,21 +1283,26 @@ def tenant_booking_page(request: Request, slug: str, service: int | None = None)
 
 
 @router.get("/t/{slug}/api/slots")
-def tenant_slots(slug: str, date: str, service_id: str | None = None):
+def tenant_slots(slug: str, date: str, service_ids: str | None = None):
     business = _get_business_by_slug(slug)
     if not business:
         raise HTTPException(status_code=404, detail="Business not found")
-    service_id = int(service_id) if service_id and service_id.strip().isdigit() else None
+    ids = [int(x) for x in (service_ids or "").split(",") if x.strip().isdigit()]
     conn = get_connection()
     try:
         availability_row = conn.execute(
             "SELECT * FROM availability WHERE business_id = ?", (business["id"],)
         ).fetchone()
-        service = None
-        if service_id:
-            service = conn.execute(
-                "SELECT * FROM services WHERE id = ? AND business_id = ?", (service_id, business["id"])
-            ).fetchone()
+        duration = 0
+        if ids:
+            placeholders = ",".join("?" for _ in ids)
+            rows = conn.execute(
+                f"SELECT duration_minutes FROM services WHERE business_id = ? AND id IN ({placeholders})",
+                (business["id"], *ids),
+            ).fetchall()
+            duration = sum(int(r["duration_minutes"] or 60) for r in rows)
+        if duration <= 0:
+            duration = 60
         confirmed = conn.execute(
             "SELECT * FROM bookings WHERE business_id = ? AND date = ? AND status = 'confirmed'",
             (business["id"], date),
@@ -1308,7 +1313,6 @@ def tenant_slots(slug: str, date: str, service_id: str | None = None):
     availability = get_availability_row(availability_row)
     if is_date_blocked(date, availability):
         return {"blocked": True, "slots": []}
-    duration = int(service["duration_minutes"]) if service else 60
     slots = get_available_time_slots(
         date,
         availability,
@@ -1402,7 +1406,7 @@ async def tenant_booking_submit(
     name: str = Form(...),
     email: str = Form(""),
     phone: str = Form(...),
-    service_id: int = Form(...),
+    service_id: list[int] = Form(...),
     date: str = Form(...),
     time: str = Form(...),
     notes: str = Form(""),
@@ -1416,12 +1420,18 @@ async def tenant_booking_submit(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
+    if not service_id:
+        raise HTTPException(status_code=400, detail="Select at least one service")
+
     conn = get_connection()
     try:
-        service = conn.execute(
-            "SELECT * FROM services WHERE id = ? AND business_id = ?", (service_id, business["id"])
-        ).fetchone()
-        if not service:
+        placeholders = ",".join("?" for _ in service_id)
+        rows = conn.execute(
+            f"SELECT * FROM services WHERE business_id = ? AND id IN ({placeholders})",
+            (business["id"], *service_id),
+        ).fetchall()
+        services = rows_to_dicts(rows)
+        if len(services) != len(set(service_id)):
             raise HTTPException(status_code=400, detail="Invalid service selected")
 
         availability = get_availability_row(
@@ -1429,6 +1439,13 @@ async def tenant_booking_submit(
         )
         if is_date_blocked(date, availability):
             raise HTTPException(status_code=400, detail="That date is not available")
+
+        total_price = round(sum(float(s["price"] or 0) for s in services), 2)
+        total_duration = sum(int(s["duration_minutes"] or 60) for s in services)
+        names = [s["name"] for s in services]
+        summary_name = " + ".join(names)
+        if len(names) > 3:
+            summary_name = " + ".join(names[:3]) + f" +{len(names) - 3} more"
 
         confirmed = conn.execute(
             "SELECT * FROM bookings WHERE business_id = ? AND date = ? AND status = 'confirmed'",
@@ -1438,7 +1455,7 @@ async def tenant_booking_submit(
             date,
             availability,
             rows_to_dicts(confirmed),
-            int(service["duration_minutes"] or 60),
+            total_duration,
             int(business["buffer_minutes"] or 30),
         )
         if time not in slots:
@@ -1450,24 +1467,35 @@ async def tenant_booking_submit(
                 service_name, service_price, service_duration_minutes, date, time, notes, reference, intake_answers)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                business["id"], name.strip(), email.strip(), phone, service["id"],
-                service["name"], service["price"], service["duration_minutes"],
+                business["id"], name.strip(), email.strip(), phone, services[0]["id"],
+                summary_name, total_price, total_duration,
                 date, time, notes.strip(), generate_reference(),
-                json.dumps(await _collect_intake_answers(service, request)),
+                json.dumps(await _collect_intake_answers(services, request)),
             ),
         )
         booking_id = cur.lastrowid
+        for svc in services:
+            conn.execute(
+                "INSERT INTO booking_items (booking_id, service_id, service_name, service_price, service_duration_minutes) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (booking_id, svc["id"], svc["name"], svc["price"], svc["duration_minutes"]),
+            )
         conn.execute(
             "INSERT INTO notifications (business_id, type, title, message, booking_id) VALUES (?, 'booking', ?, ?, ?)",
             (
                 business["id"],
                 "New booking received",
-                f"{name.strip()} booked {service['name']} on {date} at {time}",
+                f"{name.strip()} booked {summary_name} on {date} at {time}",
                 booking_id,
             ),
         )
         conn.commit()
         booking = row_to_dict(conn.execute("SELECT * FROM bookings WHERE id = ?", (booking_id,)).fetchone())
+        booking_items = rows_to_dicts(
+            conn.execute(
+                "SELECT * FROM booking_items WHERE booking_id = ? ORDER BY id", (booking_id,)
+            ).fetchall()
+        )
     finally:
         conn.close()
 
@@ -1476,7 +1504,7 @@ async def tenant_booking_submit(
         send_business_sms(
             business,
             business["contact_phone"],
-            f"New booking: {name.strip()} booked {service['name']} on {date} at {time} "
+            f"New booking: {name.strip()} booked {summary_name} on {date} at {time} "
             f"({business['name']}). Ref: {booking.get('reference', booking_id)}",
         )
 
@@ -1490,7 +1518,8 @@ async def tenant_booking_submit(
         {
             "business": business,
             "booking": booking,
-            "deposit_amount": min(float(business["deposit_amount"] or 0), float(service["price"] or 0)),
+            "booking_items": booking_items,
+            "deposit_amount": min(float(business["deposit_amount"] or 0), total_price),
             "tenant_base": _tenant_base(request, slug),
             "format_price": _format_price,
         },
@@ -1509,6 +1538,13 @@ def tenant_booking_paid(request: Request, slug: str, booking_id: int):
             "SELECT * FROM bookings WHERE id = ? AND business_id = ?",
             (booking_id, business["id"]),
         ).fetchone()
+        booking_items = []
+        if booking:
+            booking_items = rows_to_dicts(
+                conn.execute(
+                    "SELECT * FROM booking_items WHERE booking_id = ? ORDER BY id", (booking_id,)
+                ).fetchall()
+            )
     finally:
         conn.close()
     if not booking:
@@ -1519,6 +1555,7 @@ def tenant_booking_paid(request: Request, slug: str, booking_id: int):
         {
             "business": business,
             "booking": row_to_dict(booking),
+            "booking_items": booking_items,
             "deposit_amount": 0.0,
             "tenant_base": _tenant_base(request, slug),
             "format_price": _format_price,
@@ -1572,22 +1609,23 @@ def tenant_booking_receipt(request: Request, slug: str, booking_id: int):
 # ---- Customer booking management portal (reschedule / cancel) ----
 
 
-async def _collect_intake_answers(service, request: Request) -> dict:
-    """Read `answer_<id>` form fields for the service's intake questions."""
+async def _collect_intake_answers(services: list[dict], request: Request) -> dict:
+    """Read `answer_<id>` form fields for the services' intake questions."""
     answers: dict[str, str] = {}
-    try:
-        questions = json.loads(service["questions"] or "[]")
-    except json.JSONDecodeError:
-        return answers
     form = await request.form()
-    for q in questions:
-        qid = str(q.get("id", ""))
-        if not qid:
+    for service in services:
+        try:
+            questions = json.loads(service["questions"] or "[]")
+        except json.JSONDecodeError:
             continue
-        value = (form.get(f"answer_{qid}") or "").strip()
-        if q.get("required") and not value:
-            raise HTTPException(status_code=400, detail=f"Please answer: {q.get('label', '')}")
-        answers[qid] = value
+        for q in questions:
+            qid = str(q.get("id", ""))
+            if not qid:
+                continue
+            value = (form.get(f"answer_{qid}") or "").strip()
+            if q.get("required") and not value:
+                raise HTTPException(status_code=400, detail=f"Please answer: {q.get('label', '')}")
+            answers[qid] = value
     return answers
 
 

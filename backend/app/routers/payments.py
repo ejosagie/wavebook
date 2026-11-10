@@ -34,12 +34,9 @@ def init_payment(data: PaymentIntentCreate):
         business = conn.execute(
             "SELECT * FROM businesses WHERE id = ?", (booking["business_id"],)
         ).fetchone()
-        service = conn.execute(
-            "SELECT * FROM services WHERE id = ?", (booking["service_id"],)
-        ).fetchone()
 
         deposit = float(business["deposit_amount"] or 0)
-        price = float(service["price"] or 0)
+        price = float(booking["service_price"] or 0)
         amount = min(deposit, price) if deposit > 0 else 0.0
         if amount <= 0:
             raise HTTPException(status_code=400, detail="No payment is required for this booking")
@@ -57,7 +54,7 @@ def init_payment(data: PaymentIntentCreate):
                 "type": "booking_deposit",
             },
             title="WaveBook Deposit",
-            description=f"{service['name']} deposit for {business['name']}",
+            description=f"{booking['service_name']} deposit for {business['name']}",
         )
         conn.execute(
             "UPDATE bookings SET payment_intent_id = ?, payment_status = 'pending' WHERE id = ?",
@@ -113,11 +110,8 @@ def _verify_booking(tx_ref: str, data: dict) -> dict:
         business = conn.execute(
             "SELECT * FROM businesses WHERE id = ?", (booking["business_id"],)
         ).fetchone()
-        service = conn.execute(
-            "SELECT * FROM services WHERE id = ?", (booking["service_id"],)
-        ).fetchone()
         deposit = float(business["deposit_amount"] or 0)
-        price = float(service["price"] or 0)
+        price = float(booking["service_price"] or 0)
         expected = min(deposit, price) if deposit > 0 else 0.0
         paid = float(data.get("amount") or 0)
         if expected and paid < expected:

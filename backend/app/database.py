@@ -86,6 +86,16 @@ CREATE TABLE IF NOT EXISTS bookings (
     FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS booking_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    booking_id INTEGER NOT NULL,
+    service_id INTEGER,
+    service_name TEXT NOT NULL,
+    service_price REAL NOT NULL DEFAULT 0,
+    service_duration_minutes INTEGER NOT NULL DEFAULT 60,
+    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS customers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     business_id INTEGER NOT NULL,

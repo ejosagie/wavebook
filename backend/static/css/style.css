@@ -181,6 +181,19 @@ a:hover { text-decoration: underline; }
 }
 .form-container { max-width: 560px; margin: 0 auto; }
 
+/* ---------- Multi-service selection on the booking page ---------- */
+.service-option {
+  display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px;
+  cursor: pointer; background: var(--surface); transition: border-color 0.15s, box-shadow 0.15s;
+}
+.service-option:hover { border-color: var(--pink); }
+.service-option:has(input:checked) {
+  border-color: var(--pink); box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15);
+}
+.service-option input { margin-top: 3px; accent-color: var(--pink); }
+.service-option small { color: var(--muted); }
+
 /* ---------- Alerts / info cards ---------- */
 .alert { padding: 14px 18px; border-radius: 10px; margin-bottom: 20px; font-weight: 600; }
 .alert-success { background: rgba(52, 211, 153, 0.15); color: var(--success); border: 1px solid rgba(52, 211, 153, 0.4); }

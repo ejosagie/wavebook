@@ -60,15 +60,21 @@
             <input type="tel" name="phone" required>
           </div>
           <div class="form-group">
-            <label>Service *</label>
-            <select name="service_id" id="service-select" required>
-              <option value="">-- Select a Service --</option>
+            <label>Services *</label>
+            <div id="service-list">
               {% for svc in services %}
-              <option value="{{ svc.id }}" {% if selected_service == svc.id %}selected{% endif %}>
-                {{ svc.name }} — {{ format_price(svc.price, business.currency) }} ({{ format_duration(svc.duration_minutes) }})
-              </option>
+              <label class="service-option">
+                <input type="checkbox" name="service_id" value="{{ svc.id }}" class="service-check" required
+                       data-name="{{ svc.name }}" data-price="{{ svc.price }}" data-duration="{{ svc.duration_minutes }}"
+                       {% if selected_service == svc.id %}checked{% endif %}>
+                <span>
+                  <strong>{{ svc.name }}</strong><br>
+                  <small>{{ format_price(svc.price, business.currency) }} &middot; {{ format_duration(svc.duration_minutes) }}</small>
+                </span>
+              </label>
               {% endfor %}
-            </select>
+            </div>
+            <p id="service-summary" style="font-size:0.9rem; color: var(--muted); margin-top:6px;">Select at least one service.</p>
           </div>
           <div class="form-group">
             <label>Preferred Date *</label>
@@ -115,10 +121,41 @@
     {% endfor %}
 
     const intakeContainer = document.getElementById('intake-questions');
+    const serviceSummary = document.getElementById('service-summary');
 
-    function renderIntakeQuestions(serviceId) {
-      const questions = serviceQuestions[serviceId] || [];
+    function selectedServices() {
+      return Array.from(document.querySelectorAll('.service-check:checked'));
+    }
+
+    function selectedDuration() {
+      return selectedServices().reduce((sum, el) => sum + (parseInt(el.dataset.duration) || 0), 0);
+    }
+
+    function updateServiceSummary() {
+      const checked = selectedServices();
+      if (checked.length === 0) {
+        serviceSummary.textContent = 'Select at least one service.';
+        serviceSummary.style.color = 'var(--danger)';
+        return;
+      }
+      let total = 0;
+      const names = checked.map(el => {
+        total += parseFloat(el.dataset.price) || 0;
+        return el.dataset.name;
+      });
+      serviceSummary.textContent = names.join(' + ') + ' — Total: ' + total.toFixed(2);
+      serviceSummary.style.color = 'var(--success)';
+    }
+
+    function renderIntakeQuestions() {
+      const checked = selectedServices();
       intakeContainer.innerHTML = '';
+      const questions = [];
+      checked.forEach(el => {
+        (serviceQuestions[el.value] || []).forEach(q => {
+          questions.push({ serviceName: el.dataset.name, ...q });
+        });
+      });
       if (questions.length === 0) return;
       const heading = document.createElement('p');
       heading.style.cssText = 'font-weight:700; color: var(--pink-dark); margin: 16px 0 8px;';
@@ -128,7 +165,7 @@
         const group = document.createElement('div');
         group.className = 'form-group';
         const label = document.createElement('label');
-        label.textContent = q.label + (q.required ? ' *' : '');
+        label.textContent = (q.serviceName ? q.serviceName + ' — ' : '') + q.label + (q.required ? ' *' : '');
         group.appendChild(label);
         if (q.type === 'choice') {
           const select = document.createElement('select');
@@ -156,18 +193,19 @@
       });
     }
 
-    document.getElementById('service-select').addEventListener('change', function () {
-      renderIntakeQuestions(this.value);
+    function onServiceChange() {
+      updateServiceSummary();
+      renderIntakeQuestions();
       if (dateInput.value && !blockedDates.includes(dateInput.value)) {
         loadTimeSlots(dateInput.value);
       }
-    });
-
-    // Render questions immediately when a service is preselected via ?service=
-    const initialService = document.getElementById('service-select').value;
-    if (initialService) {
-      renderIntakeQuestions(initialService);
     }
+
+    document.querySelectorAll('.service-check').forEach(el => el.addEventListener('change', onServiceChange));
+
+    // Render questions and summary immediately (including when preselected via ?service=)
+    updateServiceSummary();
+    renderIntakeQuestions();
 
     // Prefill date/time from the assistant link (?service=&date=&time=)
     const params = new URLSearchParams(window.location.search);
@@ -208,8 +246,8 @@
 
     function loadTimeSlots(date) {
       timeSelect.innerHTML = '<option value="">Loading...</option>';
-      const serviceId = document.getElementById('service-select').value;
-      fetch('/t/' + slug + '/api/slots?date=' + encodeURIComponent(date) + '&service_id=' + encodeURIComponent(serviceId || ''))
+      const serviceIds = selectedServices().map(el => el.value).join(',');
+      fetch('/t/' + slug + '/api/slots?date=' + encodeURIComponent(date) + '&service_ids=' + encodeURIComponent(serviceIds))
         .then(r => r.json())
         .then(data => {
           if (data.blocked || data.slots.length === 0) {
