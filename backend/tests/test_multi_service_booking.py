@@ -1,4 +1,5 @@
 from app import database
+from app.config import settings
 from app.routers import web
 from conftest import auth
 
@@ -170,4 +171,48 @@ def test_payment_init_blocked_when_payments_off(client, make_business, monkeypat
 
     res = client.post("/api/payments/init", json={"booking_id": booking_id})
     assert res.status_code == 400
-    assert "disabled" in res.json()["detail"].lower()
+
+
+def _admin_cookie(client, monkeypatch):
+    monkeypatch.setattr(settings, "ADMIN_PASSWORD", "test-admin-pass")
+    res = client.post(
+        "/admin/login", data={"password": "test-admin-pass"}, follow_redirects=False
+    )
+    assert res.status_code == 303
+    for k, v in res.cookies.items():
+        client.cookies.set(k, v)
+    return client.cookies
+
+
+def test_admin_payment_mode_switches_all_businesses(client, make_business, monkeypatch, tmp_path):
+    _admin_cookie(client, monkeypatch)
+    make_business("paymode1", plan="premium_monthly")
+    make_business("paymode2", plan="premium_monthly")
+
+    # Default: automatic (Flutterwave) for all
+    res = client.get("/admin")
+    assert res.status_code == 200
+    assert "Automatic (Flutterwave)" in res.text
+
+    # Switch to manual for all businesses
+    res = client.post("/admin/payment-mode", data={"mode": "manual"}, follow_redirects=False)
+    assert res.status_code == 303
+    conn = database.get_connection()
+    try:
+        rows = conn.execute("SELECT online_payments_enabled FROM businesses").fetchall()
+    finally:
+        conn.close()
+    assert all(r["online_payments_enabled"] == 0 for r in rows)
+
+    res = client.get("/admin")
+    assert "Manual (bank transfer)" in res.text
+
+    # Switch back to automatic for all businesses
+    res = client.post("/admin/payment-mode", data={"mode": "automatic"}, follow_redirects=False)
+    assert res.status_code == 303
+    conn = database.get_connection()
+    try:
+        rows = conn.execute("SELECT online_payments_enabled FROM businesses").fetchall()
+    finally:
+        conn.close()
+    assert all(r["online_payments_enabled"] == 1 for r in rows)

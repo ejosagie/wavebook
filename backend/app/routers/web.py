@@ -485,6 +485,10 @@ def admin_dashboard(request: Request, page: int = 1):
         active_subs = conn.execute(
             "SELECT COUNT(*) AS c FROM businesses WHERE subscription_status = 'active'"
         ).fetchone()["c"]
+        online_count = conn.execute(
+            "SELECT COUNT(*) AS c FROM businesses WHERE online_payments_enabled = 1"
+        ).fetchone()["c"]
+        manual_count = total_businesses - online_count
         meta_rows = conn.execute("SELECT key, value FROM app_meta").fetchall()
     finally:
         conn.close()
@@ -501,10 +505,34 @@ def admin_dashboard(request: Request, page: int = 1):
             "active_subs": active_subs,
             "app_meta": meta,
             "trial_days": get_trial_days(),
+            "payment_mode": (
+                "automatic" if online_count == total_businesses
+                else ("manual" if manual_count == total_businesses else "mixed")
+            ),
+            "online_count": online_count,
+            "manual_count": manual_count,
             "page": page,
             "total_pages": total_pages,
         },
     )
+
+
+@router.post("/admin/payment-mode")
+def admin_payment_mode(request: Request, mode: str = Form(...)):
+    """Switch deposit payments between automatic (Flutterwave) and manual (bank transfer) for all businesses."""
+    if not _is_admin(request):
+        return RedirectResponse(url="/admin", status_code=303)
+    if mode not in ("automatic", "manual"):
+        return RedirectResponse(url="/admin", status_code=303)
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE businesses SET online_payments_enabled = ?", (1 if mode == "automatic" else 0,)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse(url="/admin", status_code=303)
 
 
 @router.post("/admin/login")

@@ -53,6 +53,7 @@
             <th>Pending</th>
             <th>Subscription</th>
             <th>Store</th>
+            <th>Pay</th>
             <th>SMS Used</th>
             <th>Payout Details</th>
             <th>Created</th>
@@ -68,6 +69,7 @@
             <td>{{ b.pending_count }}</td>
             <td><span class="badge badge-{{ b.subscription_status }}">{{ b.subscription_status }}</span></td>
             <td>{% if b.storefront_enabled %}✅{% else %}—{% endif %}</td>
+            <td>{% if b.online_payments_enabled %}✅{% else %}—{% endif %}</td>
             <td>{{ b.sms_used }} / 50{% if b.sms_credits > 0 %} (+{{ b.sms_credits }}){% endif %}</td>
             <td>
               {% if b.payout_account_number %}
@@ -109,6 +111,30 @@
         {% endif %}
       </div>
       {% endif %}
+
+      <h2 style="text-align:left; margin: 32px 0 16px;">Payment Mode</h2>
+      <div class="card" style="max-width: 640px; padding: 20px;">
+        <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 12px;">
+          Choose how customers pay deposits across <strong>all businesses</strong>.
+          <strong>Automatic</strong> — customers pay by card (Flutterwave) on the booking page.
+          <strong>Manual</strong> — bookings complete immediately and customers pay by bank transfer using the business's bank details.
+        </p>
+        <p style="margin-bottom: 12px;">
+          Current mode:
+          {% if payment_mode == 'automatic' %}<span class="badge badge-active">Automatic (Flutterwave)</span>
+          {% elif payment_mode == 'manual' %}<span class="badge badge-cancelled">Manual (bank transfer)</span>
+          {% else %}<span class="badge">Mixed — {{ online_count }} automatic / {{ manual_count }} manual</span>{% endif %}
+        </p>
+        <form method="post" action="/admin/payment-mode">
+          <div class="form-group">
+            <label><input type="radio" name="mode" value="automatic" {% if payment_mode == 'automatic' %}checked{% endif %}> Automatic — customers pay deposits online by card</label>
+          </div>
+          <div class="form-group">
+            <label><input type="radio" name="mode" value="manual" {% if payment_mode == 'manual' %}checked{% endif %}> Manual — customers pay by bank transfer to the business's bank details</label>
+          </div>
+          <button type="submit" class="btn btn-sm">Apply to All Businesses</button>
+        </form>
+      </div>
 
       <h2 style="text-align:left; margin: 32px 0 16px;">App Update Notice</h2>
       <div class="card" style="max-width: 640px; padding: 20px;">
