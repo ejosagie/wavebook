@@ -94,6 +94,20 @@ def effective_subscription_status(business: dict) -> str:
     return status
 
 
+def business_is_expired(user: dict) -> bool:
+    """True when the user's linked business has an expired subscription (e.g. ended trial)."""
+    if not user.get("business_id"):
+        return False
+    conn = get_connection()
+    try:
+        business = row_to_dict(
+            conn.execute("SELECT * FROM businesses WHERE id = ?", (user["business_id"],)).fetchone()
+        )
+    finally:
+        conn.close()
+    return bool(business) and effective_subscription_status(business) == "expired"
+
+
 def business_tier_features(business: dict) -> dict:
     """Feature limits for the business's current tier.
 

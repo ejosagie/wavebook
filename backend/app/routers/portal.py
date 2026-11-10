@@ -16,6 +16,7 @@ from fastapi.templating import Jinja2Templates
 
 from ..config import settings
 from ..database import get_connection, row_to_dict, rows_to_dicts
+from ..deps import business_is_expired
 from ..deps import business_tier_features
 from ..routers.availability import update_availability
 from ..routers.business import update_business
@@ -90,6 +91,13 @@ def _require_portal_user(request: Request) -> dict:
     user = _portal_user(request)
     if user is None:
         raise HTTPException(status_code=303, headers={"Location": "/portal/login"})
+    if business_is_expired(user):
+        raise HTTPException(
+            status_code=303,
+            headers={
+                "Location": "/portal/login?error=Your%20free%20trial%20has%20ended.%20Subscribe%20at%20getwavebook.com%20to%20continue%20using%20WaveBook."
+            },
+        )
     return user
 
 
@@ -154,7 +162,8 @@ def _counts(business_id: int) -> dict:
 
 @router.get("/login", response_class=HTMLResponse)
 def portal_login_page(request: Request):
-    if _portal_user(request):
+    user = _portal_user(request)
+    if user and not business_is_expired(user):
         return RedirectResponse(url="/portal", status_code=303)
     return templates.TemplateResponse(
         request,
@@ -178,6 +187,11 @@ def portal_login_submit(request: Request, email: str = Form(...), password: str 
         return _redirect("/portal/login", error="Staff accounts use the WaveBook mobile app")
     if not user.get("business_id"):
         return _redirect("/portal/login", error="No business is linked to this account")
+    if business_is_expired(user):
+        return _redirect(
+            "/portal/login",
+            error="Your free trial has ended. Subscribe at getwavebook.com to continue using WaveBook.",
+        )
     conn = get_connection()
     try:
         conn.execute("UPDATE users SET last_login_at = datetime('now') WHERE id = ?", (user["id"],))

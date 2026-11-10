@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from ..database import get_connection, get_trial_days, row_to_dict
-from ..deps import get_current_user
+from ..deps import business_is_expired, get_current_user
 from ..phone import validate_phone
 from ..schemas import ChangePasswordRequest, ForgotPasswordRequest, LoginRequest, SignupRequest, TokenResponse, SUPPORTED_CURRENCIES
 from ..security import create_access_token, hash_password, verify_password
@@ -100,6 +100,11 @@ def login(data: LoginRequest):
         conn.close()
     if user is None or not verify_password(data.password, user["password_hash"]):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+    if business_is_expired(user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your free trial has ended. Subscribe at getwavebook.com to continue using WaveBook.",
+        )
     conn = get_connection()
     try:
         conn.execute(
@@ -156,6 +161,11 @@ def forgot_password(data: ForgotPasswordRequest):
 @router.get("/me")
 def me(user: dict = Depends(get_current_user)):
     user.pop("password_hash", None)
+    if business_is_expired(user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your free trial has ended. Subscribe at getwavebook.com to continue using WaveBook.",
+        )
     return user
 
 

@@ -122,3 +122,75 @@ def test_welcome_email_quotes_trial_length(sent):
     emailer.send_welcome_email("new@wavebook.com", "New Owner")
     assert sent[-1]["subject"] == "Welcome to WaveBook — your 7-day free trial is active"
     assert "7-day free trial" in sent[-1]["body"]
+
+
+def _login(client, slug):
+    return client.post(
+        "/api/auth/login",
+        json={"email": f"owner@{slug}.wavebook.com", "password": "ownerpass1"},
+    )
+
+
+def test_expired_trial_cannot_login_on_api(client, make_business):
+    biz = make_business("expiredlogin")
+    _set_trial(biz["id"], "trial", (date.today() - timedelta(days=1)).isoformat())
+    res = _login(client, "expiredlogin")
+    assert res.status_code == 403
+    assert "free trial has ended" in res.json()["detail"]
+
+
+def test_expired_trial_cannot_restore_session(client, make_business):
+    biz = make_business("expiredrestore")
+    _set_trial(biz["id"], "trial", (date.today() - timedelta(days=1)).isoformat())
+    res = client.get("/api/auth/me", headers=auth(biz["owner_token"]))
+    assert res.status_code == 403
+    assert "free trial has ended" in res.json()["detail"]
+
+
+def test_expired_trial_cannot_login_on_portal(client, make_business):
+    from urllib.parse import unquote
+
+    biz = make_business("expiredportal")
+    _set_trial(biz["id"], "trial", (date.today() - timedelta(days=1)).isoformat())
+    res = client.post(
+        "/portal/login",
+        data={"email": f"owner@expiredportal.wavebook.com", "password": "ownerpass1"},
+        follow_redirects=False,
+    )
+    assert res.status_code == 303
+    assert res.headers["location"].startswith("/portal/login?error=")
+    assert "free trial has ended" in unquote(res.headers["location"])
+
+
+def test_expired_trial_portal_session_is_blocked(client, make_business):
+    biz = make_business("expiredsession")
+    res = client.post(
+        "/portal/login",
+        data={"email": f"owner@expiredsession.wavebook.com", "password": "ownerpass1"},
+        follow_redirects=False,
+    )
+    assert res.status_code == 303
+    for k, v in res.cookies.items():
+        client.cookies.set(k, v)
+    # Session works while the trial is valid
+    assert client.get("/portal", follow_redirects=False).status_code == 200
+    # Trial ends -> session is blocked and sent back to login
+    _set_trial(biz["id"], "trial", (date.today() - timedelta(days=1)).isoformat())
+    res = client.get("/portal", follow_redirects=False)
+    assert res.status_code == 303
+    assert res.headers["location"].startswith("/portal/login?error=")
+
+
+def test_active_subscription_can_login(client, make_business):
+    biz = make_business("activelogin", plan="premium_monthly")
+    res = _login(client, "activelogin")
+    assert res.status_code == 200
+    assert res.json()["access_token"]
+
+
+def test_valid_trial_can_login(client, make_business):
+    biz = make_business("validtrial")
+    _set_trial(biz["id"], "trial", (date.today() + timedelta(days=3)).isoformat())
+    res = _login(client, "validtrial")
+    assert res.status_code == 200
+    assert res.json()["access_token"]
