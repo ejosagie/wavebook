@@ -2,7 +2,7 @@ def test_support_page_is_public_and_lists_contact(client):
     res = client.get("/support")
     assert res.status_code == 200
     assert "support@getwavebook.com" in res.text
-    assert "NeuroWaves Data Systems" in res.text
+    assert "Wave Solutions Limited" in res.text
 
 
 def test_privacy_page_is_public(client):
@@ -15,7 +15,7 @@ def test_privacy_page_is_public(client):
 def test_copyright_page_is_public(client):
     res = client.get("/copyright")
     assert res.status_code == 200
-    assert "NeuroWaves Data Systems" in res.text
+    assert "Wave Solutions Limited" in res.text
 
 
 def test_landing_page_is_public(client):
