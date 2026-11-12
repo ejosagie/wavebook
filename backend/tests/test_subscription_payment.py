@@ -140,7 +140,7 @@ def test_checkout_rejects_unsupported_currency(client, make_business, monkeypatc
     biz = make_business("payco9", status="trial")
     res = client.post(
         "/api/subscription/checkout",
-        json={"plan": "premium_monthly", "currency": "NGN"},
+        json={"plan": "premium_monthly", "currency": "JPY"},
         headers=auth(biz["owner_token"]),
     )
     assert res.status_code == 400
@@ -200,9 +200,9 @@ def test_verify_rejects_currency_mismatch(client, make_business, monkeypatch):
 def test_verify_rejects_unsupported_currency(client, make_business, monkeypatch):
     biz = make_business("payc12", status="trial")
     _running_trial(biz)
-    tx_ref = f"WB-SUB-{biz['id']}-premium_monthly-ngn0001"
-    _verify_as(monkeypatch, tx_ref=tx_ref, amount=50000, currency="NGN")
-    client.get(f"/subscribe/verify?tx_ref={tx_ref}&transaction_id=tx-ngn")
+    tx_ref = f"WB-SUB-{biz['id']}-premium_monthly-jpy0001"
+    _verify_as(monkeypatch, tx_ref=tx_ref, amount=50000, currency="JPY")
+    client.get(f"/subscribe/verify?tx_ref={tx_ref}&transaction_id=tx-jpy")
     assert _subscription_rows(biz["id"]) == []
 
 
