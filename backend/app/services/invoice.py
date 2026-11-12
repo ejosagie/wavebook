@@ -30,7 +30,6 @@ CURRENCY_SYMBOLS = {
     "EUR": "€",
     "AUD": "A$",
     "NZD": "NZ$",
-    "NGN": "₦",
     "KES": "KSh",
     "ZAR": "R",
 }

@@ -10,7 +10,6 @@ void main() {
       expect(currencySymbol('EUR'), '€');
       expect(currencySymbol('AUD'), r'A$');
       expect(currencySymbol('NZD'), r'NZ$');
-      expect(currencySymbol('NGN'), '₦');
       expect(currencySymbol('KES'), 'KSh');
       expect(currencySymbol('ZAR'), 'R');
     });

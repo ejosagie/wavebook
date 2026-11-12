@@ -430,7 +430,6 @@ class _SettingsTabState extends State<SettingsTab> {
             DropdownMenuItem(value: 'EUR', child: Text('€ EUR (Europe)')),
             DropdownMenuItem(value: 'AUD', child: Text(r'A$ AUD (Australia)')),
             DropdownMenuItem(value: 'NZD', child: Text(r'NZ$ NZD (New Zealand)')),
-            DropdownMenuItem(value: 'NGN', child: Text('₦ NGN (Nigeria)')),
             DropdownMenuItem(value: 'KES', child: Text('KSh KES (Kenya)')),
             DropdownMenuItem(value: 'ZAR', child: Text('R ZAR (South Africa)')),
           ],

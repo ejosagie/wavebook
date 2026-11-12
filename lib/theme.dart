@@ -13,8 +13,6 @@ String currencySymbol(String code) {
       return r'A$';
     case 'NZD':
       return r'NZ$';
-    case 'NGN':
-      return '₦';
     case 'KES':
       return 'KSh';
     case 'ZAR':

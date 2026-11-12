@@ -75,7 +75,6 @@ def test_format_price_uses_currency_symbols():
     assert _format_price(12.5, "EUR") == "€12.50"
     assert _format_price(12.5, "AUD") == "A$12.50"
     assert _format_price(12.5, "NZD") == "NZ$12.50"
-    assert _format_price(12.5, "NGN") == "₦12.50"
     assert _format_price(12.5, "KES") == "KSh12.50"
     assert _format_price(12.5, "ZAR") == "R12.50"
 

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field
 
-SUPPORTED_CURRENCIES = {"GBP", "USD", "CAD", "EUR", "AUD", "NZD", "NGN", "KES", "ZAR"}
+SUPPORTED_CURRENCIES = {"GBP", "USD", "CAD", "EUR", "AUD", "NZD", "KES", "ZAR"}
 
 
 # ---- Auth ----
