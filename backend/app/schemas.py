@@ -118,6 +118,9 @@ class StorefrontCheckout(BaseModel):
 
 class OrderUpdate(BaseModel):
     status: str
+    tracking_number: str = ""
+    courier_name: str = ""
+    delivered_at: str = ""
 
 
 # ---- Services ----

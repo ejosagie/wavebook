@@ -97,8 +97,13 @@ class _BookingsTabState extends State<BookingsTab> {
     if (!mounted) return;
     try {
       try {
-        final businessData = await _api.get('/api/business') as Map<String, dynamic>;
-        if (mounted) setState(() => _businessSlug = businessData['slug']?.toString() ?? '');
+        final businessData =
+            await _api.get('/api/business') as Map<String, dynamic>;
+        if (mounted) {
+          setState(
+            () => _businessSlug = businessData['slug']?.toString() ?? '',
+          );
+        }
       } on ApiException {
         // Schedule link needs the slug; leave it empty if unavailable.
       }
@@ -115,13 +120,17 @@ class _BookingsTabState extends State<BookingsTab> {
         // Intake labels are optional; answers still display with their ids.
       }
       try {
-        final sub = SubscriptionInfo.fromJson(await _api.get('/api/subscription') as Map<String, dynamic>);
+        final sub = SubscriptionInfo.fromJson(
+          await _api.get('/api/subscription') as Map<String, dynamic>,
+        );
         final canAssign = sub.maxStaff > 0;
         if (canAssign) {
           final staffData = await _api.get('/api/staff');
           if (mounted) {
             setState(() {
-              _staff = (staffData as List).map((s) => StaffMember.fromJson(s as Map<String, dynamic>)).toList();
+              _staff = (staffData as List)
+                  .map((s) => StaffMember.fromJson(s as Map<String, dynamic>))
+                  .toList();
             });
           }
         }
@@ -137,7 +146,9 @@ class _BookingsTabState extends State<BookingsTab> {
   }
 
   Map<String, String> _intakeLabels(Booking booking) {
-    final service = _services.where((s) => s.id == booking.serviceId).firstOrNull;
+    final service = _services
+        .where((s) => s.id == booking.serviceId)
+        .firstOrNull;
     if (service == null) return booking.intakeAnswers;
     final labels = <String, String>{};
     for (final q in service.questions) {
@@ -149,17 +160,28 @@ class _BookingsTabState extends State<BookingsTab> {
 
   Future<void> _setStatus(Booking booking, String status) async {
     try {
-      await _api.patch('/api/bookings/${booking.id}/status', body: {'status': status});
+      await _api.patch(
+        '/api/bookings/${booking.id}/status',
+        body: {'status': status},
+      );
       await _load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Booking ${status == 'confirmed' ? 'confirmed' : status == 'cancelled' ? 'cancelled' : 'updated'}'),
+          content: Text(
+            'Booking ${status == 'confirmed'
+                ? 'confirmed'
+                : status == 'cancelled'
+                ? 'cancelled'
+                : 'updated'}',
+          ),
         ),
       );
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -169,12 +191,14 @@ class _BookingsTabState extends State<BookingsTab> {
       await _api.patch('/api/bookings/${booking.id}/deposit-paid');
       await _load();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Deposit marked as paid')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Deposit marked as paid')));
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -182,7 +206,9 @@ class _BookingsTabState extends State<BookingsTab> {
   Future<void> _assign(Booking booking) async {
     if (_staff.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invite a staff member first (WaveBook Premium)')),
+        const SnackBar(
+          content: Text('Invite a staff member first (WaveBook Premium)'),
+        ),
       );
       return;
     }
@@ -205,18 +231,27 @@ class _BookingsTabState extends State<BookingsTab> {
     );
     if (choice == null) return;
     try {
-      await _api.patch('/api/bookings/${booking.id}/assign', body: {'staff_id': choice.staffId});
+      await _api.patch(
+        '/api/bookings/${booking.id}/assign',
+        body: {'staff_id': choice.staffId},
+      );
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(choice.staffId == null ? 'Booking unassigned' : 'Booking assigned, staff member emailed'),
+            content: Text(
+              choice.staffId == null
+                  ? 'Booking unassigned'
+                  : 'Booking assigned, staff member emailed',
+            ),
           ),
         );
       }
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -228,10 +263,16 @@ class _BookingsTabState extends State<BookingsTab> {
         title: const Text('Delete booking?'),
         content: Text('Delete the booking for ${booking.customerName}?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: WaveBookColors.danger)),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: WaveBookColors.danger),
+            ),
           ),
         ],
       ),
@@ -242,17 +283,24 @@ class _BookingsTabState extends State<BookingsTab> {
       await _load();
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
 
   Future<void> _openSchedule() async {
     try {
-      final data = await _api.post('/api/business/calendar-token') as Map<String, dynamic>;
+      final data =
+          await _api.post('/api/business/calendar-token')
+              as Map<String, dynamic>;
       final token = data['calendar_token'] as String;
       final url = '$kApiBaseUrl/t/$_businessSlug/calendar.ics?token=$token';
-      final launched = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      final launched = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      );
       if (!launched && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Could not open the calendar link')),
@@ -260,7 +308,9 @@ class _BookingsTabState extends State<BookingsTab> {
       }
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -272,7 +322,9 @@ class _BookingsTabState extends State<BookingsTab> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Bookings'),
-        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _load)],
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
+        ],
       ),
       body: Column(
         children: [
@@ -296,7 +348,9 @@ class _BookingsTabState extends State<BookingsTab> {
                         },
                       ),
                 isDense: true,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ),
@@ -307,9 +361,18 @@ class _BookingsTabState extends State<BookingsTab> {
               child: SegmentedButton<String>(
                 segments: const [
                   ButtonSegment(value: 'all', label: Text('All', maxLines: 1)),
-                  ButtonSegment(value: 'pending', label: Text('Pending', maxLines: 1)),
-                  ButtonSegment(value: 'confirmed', label: Text('Confirmed', maxLines: 1)),
-                  ButtonSegment(value: 'cancelled', label: Text('Cancelled', maxLines: 1)),
+                  ButtonSegment(
+                    value: 'pending',
+                    label: Text('Pending', maxLines: 1),
+                  ),
+                  ButtonSegment(
+                    value: 'confirmed',
+                    label: Text('Confirmed', maxLines: 1),
+                  ),
+                  ButtonSegment(
+                    value: 'cancelled',
+                    label: Text('Cancelled', maxLines: 1),
+                  ),
                 ],
                 selected: {_filter},
                 onSelectionChanged: (s) {
@@ -343,7 +406,9 @@ class _BookingsTabState extends State<BookingsTab> {
     if (bookings.isEmpty) {
       return Center(
         child: Text(
-          _search.isEmpty ? 'No bookings found' : 'No bookings match "$_search"',
+          _search.isEmpty
+              ? 'No bookings found'
+              : 'No bookings match "$_search"',
           style: const TextStyle(color: WaveBookColors.muted),
         ),
       );
@@ -360,7 +425,10 @@ class _BookingsTabState extends State<BookingsTab> {
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
                 '${bookings.length} of $_total bookings',
-                style: const TextStyle(color: WaveBookColors.muted, fontSize: 13),
+                style: const TextStyle(
+                  color: WaveBookColors.muted,
+                  fontSize: 13,
+                ),
               ),
             );
           }
@@ -375,7 +443,9 @@ class _BookingsTabState extends State<BookingsTab> {
                   : TextButton.icon(
                       onPressed: () => _fetchBookings(append: true),
                       icon: const Icon(Icons.expand_more),
-                      label: Text('Load more ($_total - ${_bookings.length} remaining)'),
+                      label: Text(
+                        'Load more ($_total - ${_bookings.length} remaining)',
+                      ),
                     ),
             );
           }
@@ -423,8 +493,10 @@ class _BookingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = switch (booking.status) {
+    final status = booking.displayStatus;
+    final color = switch (status) {
       'confirmed' => WaveBookColors.success,
+      'completed' => WaveBookColors.success,
       'cancelled' => WaveBookColors.danger,
       _ => WaveBookColors.warning,
     };
@@ -440,31 +512,45 @@ class _BookingCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     booking.customerName,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    booking.status.toUpperCase(),
+                    status.toUpperCase(),
                     maxLines: 1,
-                    style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             _InfoRow(icon: Icons.content_cut, text: booking.serviceName),
-            _InfoRow(icon: Icons.event, text: '${booking.date} at ${booking.time}'),
+            _InfoRow(
+              icon: Icons.event,
+              text: '${booking.date} at ${booking.time}',
+            ),
             if (booking.customerPhone.isNotEmpty)
               _InfoRow(icon: Icons.phone, text: booking.customerPhone),
             if (booking.customerEmail.isNotEmpty)
               _InfoRow(icon: Icons.email, text: booking.customerEmail),
-            if (booking.notes.isNotEmpty) _InfoRow(icon: Icons.notes, text: booking.notes),
+            if (booking.notes.isNotEmpty)
+              _InfoRow(icon: Icons.notes, text: booking.notes),
             if (booking.intakeAnswers.isNotEmpty) ...[
               const SizedBox(height: 4),
               Text(
@@ -476,15 +562,26 @@ class _BookingCard extends StatelessWidget {
                 ),
               ),
               ...intakeLabels.entries.map(
-                (e) => _InfoRow(icon: Icons.fact_check_outlined, text: '${e.key}: ${e.value}'),
+                (e) => _InfoRow(
+                  icon: Icons.fact_check_outlined,
+                  text: '${e.key}: ${e.value}',
+                ),
               ),
             ],
             if (booking.assignedStaffName != null)
-              _InfoRow(icon: Icons.badge_outlined, text: 'Assigned to ${booking.assignedStaffName}'),
+              _InfoRow(
+                icon: Icons.badge_outlined,
+                text: 'Assigned to ${booking.assignedStaffName}',
+              ),
             if (booking.depositPaid)
-              _InfoRow(icon: Icons.payments_outlined, text: 'Deposit paid', iconColor: WaveBookColors.success, textColor: WaveBookColors.success),
+              _InfoRow(
+                icon: Icons.payments_outlined,
+                text: 'Deposit paid',
+                iconColor: WaveBookColors.success,
+                textColor: WaveBookColors.success,
+              ),
             const SizedBox(height: 12),
-            if (booking.status != 'cancelled') ...[
+            if (booking.status != 'cancelled' && status != 'completed') ...[
               Row(
                 children: [
                   if (booking.status == 'pending') ...[
@@ -534,17 +631,26 @@ class _BookingCard extends StatelessWidget {
               children: [
                 if (canAssign)
                   IconButton(
-                    icon: const Icon(Icons.person_add_alt_1_outlined, color: WaveBookColors.pink),
+                    icon: const Icon(
+                      Icons.person_add_alt_1_outlined,
+                      color: WaveBookColors.pink,
+                    ),
                     onPressed: onAssign,
                     tooltip: 'Assign to staff',
                   ),
                 IconButton(
-                  icon: const Icon(Icons.calendar_month_outlined, color: WaveBookColors.pink),
+                  icon: const Icon(
+                    Icons.calendar_month_outlined,
+                    color: WaveBookColors.pink,
+                  ),
                   onPressed: onAddToCalendar,
                   tooltip: 'Open schedule link',
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, color: WaveBookColors.danger),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: WaveBookColors.danger,
+                  ),
                   onPressed: onDelete,
                   tooltip: 'Delete',
                 ),
@@ -563,7 +669,12 @@ class _InfoRow extends StatelessWidget {
   final Color? iconColor;
   final Color? textColor;
 
-  const _InfoRow({required this.icon, required this.text, this.iconColor, this.textColor});
+  const _InfoRow({
+    required this.icon,
+    required this.text,
+    this.iconColor,
+    this.textColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -574,10 +685,7 @@ class _InfoRow extends StatelessWidget {
           Icon(icon, size: 16, color: iconColor ?? WaveBookColors.muted),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              text,
-              style: TextStyle(fontSize: 14, color: textColor),
-            ),
+            child: Text(text, style: TextStyle(fontSize: 14, color: textColor)),
           ),
         ],
       ),

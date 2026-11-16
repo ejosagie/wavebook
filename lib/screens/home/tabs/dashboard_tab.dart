@@ -33,13 +33,17 @@ class _DashboardTabState extends State<DashboardTab> {
   int _chatUnread = 0;
   Timer? _unreadTimer;
   int _pendingOrders = 0;
+  Map<String, dynamic>? _financials;
 
   @override
   void initState() {
     super.initState();
     _load();
     _pollUnread();
-    _unreadTimer = Timer.periodic(const Duration(seconds: 30), (_) => _pollUnread());
+    _unreadTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _pollUnread(),
+    );
   }
 
   @override
@@ -89,6 +93,13 @@ class _DashboardTabState extends State<DashboardTab> {
       final bookingsData = await _api.get('/api/bookings');
       final ordersData = await _api.get('/api/orders');
       final servicesData = await _api.get('/api/services');
+      Map<String, dynamic>? financials;
+      try {
+        final fin = await _api.get('/api/reports/financials?period=month');
+        financials = fin as Map<String, dynamic>;
+      } on ApiException {
+        financials = null;
+      }
       AppMeta? appMeta;
       try {
         final metaData = await _api.get('/api/app/meta');
@@ -99,12 +110,17 @@ class _DashboardTabState extends State<DashboardTab> {
       if (!mounted) return;
       setState(() {
         _business = Business.fromJson(businessData as Map<String, dynamic>);
-        _bookings = (bookingsData as List).map((b) => Booking.fromJson(b as Map<String, dynamic>)).toList();
+        _bookings = (bookingsData as List)
+            .map((b) => Booking.fromJson(b as Map<String, dynamic>))
+            .toList();
         final orders = (ordersData as List)
-          .map((o) => Order.fromJson(o as Map<String, dynamic>))
-          .toList();
+            .map((o) => Order.fromJson(o as Map<String, dynamic>))
+            .toList();
         _pendingOrders = orders.where((o) => o.status == 'paid').length;
-        _services = (servicesData as List).map((s) => Service.fromJson(s as Map<String, dynamic>)).toList();
+        _services = (servicesData as List)
+            .map((s) => Service.fromJson(s as Map<String, dynamic>))
+            .toList();
+        _financials = financials;
         _appMeta = appMeta;
       });
     } on ApiException catch (e) {
@@ -134,7 +150,10 @@ class _DashboardTabState extends State<DashboardTab> {
                   right: 6,
                   top: 6,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1,
+                    ),
                     decoration: BoxDecoration(
                       color: WaveBookColors.pink,
                       borderRadius: BorderRadius.circular(10),
@@ -143,7 +162,11 @@ class _DashboardTabState extends State<DashboardTab> {
                     child: Text(
                       '$_chatUnread',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                 ),
@@ -162,7 +185,10 @@ class _DashboardTabState extends State<DashboardTab> {
                   right: 6,
                   top: 6,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1,
+                    ),
                     decoration: BoxDecoration(
                       color: WaveBookColors.pink,
                       borderRadius: BorderRadius.circular(10),
@@ -171,7 +197,11 @@ class _DashboardTabState extends State<DashboardTab> {
                     child: Text(
                       '$_unread',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                 ),
@@ -184,10 +214,7 @@ class _DashboardTabState extends State<DashboardTab> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: _buildBody(auth),
-      ),
+      body: RefreshIndicator(onRefresh: _load, child: _buildBody(auth)),
     );
   }
 
@@ -203,14 +230,23 @@ class _DashboardTabState extends State<DashboardTab> {
           const SizedBox(height: 12),
           Text(_error!, textAlign: TextAlign.center),
           const SizedBox(height: 16),
-          Center(child: ElevatedButton(onPressed: _load, child: const Text('Retry'))),
+          Center(
+            child: ElevatedButton(onPressed: _load, child: const Text('Retry')),
+          ),
         ],
       );
     }
     final business = _business!;
     final pending = _bookings.where((b) => b.status == 'pending').length;
-    final confirmed = _bookings.where((b) => b.status == 'confirmed').length;
-    final today = _bookings.where((b) => b.date == _today()).length;
+    final confirmed = _bookings
+        .where((b) => b.status == 'confirmed' && !_isBeforeToday(b.date))
+        .length;
+    final completed = _bookings
+        .where((b) => b.status == 'confirmed' && _isBeforeToday(b.date))
+        .length;
+    final today = _bookings
+        .where((b) => b.date == _today() && b.status != 'cancelled')
+        .length;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -219,8 +255,14 @@ class _DashboardTabState extends State<DashboardTab> {
           Card(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             child: ListTile(
-              leading: const Icon(Icons.system_update_alt, color: WaveBookColors.pink),
-              title: const Text('Update available', style: TextStyle(fontWeight: FontWeight.w700)),
+              leading: const Icon(
+                Icons.system_update_alt,
+                color: WaveBookColors.pink,
+              ),
+              title: const Text(
+                'Update available',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
               subtitle: Text(
                 _appMeta!.updateMessage.isNotEmpty
                     ? _appMeta!.updateMessage
@@ -235,20 +277,27 @@ class _DashboardTabState extends State<DashboardTab> {
             ),
           ),
         if (_hasUpdate()) const SizedBox(height: 8),
-        if (business.subscriptionStatus == 'trial' || business.subscriptionStatus == 'expired')
+        if (business.subscriptionStatus == 'trial' ||
+            business.subscriptionStatus == 'expired')
           Card(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             child: ListTile(
-              leading: const Icon(Icons.rocket_launch, color: WaveBookColors.pink),
+              leading: const Icon(
+                Icons.rocket_launch,
+                color: WaveBookColors.pink,
+              ),
               title: Text(
-                business.subscriptionStatus == 'expired' ? 'Free trial ended' : 'Free trial active',
+                business.subscriptionStatus == 'expired'
+                    ? 'Free trial ended'
+                    : 'Free trial active',
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               subtitle: Text(_trialNotice(business)),
               trailing: Platform.isIOS
                   ? null
                   : TextButton(
-                      onPressed: () => _openUrl('https://getwavebook.com/subscribe'),
+                      onPressed: () =>
+                          _openUrl('https://getwavebook.com/subscribe'),
                       child: const Text('Subscribe'),
                     ),
             ),
@@ -273,6 +322,15 @@ class _DashboardTabState extends State<DashboardTab> {
                 color: WaveBookColors.warning,
               ),
             ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _StatCard(
+                label: 'Today',
+                value: today.toString(),
+                icon: Icons.today,
+                color: WaveBookColors.pink,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -289,20 +347,27 @@ class _DashboardTabState extends State<DashboardTab> {
             const SizedBox(width: 12),
             Expanded(
               child: _StatCard(
-                label: 'Today',
-                value: today.toString(),
-                icon: Icons.today,
-                color: WaveBookColors.pink,
+                label: 'Completed',
+                value: completed.toString(),
+                icon: Icons.done_all,
+                color: WaveBookColors.success,
               ),
             ),
           ],
         ),
+        if (_financials != null) ...[_buildFinancialInsights()],
         const SizedBox(height: 24),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Recent Bookings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            Text('${_services.length} services', style: const TextStyle(color: WaveBookColors.muted)),
+            const Text(
+              'Recent Bookings',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            Text(
+              '${_services.length} services',
+              style: const TextStyle(color: WaveBookColors.muted),
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -323,7 +388,10 @@ class _DashboardTabState extends State<DashboardTab> {
         Card(
           child: ListTile(
             leading: const Icon(Icons.public, color: WaveBookColors.pink),
-            title: const Text('Your booking website', style: TextStyle(fontWeight: FontWeight.w700)),
+            title: const Text(
+              'Your booking website',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
             subtitle: Text('${business.slug}.wab.ad'),
             trailing: const Icon(Icons.open_in_new),
             onTap: () => _openWebsite(context, business.slug),
@@ -334,7 +402,10 @@ class _DashboardTabState extends State<DashboardTab> {
           Card(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             child: ListTile(
-              leading: const Icon(Icons.receipt_long_outlined, color: WaveBookColors.pink),
+              leading: const Icon(
+                Icons.receipt_long_outlined,
+                color: WaveBookColors.pink,
+              ),
               title: Text(
                 '$_pendingOrders pending order${_pendingOrders == 1 ? '' : 's'}',
                 style: const TextStyle(fontWeight: FontWeight.w700),
@@ -342,7 +413,9 @@ class _DashboardTabState extends State<DashboardTab> {
               subtitle: const Text('Paid — confirm them in Online Shop'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ShopScreen(initialTab: 2)),
+                MaterialPageRoute(
+                  builder: (_) => const ShopScreen(initialTab: 2),
+                ),
               ),
             ),
           ),
@@ -351,9 +424,88 @@ class _DashboardTabState extends State<DashboardTab> {
         Card(
           child: ListTile(
             leading: const Icon(Icons.logout, color: WaveBookColors.danger),
-            title: const Text('Sign out', style: TextStyle(color: WaveBookColors.danger)),
+            title: const Text(
+              'Sign out',
+              style: TextStyle(color: WaveBookColors.danger),
+            ),
             onTap: () => confirmAndLogout(context),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFinancialInsights() {
+    final fin = _financials!;
+    final currency = fin['currency']?.toString() ?? 'GBP';
+    final symbol = currencySymbol(currency);
+    final bookingsAmount = (fin['bookings_amount'] as num?)?.toDouble() ?? 0;
+    final ordersAmount = (fin['orders_amount'] as num?)?.toDouble() ?? 0;
+    final depositsAmount = (fin['deposits_amount'] as num?)?.toDouble() ?? 0;
+    final bookingsCount = (fin['bookings_count'] as num?)?.toInt() ?? 0;
+    final ordersCount = (fin['orders_count'] as num?)?.toInt() ?? 0;
+    final total = bookingsAmount + ordersAmount;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'This Month',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            Text(
+              '$symbol$total',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: WaveBookColors.pink,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Revenue from bookings and store orders',
+          style: TextStyle(color: WaveBookColors.muted, fontSize: 13),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _StatCard(
+                label: 'Bookings',
+                value: '$symbol${bookingsAmount.toStringAsFixed(0)}',
+                icon: Icons.event,
+                color: WaveBookColors.pink,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _StatCard(
+                label: 'Orders',
+                value: '$symbol${ordersAmount.toStringAsFixed(0)}',
+                icon: Icons.shopping_bag_outlined,
+                color: WaveBookColors.pink,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _StatCard(
+                label: 'Deposits',
+                value: '$symbol${depositsAmount.toStringAsFixed(0)}',
+                icon: Icons.payments_outlined,
+                color: WaveBookColors.success,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '$bookingsCount bookings · $ordersCount orders',
+          style: const TextStyle(color: WaveBookColors.muted, fontSize: 13),
         ),
       ],
     );
@@ -376,7 +528,11 @@ class _DashboardTabState extends State<DashboardTab> {
     if (business.trialEndsAt.isEmpty) return cta;
     final parts = business.trialEndsAt.split('-');
     if (parts.length != 3) return cta;
-    final end = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+    final end = DateTime(
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+      int.parse(parts[2]),
+    );
     final days = end.difference(DateTime.now()).inDays;
     final date = '${parts[2]}/${parts[1]}/${parts[0]}';
     if (days <= 0) return ios ? cta : 'Your free trial ended on $date. $cta';
@@ -393,9 +549,26 @@ class _DashboardTabState extends State<DashboardTab> {
     return '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
+  bool _isBeforeToday(String date) {
+    final parts = date.split('-');
+    if (parts.length != 3) return false;
+    final d = DateTime(
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+      int.parse(parts[2]),
+    );
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return d.isBefore(today);
+  }
+
   void _openWebsite(BuildContext context, String slug) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Open $slug.wab.ad in your browser to view your booking site.')),
+      SnackBar(
+        content: Text(
+          'Open $slug.wab.ad in your browser to view your booking site.',
+        ),
+      ),
     );
   }
 }
@@ -423,8 +596,14 @@ class _StatCard extends StatelessWidget {
           children: [
             Icon(icon, color: color, size: 22),
             const SizedBox(height: 8),
-            Text(value, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
-            Text(label, style: const TextStyle(color: WaveBookColors.muted, fontSize: 13)),
+            Text(
+              value,
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
+            ),
+            Text(
+              label,
+              style: const TextStyle(color: WaveBookColors.muted, fontSize: 13),
+            ),
           ],
         ),
       ),
@@ -439,8 +618,10 @@ class _BookingTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = switch (booking.status) {
+    final status = booking.displayStatus;
+    final color = switch (status) {
       'confirmed' => WaveBookColors.success,
+      'completed' => WaveBookColors.success,
       'cancelled' => WaveBookColors.danger,
       _ => WaveBookColors.warning,
     };
@@ -450,8 +631,13 @@ class _BookingTile extends StatelessWidget {
           backgroundColor: color.withValues(alpha: 0.12),
           child: Icon(Icons.person, color: color),
         ),
-        title: Text(booking.customerName, style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text('${booking.serviceName} · ${booking.date} at ${booking.time}'),
+        title: Text(
+          booking.customerName,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text(
+          '${booking.serviceName} · ${booking.date} at ${booking.time}',
+        ),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
@@ -459,8 +645,12 @@ class _BookingTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
-            booking.status.toUpperCase(),
-            style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700),
+            status.toUpperCase(),
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ),

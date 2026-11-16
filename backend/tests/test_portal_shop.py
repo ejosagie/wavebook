@@ -105,6 +105,7 @@ def test_portal_order_status_update(client, make_business):
     finally:
         conn.close()
 
+    # Shipped without courier/tracking details is rejected.
     res = client.post(
         f"/portal/orders/{order_id}/status",
         data={"status": "shipped"},
@@ -116,7 +117,47 @@ def test_portal_order_status_update(client, make_business):
         row = conn.execute("SELECT status FROM orders WHERE id = ?", (order_id,)).fetchone()
     finally:
         conn.close()
+    assert row["status"] == "pending"
+
+    res = client.post(
+        f"/portal/orders/{order_id}/status",
+        data={"status": "shipped", "courier_name": "DPD", "tracking_number": "TRK-123"},
+        follow_redirects=False,
+    )
+    assert res.status_code == 303
+    conn = database.get_connection()
+    try:
+        row = conn.execute(
+            "SELECT status, courier_name, tracking_number FROM orders WHERE id = ?", (order_id,)
+        ).fetchone()
+    finally:
+        conn.close()
     assert row["status"] == "shipped"
+    assert row["courier_name"] == "DPD"
+    assert row["tracking_number"] == "TRK-123"
+
+    # Delivered requires a delivery date.
+    res = client.post(
+        f"/portal/orders/{order_id}/status",
+        data={"status": "delivered"},
+        follow_redirects=False,
+    )
+    assert res.status_code == 303
+    res = client.post(
+        f"/portal/orders/{order_id}/status",
+        data={"status": "delivered", "delivered_at": "2026-11-15"},
+        follow_redirects=False,
+    )
+    assert res.status_code == 303
+    conn = database.get_connection()
+    try:
+        row = conn.execute(
+            "SELECT status, delivered_at FROM orders WHERE id = ?", (order_id,)
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row["status"] == "delivered"
+    assert row["delivered_at"] == "2026-11-15"
 
 
 def test_portal_shop_tab_renders_products_and_orders(client, make_business):

@@ -102,8 +102,8 @@ class Settings:
     SMS_FREE_LIMIT: int = 50  # default free SMS per business (plan tiers may override)
     SMS_TOPUP_PRICE_GBP: float = 5.00
     SMS_TOPUP_CREDITS: int = 50  # SMS added per £5 top-up
-    # Storefront order statuses: pending -> paid -> confirmed -> shipped (or cancelled)
-    ORDER_STATUSES: tuple = ("pending", "paid", "confirmed", "shipped", "cancelled")
+    # Storefront order statuses: pending -> paid -> confirmed -> shipped -> delivered (or cancelled)
+    ORDER_STATUSES: tuple = ("pending", "paid", "confirmed", "shipped", "delivered", "cancelled")
 
 
 settings = Settings()

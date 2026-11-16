@@ -29,6 +29,7 @@ from ..routers.products import (
     _upload_dir,
 )
 from ..services.uploads import image_content_type
+from ..services.emailer import send_order_delivered_email, send_order_shipped_email
 from ..services.themes import FONT_OPTIONS, THEME_STYLES
 from ..routers.bookings import update_booking_status
 from ..schemas import (
@@ -880,7 +881,14 @@ def portal_product_image_delete(request: Request, product_id: int, image_id: int
 
 
 @router.post("/orders/{order_id}/status")
-def portal_order_status(request: Request, order_id: int, status: str = Form(...)):
+def portal_order_status(
+    request: Request,
+    order_id: int,
+    status: str = Form(...),
+    courier_name: str = Form(""),
+    tracking_number: str = Form(""),
+    delivered_at: str = Form(""),
+):
     user = _require_portal_user(request)
     business = _load_business(user)
     if business is None:
@@ -890,18 +898,31 @@ def portal_order_status(request: Request, order_id: int, status: str = Form(...)
     conn = get_connection()
     try:
         order = conn.execute(
-            "SELECT id FROM orders WHERE id = ? AND business_id = ?",
+            "SELECT * FROM orders WHERE id = ? AND business_id = ?",
             (order_id, business["id"]),
         ).fetchone()
         if not order:
             return _redirect("/portal?tab=shop", error="Order not found")
+        order = row_to_dict(order)
+        tracking_number = (tracking_number or order.get("tracking_number") or "").strip()
+        courier_name = (courier_name or order.get("courier_name") or "").strip()
+        delivered_at = (delivered_at or order.get("delivered_at") or "").strip()
+        if status == "shipped" and (not tracking_number or not courier_name):
+            return _redirect("/portal?tab=shop", error="Enter the courier name and tracking number to ship")
+        if status == "delivered" and not delivered_at:
+            return _redirect("/portal?tab=shop", error="Enter the delivery date")
         conn.execute(
-            "UPDATE orders SET status = ? WHERE id = ? AND business_id = ?",
-            (status, order_id, business["id"]),
+            "UPDATE orders SET status = ?, tracking_number = ?, courier_name = ?, delivered_at = ? "
+            "WHERE id = ? AND business_id = ?",
+            (status, tracking_number, courier_name, delivered_at, order_id, business["id"]),
         )
         conn.commit()
     finally:
         conn.close()
+    if status == "shipped" and order.get("status") != "shipped":
+        send_order_shipped_email(order, business, courier_name, tracking_number)
+    elif status == "delivered" and order.get("status") != "delivered":
+        send_order_delivered_email(order, business, delivered_at)
     return _redirect("/portal?tab=shop", msg="Order updated")
 
 

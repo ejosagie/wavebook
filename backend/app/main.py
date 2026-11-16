@@ -32,7 +32,7 @@ from .services import invoice
 BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOADS_DIR = BASE_DIR / "uploads"
 
-app = FastAPI(title="WaveBook API", version="0.2.2", dependencies=[Depends(enforce_staff_access)])
+app = FastAPI(title="WaveBook API", version="0.3.0", dependencies=[Depends(enforce_staff_access)])
 
 
 @app.middleware("http")
@@ -179,4 +179,4 @@ app.include_router(web.router)
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "app": "WaveBook", "version": "0.2.2"}
+    return {"status": "ok", "app": "WaveBook", "version": "0.3.0"}

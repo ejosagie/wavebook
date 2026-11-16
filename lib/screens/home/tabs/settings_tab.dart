@@ -7,7 +7,6 @@ import '../../../models/models.dart';
 import '../../../theme.dart';
 import '../../../services/notification_service.dart';
 import '../../../widgets/loading_network_image.dart';
-import '../../storefront/products_screen.dart';
 
 class SettingsTab extends StatefulWidget {
   const SettingsTab({super.key});
@@ -140,41 +139,46 @@ class _SettingsTabState extends State<SettingsTab> {
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      await _api.patch('/api/business', body: {
-        'name': _name.text.trim(),
-        'tagline': _tagline.text.trim(),
-        'about_text': _about.text.trim(),
-        'rules': _rules.text.trim(),
-        'contact_phone': _phone.text.trim(),
-        'contact_email': _email.text.trim(),
-        'address': _address.text.trim(),
-        'instagram': _instagram.text.trim(),
-        'facebook': _facebook.text.trim(),
-        'tiktok': _tiktok.text.trim(),
-        'opening_hours': _hours.text.trim(),
-        'deposit_amount': double.tryParse(_deposit.text) ?? 20.0,
-        'buffer_minutes': int.tryParse(_buffer.text) ?? 30,
-        'currency': _currency,
-        'sms_instructions': _smsInstructions.text.trim(),
-        'storefront_enabled': _storefrontEnabled,
-        'payout_bank_name': _payoutBankName.text.trim(),
-        'payout_account_name': _payoutAccountName.text.trim(),
-        'payout_account_number': _payoutAccountNumber.text.trim(),
-        'payout_sort_code': _payoutSortCode.text.trim(),
-        'payout_country': _payoutCountry,
-        'payout_routing_number': _payoutRoutingNumber.text.trim(),
-        'payout_iban': _payoutIban.text.trim(),
-        'payout_swift': _payoutSwift.text.trim(),
-        'payout_bank_address': _payoutBankAddress.text.trim(),
-      });
+      await _api.patch(
+        '/api/business',
+        body: {
+          'name': _name.text.trim(),
+          'tagline': _tagline.text.trim(),
+          'about_text': _about.text.trim(),
+          'rules': _rules.text.trim(),
+          'contact_phone': _phone.text.trim(),
+          'contact_email': _email.text.trim(),
+          'address': _address.text.trim(),
+          'instagram': _instagram.text.trim(),
+          'facebook': _facebook.text.trim(),
+          'tiktok': _tiktok.text.trim(),
+          'opening_hours': _hours.text.trim(),
+          'deposit_amount': double.tryParse(_deposit.text) ?? 20.0,
+          'buffer_minutes': int.tryParse(_buffer.text) ?? 30,
+          'currency': _currency,
+          'sms_instructions': _smsInstructions.text.trim(),
+          'storefront_enabled': _storefrontEnabled,
+          'payout_bank_name': _payoutBankName.text.trim(),
+          'payout_account_name': _payoutAccountName.text.trim(),
+          'payout_account_number': _payoutAccountNumber.text.trim(),
+          'payout_sort_code': _payoutSortCode.text.trim(),
+          'payout_country': _payoutCountry,
+          'payout_routing_number': _payoutRoutingNumber.text.trim(),
+          'payout_iban': _payoutIban.text.trim(),
+          'payout_swift': _payoutSwift.text.trim(),
+          'payout_bank_address': _payoutBankAddress.text.trim(),
+        },
+      );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Settings saved')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Settings saved')));
       }
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -186,7 +190,10 @@ class _SettingsTabState extends State<SettingsTab> {
       final data = await _api.post('/api/payments/sms/topup');
       final url = data['payment_link'] as String?;
       if (url != null) {
-        final opened = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+        final opened = await launchUrl(
+          Uri.parse(url),
+          mode: LaunchMode.externalApplication,
+        );
         if (mounted && !opened) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Could not open the payment page.')),
@@ -199,42 +206,47 @@ class _SettingsTabState extends State<SettingsTab> {
       }
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
 
-  Future<void> _openProducts() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ProductsScreen()),
-    );
-    _load();
-  }
-
   Future<void> _uploadLogo() async {
     final picker = ImagePicker();
-    final file = await picker.pickImage(source: ImageSource.gallery, maxWidth: 800);
+    final file = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 800,
+    );
     if (file == null) return;
     try {
       await _api.upload('/api/business/logo', file.path, 'file');
       await _load();
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
 
   Future<void> _uploadAboutImage() async {
     final picker = ImagePicker();
-    final file = await picker.pickImage(source: ImageSource.gallery, maxWidth: 800);
+    final file = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 800,
+    );
     if (file == null) return;
     try {
       await _api.upload('/api/business/about-image', file.path, 'file');
       await _load();
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -254,7 +266,10 @@ class _SettingsTabState extends State<SettingsTab> {
                       width: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Save', style: TextStyle(fontWeight: FontWeight.w700)),
+                  : const Text(
+                      'Save',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
             ),
         ],
       ),
@@ -280,7 +295,10 @@ class _SettingsTabState extends State<SettingsTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('Branding', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const Text(
+          'Branding',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+        ),
         const SizedBox(height: 12),
         Card(
           child: Padding(
@@ -299,16 +317,25 @@ class _SettingsTabState extends State<SettingsTab> {
                         ),
                       )
                     else
-                      const Icon(Icons.image_outlined, size: 56, color: WaveBookColors.muted),
+                      const Icon(
+                        Icons.image_outlined,
+                        size: 56,
+                        color: WaveBookColors.muted,
+                      ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Logo', style: TextStyle(fontWeight: FontWeight.w700)),
+                          const Text(
+                            'Logo',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
                           const SizedBox(height: 4),
                           OutlinedButton(
-                            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 40),
+                            ),
                             onPressed: _uploadLogo,
                             child: const Text('Upload Logo'),
                           ),
@@ -330,16 +357,25 @@ class _SettingsTabState extends State<SettingsTab> {
                         ),
                       )
                     else
-                      const Icon(Icons.image_outlined, size: 56, color: WaveBookColors.muted),
+                      const Icon(
+                        Icons.image_outlined,
+                        size: 56,
+                        color: WaveBookColors.muted,
+                      ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Welcome Image', style: TextStyle(fontWeight: FontWeight.w700)),
+                          const Text(
+                            'Welcome Image',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
                           const SizedBox(height: 4),
                           OutlinedButton(
-                            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 40),
+                            ),
                             onPressed: _uploadAboutImage,
                             child: const Text('Upload Image'),
                           ),
@@ -353,11 +389,20 @@ class _SettingsTabState extends State<SettingsTab> {
           ),
         ),
         const SizedBox(height: 24),
-        const Text('Business Info', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const Text(
+          'Business Info',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+        ),
         const SizedBox(height: 12),
-        TextFormField(controller: _name, decoration: const InputDecoration(labelText: 'Business Name')),
+        TextFormField(
+          controller: _name,
+          decoration: const InputDecoration(labelText: 'Business Name'),
+        ),
         const SizedBox(height: 12),
-        TextFormField(controller: _tagline, decoration: const InputDecoration(labelText: 'Tagline')),
+        TextFormField(
+          controller: _tagline,
+          decoration: const InputDecoration(labelText: 'Tagline'),
+        ),
         const SizedBox(height: 12),
         TextFormField(
           controller: _about,
@@ -371,7 +416,10 @@ class _SettingsTabState extends State<SettingsTab> {
           maxLines: 4,
         ),
         const SizedBox(height: 24),
-        const Text('Contact', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const Text(
+          'Contact',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+        ),
         const SizedBox(height: 12),
         TextFormField(
           controller: _phone,
@@ -386,17 +434,20 @@ class _SettingsTabState extends State<SettingsTab> {
             final normalized = digits.startsWith('+44')
                 ? digits.substring(1)
                 : digits.startsWith('44') && digits.length == 12
-                    ? digits
-                    : digits.startsWith('0') && digits.length == 11
-                        ? '44${digits.substring(1)}'
-                        : digits;
+                ? digits
+                : digits.startsWith('0') && digits.length == 11
+                ? '44${digits.substring(1)}'
+                : digits;
             return RegExp(r'^44\d{10}$').hasMatch(normalized)
                 ? null
                 : 'Enter a valid UK mobile number, e.g. 07123 456789';
           },
         ),
         const SizedBox(height: 12),
-        TextFormField(controller: _email, decoration: const InputDecoration(labelText: 'Email')),
+        TextFormField(
+          controller: _email,
+          decoration: const InputDecoration(labelText: 'Email'),
+        ),
         const SizedBox(height: 12),
         TextFormField(
           controller: _address,
@@ -404,15 +455,30 @@ class _SettingsTabState extends State<SettingsTab> {
           maxLines: 2,
         ),
         const SizedBox(height: 24),
-        const Text('Social Links', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const Text(
+          'Social Links',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+        ),
         const SizedBox(height: 12),
-        TextFormField(controller: _instagram, decoration: const InputDecoration(labelText: 'Instagram URL')),
+        TextFormField(
+          controller: _instagram,
+          decoration: const InputDecoration(labelText: 'Instagram URL'),
+        ),
         const SizedBox(height: 12),
-        TextFormField(controller: _facebook, decoration: const InputDecoration(labelText: 'Facebook URL')),
+        TextFormField(
+          controller: _facebook,
+          decoration: const InputDecoration(labelText: 'Facebook URL'),
+        ),
         const SizedBox(height: 12),
-        TextFormField(controller: _tiktok, decoration: const InputDecoration(labelText: 'TikTok URL')),
+        TextFormField(
+          controller: _tiktok,
+          decoration: const InputDecoration(labelText: 'TikTok URL'),
+        ),
         const SizedBox(height: 24),
-        const Text('Booking Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const Text(
+          'Booking Settings',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+        ),
         const SizedBox(height: 12),
         TextFormField(
           controller: _hours,
@@ -424,12 +490,21 @@ class _SettingsTabState extends State<SettingsTab> {
           initialValue: _currency,
           decoration: const InputDecoration(labelText: 'Currency'),
           items: const [
-            DropdownMenuItem(value: 'GBP', child: Text('£ GBP (United Kingdom)')),
-            DropdownMenuItem(value: 'USD', child: Text(r'$ USD (United States)')),
+            DropdownMenuItem(
+              value: 'GBP',
+              child: Text('£ GBP (United Kingdom)'),
+            ),
+            DropdownMenuItem(
+              value: 'USD',
+              child: Text(r'$ USD (United States)'),
+            ),
             DropdownMenuItem(value: 'CAD', child: Text(r'C$ CAD (Canada)')),
             DropdownMenuItem(value: 'EUR', child: Text('€ EUR (Europe)')),
             DropdownMenuItem(value: 'AUD', child: Text(r'A$ AUD (Australia)')),
-            DropdownMenuItem(value: 'NZD', child: Text(r'NZ$ NZD (New Zealand)')),
+            DropdownMenuItem(
+              value: 'NZD',
+              child: Text(r'NZ$ NZD (New Zealand)'),
+            ),
             DropdownMenuItem(value: 'KES', child: Text('KSh KES (Kenya)')),
             DropdownMenuItem(value: 'ZAR', child: Text('R ZAR (South Africa)')),
           ],
@@ -441,8 +516,12 @@ class _SettingsTabState extends State<SettingsTab> {
             Expanded(
               child: TextFormField(
                 controller: _deposit,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(labelText: 'Deposit (${currencySymbol(_currency)})'),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Deposit (${currencySymbol(_currency)})',
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -456,14 +535,23 @@ class _SettingsTabState extends State<SettingsTab> {
           ],
         ),
         const SizedBox(height: 24),
-        const Text('Alerts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const Text(
+          'Alerts',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+        ),
         const SizedBox(height: 12),
         Card(
           child: Column(
             children: [
               SwitchListTile(
-                title: const Text('New booking sound', style: TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: const Text('Play a chime when a new booking arrives', style: TextStyle(fontSize: 13)),
+                title: const Text(
+                  'New booking sound',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: const Text(
+                  'Play a chime when a new booking arrives',
+                  style: TextStyle(fontSize: 13),
+                ),
                 value: _bookingSound,
                 onChanged: (v) async {
                   setState(() => _bookingSound = v);
@@ -471,8 +559,14 @@ class _SettingsTabState extends State<SettingsTab> {
                 },
               ),
               SwitchListTile(
-                title: const Text('New chat sound', style: TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: const Text('Play a chime when a customer sends a new chat message', style: TextStyle(fontSize: 13)),
+                title: const Text(
+                  'New chat sound',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: const Text(
+                  'Play a chime when a customer sends a new chat message',
+                  style: TextStyle(fontSize: 13),
+                ),
                 value: _chatSound,
                 onChanged: (v) async {
                   setState(() => _chatSound = v);
@@ -483,7 +577,10 @@ class _SettingsTabState extends State<SettingsTab> {
           ),
         ),
         const SizedBox(height: 24),
-        const Text('SMS Notifications', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const Text(
+          'SMS Notifications',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+        ),
         const SizedBox(height: 12),
         Card(
           child: Padding(
@@ -500,7 +597,10 @@ class _SettingsTabState extends State<SettingsTab> {
                   Text(
                     '${_smsBalance!.freeRemaining} of ${_smsBalance!.freeLimit} free texts remaining'
                     '${_smsBalance!.credits > 0 ? ' + ${_smsBalance!.credits} purchased' : ''}',
-                    style: const TextStyle(color: WaveBookColors.muted, fontSize: 13),
+                    style: const TextStyle(
+                      color: WaveBookColors.muted,
+                      fontSize: 13,
+                    ),
                   ),
                 const SizedBox(height: 8),
                 if (_smsBalance != null && _smsBalance!.totalRemaining <= 0)
@@ -531,12 +631,16 @@ class _SettingsTabState extends State<SettingsTab> {
           controller: _smsInstructions,
           decoration: const InputDecoration(
             labelText: 'Special Instructions (optional)',
-            helperText: 'e.g. address, parking details, what to bring — added to the confirmation text',
+            helperText:
+                'e.g. address, parking details, what to bring — added to the confirmation text',
           ),
           maxLines: 3,
         ),
         const SizedBox(height: 24),
-        const Text('Storefront', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const Text(
+          'Storefront',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+        ),
         const SizedBox(height: 12),
         Card(
           child: Column(
@@ -544,23 +648,22 @@ class _SettingsTabState extends State<SettingsTab> {
               SwitchListTile(
                 value: _storefrontEnabled,
                 onChanged: (v) => setState(() => _storefrontEnabled = v),
-                title: const Text('Sell products on your booking website', style: TextStyle(fontWeight: FontWeight.w700)),
+                title: const Text(
+                  'Sell products on your booking website',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
                 subtitle: const Text(
                   'Adds a Store menu to your customer booking site. Payment processing and transfer fees apply to every sale.',
                 ),
               ),
-              if (_storefrontEnabled)
-                ListTile(
-                  leading: const Icon(Icons.inventory_2_outlined, color: WaveBookColors.pink),
-                  title: const Text('Manage Products', style: TextStyle(fontWeight: FontWeight.w700)),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _openProducts,
-                ),
             ],
           ),
         ),
         const SizedBox(height: 24),
-        const Text('Payout Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const Text(
+          'Payout Details',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+        ),
         const SizedBox(height: 12),
         const Text(
           'We pay you for deposits and store sales by bank transfer. Choose your country so the right bank details are shown.',
@@ -610,7 +713,9 @@ class _SettingsTabState extends State<SettingsTab> {
                 child: TextFormField(
                   controller: _payoutAccountNumber,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Account Number'),
+                  decoration: const InputDecoration(
+                    labelText: 'Account Number',
+                  ),
                 ),
               ),
             ],
@@ -623,7 +728,9 @@ class _SettingsTabState extends State<SettingsTab> {
                   controller: _payoutRoutingNumber,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    labelText: _payoutCountry == 'CA' ? 'Transit & Institution No.' : 'Routing Number',
+                    labelText: _payoutCountry == 'CA'
+                        ? 'Transit & Institution No.'
+                        : 'Routing Number',
                   ),
                 ),
               ),
@@ -632,7 +739,9 @@ class _SettingsTabState extends State<SettingsTab> {
                 child: TextFormField(
                   controller: _payoutAccountNumber,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Account Number'),
+                  decoration: const InputDecoration(
+                    labelText: 'Account Number',
+                  ),
                 ),
               ),
             ],
@@ -656,7 +765,9 @@ class _SettingsTabState extends State<SettingsTab> {
                 child: TextFormField(
                   controller: _payoutAccountNumber,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Account Number'),
+                  decoration: const InputDecoration(
+                    labelText: 'Account Number',
+                  ),
                 ),
               ),
             ],
@@ -677,7 +788,10 @@ class _SettingsTabState extends State<SettingsTab> {
               ? const SizedBox(
                   height: 22,
                   width: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 )
               : const Text('Save Settings'),
         ),

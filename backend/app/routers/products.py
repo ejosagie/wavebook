@@ -9,6 +9,7 @@ from ..database import get_connection, row_to_dict, rows_to_dicts
 from ..deps import business_tier_features, get_current_business, require_owner
 from ..schemas import OrderUpdate, ProductCreate, ProductUpdate, StorefrontCheckout
 from ..services import flutterwave, gcs
+from ..services.emailer import send_order_delivered_email, send_order_shipped_email
 from ..services.uploads import image_content_type
 
 router = APIRouter(tags=["storefront"])
@@ -447,7 +448,7 @@ def update_order_status(
     business: dict = Depends(get_current_business),
     user: dict = Depends(require_owner),
 ):
-    """Update a storefront order status (confirm, mark shipped, cancel)."""
+    """Update a storefront order status (confirm, mark shipped, mark delivered, cancel)."""
     if data.status not in settings.ORDER_STATUSES:
         raise HTTPException(status_code=422, detail="Invalid order status")
 
@@ -459,11 +460,35 @@ def update_order_status(
         ).fetchone()
         if not order:
             raise HTTPException(status_code=404, detail="Order not found")
+        order = row_to_dict(order)
+        # Keep existing shipment details unless this update provides new ones.
+        tracking_number = (data.tracking_number or order.get("tracking_number") or "").strip()
+        courier_name = (data.courier_name or order.get("courier_name") or "").strip()
+        delivered_at = (data.delivered_at or order.get("delivered_at") or "").strip()
+        if data.status == "shipped":
+            if not tracking_number or not courier_name:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Enter the courier name and tracking number to mark the order as shipped",
+                )
+        if data.status == "delivered":
+            if not delivered_at:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Enter the delivery date to mark the order as delivered",
+                )
         conn.execute(
-            "UPDATE orders SET status = ? WHERE id = ? AND business_id = ?",
-            (data.status, order_id, business["id"]),
+            "UPDATE orders SET status = ?, tracking_number = ?, courier_name = ?, delivered_at = ? "
+            "WHERE id = ? AND business_id = ?",
+            (data.status, tracking_number, courier_name, delivered_at, order_id, business["id"]),
         )
         conn.commit()
     finally:
         conn.close()
+
+    # Email the customer only when the order actually transitions into these states.
+    if data.status == "shipped" and order.get("status") != "shipped":
+        send_order_shipped_email(order, business, courier_name, tracking_number)
+    elif data.status == "delivered" and order.get("status") != "delivered":
+        send_order_delivered_email(order, business, delivered_at)
     return {"ok": True, "status": data.status}

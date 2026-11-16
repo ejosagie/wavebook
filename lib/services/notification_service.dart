@@ -25,7 +25,8 @@ class AppNotification {
     required this.createdAt,
   });
 
-  factory AppNotification.fromJson(Map<String, dynamic> json) => AppNotification(
+  factory AppNotification.fromJson(Map<String, dynamic> json) =>
+      AppNotification(
         id: json['id'] as int,
         type: json['type'] as String? ?? 'booking',
         title: json['title'] as String? ?? '',
@@ -109,8 +110,28 @@ class NotificationService {
   }
 }
 
-final AudioPlayer _bookingPlayer = AudioPlayer();
-final AudioPlayer _chatPlayer = AudioPlayer();
+final AudioPlayer _bookingPlayer = AudioPlayer()
+  ..setAudioContext(
+    AudioContext(
+      android: const AudioContextAndroid(
+        contentType: AndroidContentType.sonification,
+        usageType: AndroidUsageType.notification,
+        audioFocus: AndroidAudioFocus.gain,
+      ),
+      iOS: AudioContextIOS(category: AVAudioSessionCategory.playback),
+    ),
+  );
+final AudioPlayer _chatPlayer = AudioPlayer()
+  ..setAudioContext(
+    AudioContext(
+      android: const AudioContextAndroid(
+        contentType: AndroidContentType.sonification,
+        usageType: AndroidUsageType.notification,
+        audioFocus: AndroidAudioFocus.gain,
+      ),
+      iOS: AudioContextIOS(category: AVAudioSessionCategory.playback),
+    ),
+  );
 
 const _bookingSoundKey = 'wavebook_booking_sound';
 const _chatSoundKey = 'wavebook_chat_sound';
@@ -160,7 +181,11 @@ void showBookingNotificationPopup(
     context: context,
     barrierDismissible: true,
     builder: (ctx) => AlertDialog(
-      icon: const Icon(Icons.notifications_active, color: Color(0xFFEC4899), size: 40),
+      icon: const Icon(
+        Icons.notifications_active,
+        color: Color(0xFFEC4899),
+        size: 40,
+      ),
       title: const Text('New Booking!'),
       content: Text(
         notification.message,

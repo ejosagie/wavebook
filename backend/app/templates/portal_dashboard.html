@@ -629,15 +629,26 @@
                 {% for item in o["items"] %}
                 {{ item.name }} ×{{ item.quantity }}{% if not loop.last %}, {% endif %}
                 {% endfor %}
+                {% if o.courier_name or o.tracking_number %}
+                <br><span style="color: var(--muted); font-size:0.85rem;">{{ o.courier_name }} · {{ o.tracking_number }}</span>
+                {% endif %}
+                {% if o.delivered_at %}
+                <br><span style="color: var(--muted); font-size:0.85rem;">Delivered {{ o.delivered_at }}</span>
+                {% endif %}
               </td>
               <td>{{ currency_symbols.get(business.currency, '') }}{{ '%.2f'|format(o.total) }}</td>
               <td>
-                <form class="inline-form" method="post" action="/portal/orders/{{ o.id }}/status" style="display:flex; gap:6px;">
-                  <select name="status">
+                <form class="inline-form" method="post" action="/portal/orders/{{ o.id }}/status" style="display:flex; gap:6px; flex-wrap:wrap;">
+                  <select name="status" class="order-status-select" data-target="ship-fields-{{ o.id }}">
                     {% for s in order_statuses %}
                     <option value="{{ s }}" {% if o.status == s %}selected{% endif %}>{{ s }}</option>
                     {% endfor %}
                   </select>
+                  <span id="ship-fields-{{ o.id }}" style="display:none; gap:6px;">
+                    <input type="text" name="courier_name" placeholder="Courier" value="{{ o.courier_name }}" style="max-width:110px;">
+                    <input type="text" name="tracking_number" placeholder="Tracking no." value="{{ o.tracking_number }}" style="max-width:120px;">
+                    <input type="date" name="delivered_at" value="{{ o.delivered_at }}">
+                  </span>
                   <button type="submit" class="btn btn-sm">Save</button>
                 </form>
               </td>
@@ -859,6 +870,18 @@
       }
       buttons.forEach(function (b) {
         b.addEventListener('click', function () { show(b.dataset.tab); });
+      });
+
+      // Show shipment fields when shipped/delivered is selected for an order.
+      function updateShipFields(select) {
+        var target = document.getElementById(select.dataset.target);
+        if (!target) return;
+        var show = select.value === 'shipped' || select.value === 'delivered';
+        target.style.display = show ? 'flex' : 'none';
+      }
+      document.querySelectorAll('.order-status-select').forEach(function (select) {
+        select.addEventListener('change', function () { updateShipFields(select); });
+        updateShipFields(select);
       });
 
       // Selecting a preset style updates the colour picker and dark-theme checkbox.

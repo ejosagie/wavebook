@@ -273,6 +273,46 @@ def send_order_paid_emails(order: dict, business: dict) -> None:
         )
 
 
+def send_order_shipped_email(order: dict, business: dict, courier_name: str, tracking_number: str) -> None:
+    """Email the customer their courier and tracking number when an order ships."""
+    name = business.get("name", "")
+    customer_to = (order.get("customer_email") or "").strip()
+    if not customer_to:
+        return
+    send_email(
+        customer_to,
+        f"Your order #{order.get('id', '')} has been shipped — {name}",
+        (
+            f"Hi {order.get('customer_name', '')},\n\n"
+            f"Good news — your order from {name} is on its way!\n\n"
+            f"  Courier: {courier_name}\n"
+            f"  Tracking number: {tracking_number}\n"
+            f"  Order number: {order.get('id', '')}\n\n"
+            f"You can use the tracking number on the courier's website to follow your parcel.\n\n"
+            f"{name}"
+        ),
+    )
+
+
+def send_order_delivered_email(order: dict, business: dict, delivered_at: str) -> None:
+    """Email the customer when their order has been delivered."""
+    name = business.get("name", "")
+    customer_to = (order.get("customer_email") or "").strip()
+    if not customer_to:
+        return
+    send_email(
+        customer_to,
+        f"Your order #{order.get('id', '')} has been delivered — {name}",
+        (
+            f"Hi {order.get('customer_name', '')},\n\n"
+            f"Your order from {name} was delivered on {delivered_at}.\n\n"
+            f"  Order number: {order.get('id', '')}\n\n"
+            f"Thank you for shopping with {name}!\n\n"
+            f"{name}"
+        ),
+    )
+
+
 def send_staff_invite_email(to: str, full_name: str, business_name: str, temp_password: str | None) -> dict:
     """Tell a staff member they were added to a business, with login details for new accounts."""
     if temp_password:

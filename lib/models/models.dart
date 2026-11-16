@@ -18,14 +18,14 @@ class User {
   });
 
   factory User.fromJson(Map<String, dynamic> json) => User(
-        id: json['id'] as int,
-        email: json['email'] as String? ?? '',
-        fullName: json['full_name'] as String? ?? '',
-        phone: json['phone'] as String? ?? '',
-        role: json['role'] as String? ?? 'owner',
-        businessId: json['business_id'] as int?,
-        mustChangePassword: (json['must_change_password'] as num?)?.toInt() == 1,
-      );
+    id: json['id'] as int,
+    email: json['email'] as String? ?? '',
+    fullName: json['full_name'] as String? ?? '',
+    phone: json['phone'] as String? ?? '',
+    role: json['role'] as String? ?? 'owner',
+    businessId: json['business_id'] as int?,
+    mustChangePassword: (json['must_change_password'] as num?)?.toInt() == 1,
+  );
 }
 
 class Business {
@@ -116,83 +116,84 @@ class Business {
   });
 
   factory Business.fromJson(Map<String, dynamic> json) => Business(
-        id: json['id'] as int,
-        slug: json['slug'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        tagline: json['tagline'] as String? ?? '',
-        aboutText: json['about_text'] as String? ?? '',
-        aboutImage: json['about_image'] as String? ?? '',
-        logoPath: json['logo_path'] as String? ?? '',
-        rules: json['rules'] as String? ?? '',
-        contactPhone: json['contact_phone'] as String? ?? '',
-        contactEmail: json['contact_email'] as String? ?? '',
-        address: json['address'] as String? ?? '',
-        instagram: json['instagram'] as String? ?? '',
-        facebook: json['facebook'] as String? ?? '',
-        tiktok: json['tiktok'] as String? ?? '',
-        openingHours: json['opening_hours'] as String? ?? '',
-        depositAmount: (json['deposit_amount'] as num?)?.toDouble() ?? 20.0,
-        bufferMinutes: json['buffer_minutes'] as int? ?? 30,
-        currency: json['currency'] as String? ?? 'GBP',
-        smsTemplate: json['sms_template'] as String? ?? '',
-        smsInstructions: json['sms_instructions'] as String? ?? '',
-        subscriptionStatus: json['subscription_status'] as String? ?? 'trial',
-        storefrontEnabled: (json['storefront_enabled'] as num?)?.toInt() == 1,
-        payoutBankName: json['payout_bank_name'] as String? ?? '',
-        payoutAccountName: json['payout_account_name'] as String? ?? '',
-        payoutAccountNumber: json['payout_account_number'] as String? ?? '',
-        payoutSortCode: json['payout_sort_code'] as String? ?? '',
-        payoutCountry: json['payout_country'] as String? ?? 'GB',
-        payoutRoutingNumber: json['payout_routing_number'] as String? ?? '',
-        payoutIban: json['payout_iban'] as String? ?? '',
-        payoutSwift: json['payout_swift'] as String? ?? '',
-        payoutBankAddress: json['payout_bank_address'] as String? ?? '',
-        smsUsed: json['sms_used'] as int? ?? 0,
-        smsCredits: json['sms_credits'] as int? ?? 0,
-        trialEndsAt: json['trial_ends_at'] as String? ?? '',
-        themeColor: json['theme_color'] as String? ?? '#ec4899',
-        darkTheme: (json['dark_theme'] as num?)?.toInt() == 1,
-        themeStyle: json['theme_style'] as String? ?? 'rose',
-        themeFont: json['theme_font'] as String? ?? '',
-        shippingFeeLocal: (json['shipping_fee_local'] as num?)?.toDouble() ?? 0,
-        shippingFeeInternational: (json['shipping_fee_international'] as num?)?.toDouble() ?? 0,
-        storeCountry: json['store_country'] as String? ?? 'GB',
-      );
+    id: json['id'] as int,
+    slug: json['slug'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    tagline: json['tagline'] as String? ?? '',
+    aboutText: json['about_text'] as String? ?? '',
+    aboutImage: json['about_image'] as String? ?? '',
+    logoPath: json['logo_path'] as String? ?? '',
+    rules: json['rules'] as String? ?? '',
+    contactPhone: json['contact_phone'] as String? ?? '',
+    contactEmail: json['contact_email'] as String? ?? '',
+    address: json['address'] as String? ?? '',
+    instagram: json['instagram'] as String? ?? '',
+    facebook: json['facebook'] as String? ?? '',
+    tiktok: json['tiktok'] as String? ?? '',
+    openingHours: json['opening_hours'] as String? ?? '',
+    depositAmount: (json['deposit_amount'] as num?)?.toDouble() ?? 20.0,
+    bufferMinutes: json['buffer_minutes'] as int? ?? 30,
+    currency: json['currency'] as String? ?? 'GBP',
+    smsTemplate: json['sms_template'] as String? ?? '',
+    smsInstructions: json['sms_instructions'] as String? ?? '',
+    subscriptionStatus: json['subscription_status'] as String? ?? 'trial',
+    storefrontEnabled: (json['storefront_enabled'] as num?)?.toInt() == 1,
+    payoutBankName: json['payout_bank_name'] as String? ?? '',
+    payoutAccountName: json['payout_account_name'] as String? ?? '',
+    payoutAccountNumber: json['payout_account_number'] as String? ?? '',
+    payoutSortCode: json['payout_sort_code'] as String? ?? '',
+    payoutCountry: json['payout_country'] as String? ?? 'GB',
+    payoutRoutingNumber: json['payout_routing_number'] as String? ?? '',
+    payoutIban: json['payout_iban'] as String? ?? '',
+    payoutSwift: json['payout_swift'] as String? ?? '',
+    payoutBankAddress: json['payout_bank_address'] as String? ?? '',
+    smsUsed: json['sms_used'] as int? ?? 0,
+    smsCredits: json['sms_credits'] as int? ?? 0,
+    trialEndsAt: json['trial_ends_at'] as String? ?? '',
+    themeColor: json['theme_color'] as String? ?? '#ec4899',
+    darkTheme: (json['dark_theme'] as num?)?.toInt() == 1,
+    themeStyle: json['theme_style'] as String? ?? 'rose',
+    themeFont: json['theme_font'] as String? ?? '',
+    shippingFeeLocal: (json['shipping_fee_local'] as num?)?.toDouble() ?? 0,
+    shippingFeeInternational:
+        (json['shipping_fee_international'] as num?)?.toDouble() ?? 0,
+    storeCountry: json['store_country'] as String? ?? 'GB',
+  );
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'tagline': tagline,
-        'about_text': aboutText,
-        'rules': rules,
-        'contact_phone': contactPhone,
-        'contact_email': contactEmail,
-        'address': address,
-        'instagram': instagram,
-        'facebook': facebook,
-        'tiktok': tiktok,
-        'opening_hours': openingHours,
-        'deposit_amount': depositAmount,
-        'buffer_minutes': bufferMinutes,
-        'currency': currency,
-        'sms_instructions': smsInstructions,
-        'storefront_enabled': storefrontEnabled,
-        'payout_bank_name': payoutBankName,
-        'payout_account_name': payoutAccountName,
-        'payout_account_number': payoutAccountNumber,
-        'payout_sort_code': payoutSortCode,
-        'payout_country': payoutCountry,
-        'payout_routing_number': payoutRoutingNumber,
-        'payout_iban': payoutIban,
-        'payout_swift': payoutSwift,
-        'payout_bank_address': payoutBankAddress,
-        'theme_color': themeColor,
-        'dark_theme': darkTheme,
-        'theme_style': themeStyle,
-        'theme_font': themeFont,
-        'shipping_fee_local': shippingFeeLocal,
-        'shipping_fee_international': shippingFeeInternational,
-        'store_country': storeCountry,
-      };
+    'name': name,
+    'tagline': tagline,
+    'about_text': aboutText,
+    'rules': rules,
+    'contact_phone': contactPhone,
+    'contact_email': contactEmail,
+    'address': address,
+    'instagram': instagram,
+    'facebook': facebook,
+    'tiktok': tiktok,
+    'opening_hours': openingHours,
+    'deposit_amount': depositAmount,
+    'buffer_minutes': bufferMinutes,
+    'currency': currency,
+    'sms_instructions': smsInstructions,
+    'storefront_enabled': storefrontEnabled,
+    'payout_bank_name': payoutBankName,
+    'payout_account_name': payoutAccountName,
+    'payout_account_number': payoutAccountNumber,
+    'payout_sort_code': payoutSortCode,
+    'payout_country': payoutCountry,
+    'payout_routing_number': payoutRoutingNumber,
+    'payout_iban': payoutIban,
+    'payout_swift': payoutSwift,
+    'payout_bank_address': payoutBankAddress,
+    'theme_color': themeColor,
+    'dark_theme': darkTheme,
+    'theme_style': themeStyle,
+    'theme_font': themeFont,
+    'shipping_fee_local': shippingFeeLocal,
+    'shipping_fee_international': shippingFeeInternational,
+    'store_country': storeCountry,
+  };
 }
 
 class ProductImage {
@@ -201,10 +202,8 @@ class ProductImage {
 
   ProductImage({required this.id, required this.path});
 
-  factory ProductImage.fromJson(Map<String, dynamic> json) => ProductImage(
-        id: json['id'] as int,
-        path: json['path'] as String? ?? '',
-      );
+  factory ProductImage.fromJson(Map<String, dynamic> json) =>
+      ProductImage(id: json['id'] as int, path: json['path'] as String? ?? '');
 }
 
 class Product {
@@ -231,18 +230,18 @@ class Product {
   });
 
   factory Product.fromJson(Map<String, dynamic> json) => Product(
-        id: json['id'] as int,
-        name: json['name'] as String? ?? '',
-        description: json['description'] as String? ?? '',
-        price: (json['price'] as num?)?.toDouble() ?? 0,
-        imagePath: json['image_path'] as String? ?? '',
-        images: (json['images'] as List? ?? [])
-            .map((i) => ProductImage.fromJson(i as Map<String, dynamic>))
-            .toList(),
-        active: (json['active'] as num?)?.toInt() == 1,
-        sortOrder: json['sort_order'] as int? ?? 0,
-        stock: json['stock'] as int?,
-      );
+    id: json['id'] as int,
+    name: json['name'] as String? ?? '',
+    description: json['description'] as String? ?? '',
+    price: (json['price'] as num?)?.toDouble() ?? 0,
+    imagePath: json['image_path'] as String? ?? '',
+    images: (json['images'] as List? ?? [])
+        .map((i) => ProductImage.fromJson(i as Map<String, dynamic>))
+        .toList(),
+    active: (json['active'] as num?)?.toInt() == 1,
+    sortOrder: json['sort_order'] as int? ?? 0,
+    stock: json['stock'] as int?,
+  );
 }
 
 class OrderItem {
@@ -259,11 +258,11 @@ class OrderItem {
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) => OrderItem(
-        productId: json['product_id'] as int? ?? 0,
-        name: json['name'] as String? ?? '',
-        price: (json['price'] as num?)?.toDouble() ?? 0,
-        quantity: json['quantity'] as int? ?? 1,
-      );
+    productId: json['product_id'] as int? ?? 0,
+    name: json['name'] as String? ?? '',
+    price: (json['price'] as num?)?.toDouble() ?? 0,
+    quantity: json['quantity'] as int? ?? 1,
+  );
 }
 
 class Order {
@@ -280,6 +279,9 @@ class Order {
   final double total;
   final String status;
   final String createdAt;
+  final String trackingNumber;
+  final String courierName;
+  final String deliveredAt;
 
   Order({
     required this.id,
@@ -295,25 +297,31 @@ class Order {
     required this.total,
     required this.status,
     required this.createdAt,
+    this.trackingNumber = '',
+    this.courierName = '',
+    this.deliveredAt = '',
   });
 
   factory Order.fromJson(Map<String, dynamic> json) => Order(
-        id: json['id'] as int,
-        customerName: json['customer_name'] as String? ?? '',
-        customerEmail: json['customer_email'] as String? ?? '',
-        customerPhone: json['customer_phone'] as String? ?? '',
-        customerAddress: json['customer_address'] as String? ?? '',
-        customerCity: json['customer_city'] as String? ?? '',
-        customerPostcode: json['customer_postcode'] as String? ?? '',
-        customerCountry: json['customer_country'] as String? ?? '',
-        shippingFee: (json['shipping_fee'] as num?)?.toDouble() ?? 0,
-        items: (json['items'] as List? ?? [])
-            .map((i) => OrderItem.fromJson(i as Map<String, dynamic>))
-            .toList(),
-        total: (json['total'] as num?)?.toDouble() ?? 0,
-        status: json['status'] as String? ?? 'pending',
-        createdAt: json['created_at'] as String? ?? '',
-      );
+    id: json['id'] as int,
+    customerName: json['customer_name'] as String? ?? '',
+    customerEmail: json['customer_email'] as String? ?? '',
+    customerPhone: json['customer_phone'] as String? ?? '',
+    customerAddress: json['customer_address'] as String? ?? '',
+    customerCity: json['customer_city'] as String? ?? '',
+    customerPostcode: json['customer_postcode'] as String? ?? '',
+    customerCountry: json['customer_country'] as String? ?? '',
+    shippingFee: (json['shipping_fee'] as num?)?.toDouble() ?? 0,
+    items: (json['items'] as List? ?? [])
+        .map((i) => OrderItem.fromJson(i as Map<String, dynamic>))
+        .toList(),
+    total: (json['total'] as num?)?.toDouble() ?? 0,
+    status: json['status'] as String? ?? 'pending',
+    createdAt: json['created_at'] as String? ?? '',
+    trackingNumber: json['tracking_number'] as String? ?? '',
+    courierName: json['courier_name'] as String? ?? '',
+    deliveredAt: json['delivered_at'] as String? ?? '',
+  );
 }
 
 class SmsBalance {
@@ -336,14 +344,14 @@ class SmsBalance {
   });
 
   factory SmsBalance.fromJson(Map<String, dynamic> json) => SmsBalance(
-        used: json['used'] as int? ?? 0,
-        freeLimit: json['free_limit'] as int? ?? 50,
-        freeRemaining: json['free_remaining'] as int? ?? 0,
-        credits: json['credits'] as int? ?? 0,
-        totalRemaining: json['total_remaining'] as int? ?? 0,
-        topupPriceGbp: (json['topup_price_gbp'] as num?)?.toDouble() ?? 5.0,
-        topupCredits: json['topup_credits'] as int? ?? 50,
-      );
+    used: json['used'] as int? ?? 0,
+    freeLimit: json['free_limit'] as int? ?? 50,
+    freeRemaining: json['free_remaining'] as int? ?? 0,
+    credits: json['credits'] as int? ?? 0,
+    totalRemaining: json['total_remaining'] as int? ?? 0,
+    topupPriceGbp: (json['topup_price_gbp'] as num?)?.toDouble() ?? 5.0,
+    topupCredits: json['topup_credits'] as int? ?? 50,
+  );
 }
 
 class AppMeta {
@@ -358,10 +366,10 @@ class AppMeta {
   });
 
   factory AppMeta.fromJson(Map<String, dynamic> json) => AppMeta(
-        latestVersion: json['latest_version'] as String? ?? '',
-        updateUrl: json['update_url'] as String? ?? '',
-        updateMessage: json['update_message'] as String? ?? '',
-      );
+    latestVersion: json['latest_version'] as String? ?? '',
+    updateUrl: json['update_url'] as String? ?? '',
+    updateMessage: json['update_message'] as String? ?? '',
+  );
 }
 
 class Service {
@@ -384,24 +392,24 @@ class Service {
   });
 
   factory Service.fromJson(Map<String, dynamic> json) => Service(
-        id: json['id'] as int,
-        name: json['name'] as String? ?? '',
-        description: json['description'] as String? ?? '',
-        price: (json['price'] as num?)?.toDouble() ?? 0,
-        durationMinutes: json['duration_minutes'] as int? ?? 60,
-        sortOrder: json['sort_order'] as int? ?? 0,
-        questions: (json['questions'] as List? ?? [])
-            .map((q) => Map<String, dynamic>.from(q as Map))
-            .toList(),
-      );
+    id: json['id'] as int,
+    name: json['name'] as String? ?? '',
+    description: json['description'] as String? ?? '',
+    price: (json['price'] as num?)?.toDouble() ?? 0,
+    durationMinutes: json['duration_minutes'] as int? ?? 60,
+    sortOrder: json['sort_order'] as int? ?? 0,
+    questions: (json['questions'] as List? ?? [])
+        .map((q) => Map<String, dynamic>.from(q as Map))
+        .toList(),
+  );
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'description': description,
-        'price': price,
-        'duration_minutes': durationMinutes,
-        'questions': questions,
-      };
+    'name': name,
+    'description': description,
+    'price': price,
+    'duration_minutes': durationMinutes,
+    'questions': questions,
+  };
 }
 
 class Booking {
@@ -448,27 +456,47 @@ class Booking {
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) => Booking(
-        id: json['id'] as int,
-        customerName: json['customer_name'] as String? ?? '',
-        customerEmail: json['customer_email'] as String? ?? '',
-        customerPhone: json['customer_phone'] as String? ?? '',
-        serviceId: json['service_id'] as int?,
-        serviceName: json['service_name'] as String? ?? '',
-        servicePrice: (json['service_price'] as num?)?.toDouble() ?? 0,
-        serviceDurationMinutes: json['service_duration_minutes'] as int? ?? 60,
-        date: json['date'] as String? ?? '',
-        time: json['time'] as String? ?? '',
-        notes: json['notes'] as String? ?? '',
-        intakeAnswers: (json['intake_answers'] as Map? ?? {})
-            .map((k, v) => MapEntry(k.toString(), v.toString())),
-        status: json['status'] as String? ?? 'pending',
-        depositPaid: (json['deposit_paid'] as num?)?.toInt() == 1,
-        confirmationFile: json['confirmation_file'] as String? ?? '',
-        reference: json['reference'] as String? ?? '',
-        createdAt: json['created_at'] as String? ?? '',
-        assignedStaffId: json['assigned_staff_id'] as int?,
-        assignedStaffName: json['assigned_staff_name'] as String?,
-      );
+    id: json['id'] as int,
+    customerName: json['customer_name'] as String? ?? '',
+    customerEmail: json['customer_email'] as String? ?? '',
+    customerPhone: json['customer_phone'] as String? ?? '',
+    serviceId: json['service_id'] as int?,
+    serviceName: json['service_name'] as String? ?? '',
+    servicePrice: (json['service_price'] as num?)?.toDouble() ?? 0,
+    serviceDurationMinutes: json['service_duration_minutes'] as int? ?? 60,
+    date: json['date'] as String? ?? '',
+    time: json['time'] as String? ?? '',
+    notes: json['notes'] as String? ?? '',
+    intakeAnswers: (json['intake_answers'] as Map? ?? {}).map(
+      (k, v) => MapEntry(k.toString(), v.toString()),
+    ),
+    status: json['status'] as String? ?? 'pending',
+    depositPaid: (json['deposit_paid'] as num?)?.toInt() == 1,
+    confirmationFile: json['confirmation_file'] as String? ?? '',
+    reference: json['reference'] as String? ?? '',
+    createdAt: json['created_at'] as String? ?? '',
+    assignedStaffId: json['assigned_staff_id'] as int?,
+    assignedStaffName: json['assigned_staff_name'] as String?,
+  );
+
+  /// Status shown to the owner: confirmed bookings whose date has passed are
+  /// displayed as completed (you can't cancel a booking that already happened).
+  String get displayStatus {
+    if (status == 'confirmed') {
+      final parts = date.split('-');
+      if (parts.length == 3) {
+        final d = DateTime(
+          int.parse(parts[0]),
+          int.parse(parts[1]),
+          int.parse(parts[2]),
+        );
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        if (d.isBefore(today)) return 'completed';
+      }
+    }
+    return status;
+  }
 }
 
 class DayConfig {
@@ -479,12 +507,16 @@ class DayConfig {
   DayConfig({required this.enabled, required this.start, required this.end});
 
   factory DayConfig.fromJson(Map<String, dynamic> json) => DayConfig(
-        enabled: json['enabled'] as bool? ?? true,
-        start: json['start'] as String? ?? '09:00',
-        end: json['end'] as String? ?? '17:00',
-      );
+    enabled: json['enabled'] as bool? ?? true,
+    start: json['start'] as String? ?? '09:00',
+    end: json['end'] as String? ?? '17:00',
+  );
 
-  Map<String, dynamic> toJson() => {'enabled': enabled, 'start': start, 'end': end};
+  Map<String, dynamic> toJson() => {
+    'enabled': enabled,
+    'start': start,
+    'end': end,
+  };
 }
 
 class Availability {
@@ -508,18 +540,19 @@ class Availability {
     return Availability(
       workingDays: days,
       blockedDates: (json['blocked_dates'] as List? ?? []).cast<String>(),
-      blockedSlots: (json['blocked_slots'] as Map<String, dynamic>? ?? {})
-          .map((k, v) => MapEntry(k, (v as List).cast<String>())),
+      blockedSlots: (json['blocked_slots'] as Map<String, dynamic>? ?? {}).map(
+        (k, v) => MapEntry(k, (v as List).cast<String>()),
+      ),
       slotInterval: json['slot_interval'] as int? ?? 30,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'working_days': workingDays.map((k, v) => MapEntry(k, v.toJson())),
-        'blocked_dates': blockedDates,
-        'blocked_slots': blockedSlots,
-        'slot_interval': slotInterval,
-      };
+    'working_days': workingDays.map((k, v) => MapEntry(k, v.toJson())),
+    'blocked_dates': blockedDates,
+    'blocked_slots': blockedSlots,
+    'slot_interval': slotInterval,
+  };
 }
 
 class StaffMember {
@@ -540,13 +573,13 @@ class StaffMember {
   });
 
   factory StaffMember.fromJson(Map<String, dynamic> json) => StaffMember(
-        id: json['id'] as int,
-        userId: json['user_id'] as int?,
-        email: json['email'] as String? ?? '',
-        fullName: json['full_name'] as String? ?? '',
-        phone: json['phone'] as String? ?? '',
-        active: (json['active'] as int? ?? 1) == 1,
-      );
+    id: json['id'] as int,
+    userId: json['user_id'] as int?,
+    email: json['email'] as String? ?? '',
+    fullName: json['full_name'] as String? ?? '',
+    phone: json['phone'] as String? ?? '',
+    active: (json['active'] as int? ?? 1) == 1,
+  );
 }
 
 class Customer {
@@ -567,13 +600,13 @@ class Customer {
   });
 
   factory Customer.fromJson(Map<String, dynamic> json) => Customer(
-        id: json['id'] as int,
-        name: json['name'] as String? ?? '',
-        email: json['email'] as String? ?? '',
-        phone: json['phone'] as String? ?? '',
-        notes: json['notes'] as String? ?? '',
-        bookingCount: json['booking_count'] as int? ?? 0,
-      );
+    id: json['id'] as int,
+    name: json['name'] as String? ?? '',
+    email: json['email'] as String? ?? '',
+    phone: json['phone'] as String? ?? '',
+    notes: json['notes'] as String? ?? '',
+    bookingCount: json['booking_count'] as int? ?? 0,
+  );
 }
 
 class GalleryItem {
@@ -584,10 +617,10 @@ class GalleryItem {
   GalleryItem({required this.slot, required this.path, required this.caption});
 
   factory GalleryItem.fromJson(Map<String, dynamic> json) => GalleryItem(
-        slot: json['slot'] as int,
-        path: json['path'] as String? ?? '',
-        caption: json['caption'] as String? ?? '',
-      );
+    slot: json['slot'] as int,
+    path: json['path'] as String? ?? '',
+    caption: json['caption'] as String? ?? '',
+  );
 }
 
 class SubscriptionInfo {
@@ -607,7 +640,8 @@ class SubscriptionInfo {
     required this.trialDaysLeft,
   });
 
-  factory SubscriptionInfo.fromJson(Map<String, dynamic> json) => SubscriptionInfo(
+  factory SubscriptionInfo.fromJson(Map<String, dynamic> json) =>
+      SubscriptionInfo(
         status: json['status'] as String? ?? 'trial',
         priceGbp: (json['price_gbp'] as num?)?.toDouble() ?? 19.99,
         maxStaff: json['max_staff'] as int? ?? 5,
@@ -641,16 +675,16 @@ class FeedbackItem {
   });
 
   factory FeedbackItem.fromJson(Map<String, dynamic> json) => FeedbackItem(
-        id: json['id'] as int,
-        bookingId: json['booking_id'] as int?,
-        customerName: json['customer_name'] as String? ?? '',
-        rating: json['rating'] as int? ?? 5,
-        comment: json['comment'] as String? ?? '',
-        createdAt: json['created_at'] as String? ?? '',
-        bookingDate: json['booking_date'] as String? ?? '',
-        bookingTime: json['booking_time'] as String? ?? '',
-        serviceName: json['service_name'] as String? ?? '',
-      );
+    id: json['id'] as int,
+    bookingId: json['booking_id'] as int?,
+    customerName: json['customer_name'] as String? ?? '',
+    rating: json['rating'] as int? ?? 5,
+    comment: json['comment'] as String? ?? '',
+    createdAt: json['created_at'] as String? ?? '',
+    bookingDate: json['booking_date'] as String? ?? '',
+    bookingTime: json['booking_time'] as String? ?? '',
+    serviceName: json['service_name'] as String? ?? '',
+  );
 }
 
 class Chat {
@@ -673,14 +707,14 @@ class Chat {
   });
 
   factory Chat.fromJson(Map<String, dynamic> json) => Chat(
-        id: json['id'] as int,
-        customerName: json['customer_name'] as String? ?? '',
-        customerPhone: json['customer_phone'] as String? ?? '',
-        lastMessage: json['last_message'] as String? ?? '',
-        lastSender: json['last_sender'] as String? ?? '',
-        lastMessageAt: json['last_message_at'] as String? ?? '',
-        unread: json['unread'] as int? ?? 0,
-      );
+    id: json['id'] as int,
+    customerName: json['customer_name'] as String? ?? '',
+    customerPhone: json['customer_phone'] as String? ?? '',
+    lastMessage: json['last_message'] as String? ?? '',
+    lastSender: json['last_sender'] as String? ?? '',
+    lastMessageAt: json['last_message_at'] as String? ?? '',
+    unread: json['unread'] as int? ?? 0,
+  );
 }
 
 class ChatMessage {
@@ -697,9 +731,9 @@ class ChatMessage {
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
-        id: json['id'] as int,
-        sender: json['sender'] as String? ?? '',
-        body: json['body'] as String? ?? '',
-        createdAt: json['created_at'] as String? ?? '',
-      );
+    id: json['id'] as int,
+    sender: json['sender'] as String? ?? '',
+    body: json['body'] as String? ?? '',
+    createdAt: json['created_at'] as String? ?? '',
+  );
 }
