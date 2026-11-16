@@ -239,7 +239,16 @@ def copyright_page(request: Request):
 def landing(request: Request, access: str | None = None):
     if access and settings.ADMIN_ACCESS_TOKEN and access == settings.ADMIN_ACCESS_TOKEN:
         # Gateway to the admin area — the login page still asks for the password.
-        return RedirectResponse(url="/admin", status_code=303)
+        response = RedirectResponse(url="/admin", status_code=303)
+        response.set_cookie(
+            GATE_COOKIE,
+            create_admin_token(expires_minutes=ADMIN_GATE_MINUTES),
+            httponly=True,
+            samesite="lax",
+            secure=request.url.scheme == "https",
+            max_age=ADMIN_GATE_MINUTES * 60,
+        )
+        return response
     _record_visit("home")
     return templates.TemplateResponse(
         request,
@@ -404,7 +413,15 @@ def admin_update_trial_days(request: Request, trial_days: int = Form(...)):
 # ---- Owner admin dashboard ----
 
 ADMIN_COOKIE = "wavebook_admin"
+GATE_COOKIE = "wavebook_admin_gate"
+ADMIN_GATE_MINUTES = 30
 ADMIN_PAGE_SIZE = 25
+
+
+def _has_admin_gate(request: Request) -> bool:
+    """True when the visitor came via the ?access=... admin gateway link."""
+    token = request.cookies.get(GATE_COOKIE)
+    return bool(token and decode_admin_token(token))
 
 
 def _admin_page(page: int, total: int) -> tuple[int, int, int]:
@@ -416,6 +433,8 @@ def _admin_page(page: int, total: int) -> tuple[int, int, int]:
 @router.get("/admin", response_class=HTMLResponse)
 def admin_dashboard(request: Request, page: int = 1):
     if not _is_admin(request):
+        if not _has_admin_gate(request):
+            return RedirectResponse(url="/", status_code=303)
         return templates.TemplateResponse(
             request, "admin_login.html", {"error": None}, status_code=401
         )
@@ -490,6 +509,8 @@ def admin_payment_mode(request: Request, mode: str = Form(...)):
 
 @router.post("/admin/login")
 def admin_login(request: Request, password: str = Form(...)):
+    if not _has_admin_gate(request):
+        return RedirectResponse(url="/", status_code=303)
     if settings.ADMIN_PASSWORD and password == settings.ADMIN_PASSWORD:
         response = RedirectResponse(url="/admin", status_code=303)
         _set_admin_cookie(response, request)
@@ -503,12 +524,15 @@ def admin_login(request: Request, password: str = Form(...)):
 def admin_logout():
     response = RedirectResponse(url="/", status_code=303)
     response.delete_cookie(ADMIN_COOKIE)
+    response.delete_cookie(GATE_COOKIE)
     return response
 
 
 def _admin_or_login(request: Request):
     """Return the admin dashboard response if not authenticated."""
     if not _is_admin(request):
+        if not _has_admin_gate(request):
+            return RedirectResponse(url="/", status_code=303)
         return templates.TemplateResponse(
             request, "admin_login.html", {"error": None}, status_code=401
         )

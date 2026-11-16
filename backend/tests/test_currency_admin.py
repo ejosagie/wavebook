@@ -10,6 +10,11 @@ from conftest import auth
 
 def _admin_cookie(client, monkeypatch):
     monkeypatch.setattr(settings, "ADMIN_PASSWORD", "test-admin-pass")
+    monkeypatch.setattr(settings, "ADMIN_ACCESS_TOKEN", "test-access-token")
+    res = client.get("/?access=test-access-token", follow_redirects=False)
+    assert res.status_code == 303
+    for k, v in res.cookies.items():
+        client.cookies.set(k, v)
     res = client.post(
         "/admin/login", data={"password": "test-admin-pass"}, follow_redirects=False
     )
@@ -23,6 +28,8 @@ def test_admin_session_expires_after_12_hours(client, monkeypatch):
     from datetime import datetime, timezone
 
     monkeypatch.setattr(settings, "ADMIN_PASSWORD", "test-admin-pass")
+    monkeypatch.setattr(settings, "ADMIN_ACCESS_TOKEN", "test-access-token")
+    client.get("/?access=test-access-token", follow_redirects=False)
     res = client.post(
         "/admin/login", data={"password": "test-admin-pass"}, follow_redirects=False
     )
@@ -259,8 +266,49 @@ def test_admin_users_demo_shows_real_subscription(client, make_business, monkeyp
 
 
 def test_admin_finances_requires_login(client):
-    res = client.get("/admin/finances")
+    res = client.get("/admin/finances", follow_redirects=False)
+    assert res.status_code == 303
+    assert res.headers["location"] == "/"
+
+
+def test_admin_page_hidden_without_gateway_link(client, monkeypatch):
+    monkeypatch.setattr(settings, "ADMIN_ACCESS_TOKEN", "secret-token")
+    res = client.get("/admin", follow_redirects=False)
+    assert res.status_code == 303
+    assert res.headers["location"] == "/"
+
+
+def test_wrong_access_token_shows_landing(client, monkeypatch):
+    monkeypatch.setattr(settings, "ADMIN_ACCESS_TOKEN", "secret-token")
+    res = client.get("/?access=wrong", follow_redirects=False)
+    assert res.status_code == 200
+    assert "wavebook_admin_gate" not in res.cookies
+
+
+def test_access_link_grants_gate_cookie(client, monkeypatch):
+    monkeypatch.setattr(settings, "ADMIN_ACCESS_TOKEN", "secret-token")
+    res = client.get("/?access=secret-token", follow_redirects=False)
+    assert res.status_code == 303
+    assert res.headers["location"] == "/admin"
+    assert res.cookies.get("wavebook_admin_gate")
+
+
+def test_gate_cookie_shows_login_page(client, monkeypatch):
+    monkeypatch.setattr(settings, "ADMIN_ACCESS_TOKEN", "secret-token")
+    client.get("/?access=secret-token", follow_redirects=False)
+    res = client.get("/admin")
     assert res.status_code == 401
+    assert "password" in res.text.lower()
+
+
+def test_login_post_requires_gate_cookie(client, monkeypatch):
+    monkeypatch.setattr(settings, "ADMIN_PASSWORD", "test-admin-pass")
+    monkeypatch.setattr(settings, "ADMIN_ACCESS_TOKEN", "secret-token")
+    res = client.post(
+        "/admin/login", data={"password": "test-admin-pass"}, follow_redirects=False
+    )
+    assert res.status_code == 303
+    assert res.headers["location"] == "/"
 
 
 def test_admin_dashboard_paginates_businesses(client, monkeypatch):

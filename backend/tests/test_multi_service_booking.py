@@ -177,6 +177,11 @@ def test_payment_init_blocked_when_payments_off(client, make_business, monkeypat
 
 def _admin_cookie(client, monkeypatch):
     monkeypatch.setattr(settings, "ADMIN_PASSWORD", "test-admin-pass")
+    monkeypatch.setattr(settings, "ADMIN_ACCESS_TOKEN", "test-access-token")
+    res = client.get("/?access=test-access-token", follow_redirects=False)
+    assert res.status_code == 303
+    for k, v in res.cookies.items():
+        client.cookies.set(k, v)
     res = client.post(
         "/admin/login", data={"password": "test-admin-pass"}, follow_redirects=False
     )
