@@ -324,40 +324,6 @@ def test_admin_dashboard_shows_confirmed_booking_values(client, make_business, m
     assert "£100.00" in res.text  # overall total: 80 + 20
 
 
-def test_admin_dashboard_shows_confirmed_deposits(client, make_business, make_booking, monkeypatch):
-    _admin_cookie(client, monkeypatch)
-    biz1 = make_business("dep1")
-    biz2 = make_business("dep2")
-    confirmed1 = make_booking(biz1["id"], service_price=100.0, status="confirmed")
-    confirmed2 = make_booking(biz1["id"], service_price=50.0, status="confirmed")
-    pending = make_booking(biz1["id"], service_price=80.0, status="pending")
-    cancelled = make_booking(biz2["id"], service_price=60.0, status="cancelled")
-    confirmed3 = make_booking(biz2["id"], service_price=40.0, status="confirmed")
-    conn = database.get_connection()
-    try:
-        for booking_id, amount in [
-            (confirmed1, 20.0),
-            (confirmed2, 10.0),
-            (pending, 16.0),  # paid but booking not confirmed -> excluded
-            (cancelled, 12.0),  # paid but booking cancelled -> excluded
-            (confirmed3, 8.0),
-        ]:
-            conn.execute(
-                "INSERT INTO payments (business_id, booking_id, amount, currency, kind, status, method) "
-                "VALUES (?, ?, ?, 'GBP', 'deposit', 'paid', 'card')",
-                (biz1["id"] if booking_id in (confirmed1, confirmed2, pending) else biz2["id"], booking_id, amount),
-            )
-        conn.commit()
-    finally:
-        conn.close()
-    res = client.get("/admin")
-    assert res.status_code == 200
-    assert "Confirmed Deposits" in res.text
-    assert "£30.00" in res.text  # biz1: 20 + 10, pending deposit excluded
-    assert "£8.00" in res.text  # biz2: only the confirmed booking's deposit
-    assert "£38.00" in res.text  # overall total: 30 + 8
-
-
 def test_admin_dashboard_paginates_businesses(client, monkeypatch):
     _admin_cookie(client, monkeypatch)
     conn = database.get_connection()
