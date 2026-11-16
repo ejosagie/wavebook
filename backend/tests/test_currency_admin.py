@@ -266,16 +266,14 @@ def test_admin_users_demo_shows_real_subscription(client, make_business, monkeyp
 
 
 def test_admin_finances_requires_login(client):
-    res = client.get("/admin/finances", follow_redirects=False)
-    assert res.status_code == 303
-    assert res.headers["location"] == "/"
+    res = client.get("/admin/finances")
+    assert res.status_code == 404
 
 
 def test_admin_page_hidden_without_gateway_link(client, monkeypatch):
     monkeypatch.setattr(settings, "ADMIN_ACCESS_TOKEN", "secret-token")
-    res = client.get("/admin", follow_redirects=False)
-    assert res.status_code == 303
-    assert res.headers["location"] == "/"
+    res = client.get("/admin")
+    assert res.status_code == 404
 
 
 def test_wrong_access_token_shows_landing(client, monkeypatch):
@@ -305,10 +303,9 @@ def test_login_post_requires_gate_cookie(client, monkeypatch):
     monkeypatch.setattr(settings, "ADMIN_PASSWORD", "test-admin-pass")
     monkeypatch.setattr(settings, "ADMIN_ACCESS_TOKEN", "secret-token")
     res = client.post(
-        "/admin/login", data={"password": "test-admin-pass"}, follow_redirects=False
+        "/admin/login", data={"password": "test-admin-pass"}
     )
-    assert res.status_code == 303
-    assert res.headers["location"] == "/"
+    assert res.status_code == 404
 
 
 def test_admin_dashboard_paginates_businesses(client, monkeypatch):

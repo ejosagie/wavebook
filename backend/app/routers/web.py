@@ -434,7 +434,7 @@ def _admin_page(page: int, total: int) -> tuple[int, int, int]:
 def admin_dashboard(request: Request, page: int = 1):
     if not _is_admin(request):
         if not _has_admin_gate(request):
-            return RedirectResponse(url="/", status_code=303)
+            return PlainTextResponse("Not Found", status_code=404)
         return templates.TemplateResponse(
             request, "admin_login.html", {"error": None}, status_code=401
         )
@@ -510,7 +510,7 @@ def admin_payment_mode(request: Request, mode: str = Form(...)):
 @router.post("/admin/login")
 def admin_login(request: Request, password: str = Form(...)):
     if not _has_admin_gate(request):
-        return RedirectResponse(url="/", status_code=303)
+        return PlainTextResponse("Not Found", status_code=404)
     if settings.ADMIN_PASSWORD and password == settings.ADMIN_PASSWORD:
         response = RedirectResponse(url="/admin", status_code=303)
         _set_admin_cookie(response, request)
@@ -532,7 +532,7 @@ def _admin_or_login(request: Request):
     """Return the admin dashboard response if not authenticated."""
     if not _is_admin(request):
         if not _has_admin_gate(request):
-            return RedirectResponse(url="/", status_code=303)
+            return PlainTextResponse("Not Found", status_code=404)
         return templates.TemplateResponse(
             request, "admin_login.html", {"error": None}, status_code=401
         )
