@@ -37,6 +37,7 @@
       <div class="admin-stats">
         <div class="stat-card"><div class="num">{{ total_businesses }}</div><div class="label">Businesses</div></div>
         <div class="stat-card"><div class="num">{{ total_bookings }}</div><div class="label">Total Bookings</div></div>
+        <div class="stat-card"><div class="num">{{ confirmed_total_fmt }}</div><div class="label">Confirmed Bookings Value</div></div>
         <div class="stat-card"><div class="num">{{ active_subs }}</div><div class="label">Active Subscriptions</div></div>
         <div class="stat-card"><div class="num">{{ home_visits }}</div><div class="label">Home Page Visits{% if home_visits_today %} ({{ home_visits_today }} today){% endif %}</div></div>
         <div class="stat-card"><div class="num">{{ download_visits }}</div><div class="label">Download Page Visits{% if download_visits_today %} ({{ download_visits_today }} today){% endif %}</div></div>
@@ -51,6 +52,7 @@
             <th>Website</th>
             <th>Bookings</th>
             <th>Pending</th>
+            <th>Confirmed Value</th>
             <th>Subscription</th>
             <th>Store</th>
             <th>Pay</th>
@@ -67,6 +69,7 @@
             <td><a href="/t/{{ b.slug }}" target="_blank">{{ b.slug }}.wab.ad</a></td>
             <td>{{ b.booking_count }}</td>
             <td>{{ b.pending_count }}</td>
+            <td>{{ b.confirmed_value_fmt }}</td>
             <td><span class="badge badge-{{ b.subscription_status }}">{{ b.subscription_status }}</span></td>
             <td>{% if b.storefront_enabled %}✅{% else %}—{% endif %}</td>
             <td>{% if b.online_payments_enabled %}✅{% else %}—{% endif %}</td>

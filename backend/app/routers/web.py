@@ -448,12 +448,17 @@ def admin_dashboard(request: Request, page: int = 1):
             conn.execute(
                 """SELECT b.*,
                           (SELECT COUNT(*) FROM bookings bk WHERE bk.business_id = b.id) AS booking_count,
-                          (SELECT COUNT(*) FROM bookings bk WHERE bk.business_id = b.id AND bk.status = 'pending') AS pending_count
+                          (SELECT COUNT(*) FROM bookings bk WHERE bk.business_id = b.id AND bk.status = 'pending') AS pending_count,
+                          (SELECT COALESCE(SUM(bk.service_price), 0) FROM bookings bk
+                           WHERE bk.business_id = b.id AND bk.status = 'confirmed') AS confirmed_value
                    FROM businesses b ORDER BY b.created_at DESC LIMIT ? OFFSET ?""",
                 (ADMIN_PAGE_SIZE, offset),
             ).fetchall()
         )
         total_bookings = conn.execute("SELECT COUNT(*) AS c FROM bookings").fetchone()["c"]
+        confirmed_total = conn.execute(
+            "SELECT COALESCE(SUM(service_price), 0) AS c FROM bookings WHERE status = 'confirmed'"
+        ).fetchone()["c"]
         active_subs = conn.execute(
             "SELECT COUNT(*) AS c FROM businesses WHERE subscription_status = 'active'"
         ).fetchone()["c"]
@@ -464,6 +469,9 @@ def admin_dashboard(request: Request, page: int = 1):
         meta_rows = conn.execute("SELECT key, value FROM app_meta").fetchall()
     finally:
         conn.close()
+    for b in businesses:
+        b["confirmed_value_fmt"] = _format_price(b["confirmed_value"], b.get("currency"))
+    confirmed_total_fmt = _format_price(confirmed_total)
     meta = dict(APP_META_DEFAULTS)
     for row in meta_rows:
         meta[row["key"]] = row["value"]
@@ -474,6 +482,8 @@ def admin_dashboard(request: Request, page: int = 1):
             "businesses": businesses,
             "total_businesses": total_businesses,
             "total_bookings": total_bookings,
+            "confirmed_total": confirmed_total,
+            "confirmed_total_fmt": confirmed_total_fmt,
             "active_subs": active_subs,
             "app_meta": meta,
             "trial_days": get_trial_days(),

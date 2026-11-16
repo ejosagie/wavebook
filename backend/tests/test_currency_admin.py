@@ -308,6 +308,22 @@ def test_login_post_requires_gate_cookie(client, monkeypatch):
     assert res.status_code == 404
 
 
+def test_admin_dashboard_shows_confirmed_booking_values(client, make_business, make_booking, monkeypatch):
+    _admin_cookie(client, monkeypatch)
+    biz1 = make_business("conf1")
+    biz2 = make_business("conf2")
+    make_booking(biz1["id"], service_price=50.0, status="confirmed")
+    make_booking(biz1["id"], service_price=30.0, status="confirmed")
+    make_booking(biz1["id"], service_price=99.0, status="pending")  # excluded
+    make_booking(biz2["id"], service_price=20.0, status="confirmed")
+    res = client.get("/admin")
+    assert res.status_code == 200
+    assert "Confirmed Bookings Value" in res.text
+    assert "£80.00" in res.text  # biz1: 50 + 30 confirmed
+    assert "£20.00" in res.text  # biz2
+    assert "£100.00" in res.text  # overall total: 80 + 20
+
+
 def test_admin_dashboard_paginates_businesses(client, monkeypatch):
     _admin_cookie(client, monkeypatch)
     conn = database.get_connection()
