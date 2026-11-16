@@ -13,9 +13,10 @@ from ..routers.auth import register_user, reset_password
 from ..routers.bookings import generate_reference
 from ..routers.notifications import add_notification
 from ..routers.payments import verify_payment as verify_booking_payment
+from ..routers.subscription import activate_subscription
 from ..schemas import SignupRequest
 from ..security import create_admin_token, decode_admin_token
-from ..services import flutterwave
+from ..services import stripepay
 from ..services.assistant import build_assistant_response
 from ..services.ics import build_business_feed_ics
 from ..services.emailer import (
@@ -275,77 +276,26 @@ def subscribe_cancel(request: Request):
 
 
 @router.get("/subscribe/verify", response_class=HTMLResponse)
-def subscribe_verify(request: Request, tx_ref: str = "", transaction_id: str = ""):
-    """Flutterwave redirect handler for subscription payments."""
-    if not tx_ref or not transaction_id:
+def subscribe_verify(request: Request, session_id: str = ""):
+    """Redirect handler for Stripe Checkout subscription payments."""
+    if not session_id:
         return templates.TemplateResponse(request, "subscribe_cancel.html", {})
     try:
-        data = flutterwave.verify_transaction(transaction_id)
+        session = stripepay.retrieve_checkout_session(session_id)
+        data = stripepay.session_to_data(session)
+        if data["status"] != "successful":
+            return templates.TemplateResponse(request, "subscribe_cancel.html", {})
+        activate_subscription(data["tx_ref"], data)
     except HTTPException:
         return templates.TemplateResponse(request, "subscribe_cancel.html", {})
-    if data.get("status") != "successful" or data.get("tx_ref") != tx_ref:
-        return templates.TemplateResponse(request, "subscribe_cancel.html", {})
-
-    business_id = 0
-    plan_key = (data.get("meta") or {}).get("plan") or "basic_monthly"
-    if tx_ref.startswith("WB-SUB-"):
-        parts = tx_ref.split("-")
-        try:
-            business_id = int(parts[2])
-        except (IndexError, ValueError):
-            business_id = 0
-        # Older refs lack the plan segment; meta is authoritative when present
-        if plan_key not in settings.SUBSCRIPTION_PLANS and len(parts) > 3:
-            plan_key = parts[3]
-    plan_key = settings.LEGACY_PLAN_KEYS.get(plan_key, plan_key)
-    if plan_key not in settings.SUBSCRIPTION_PLANS:
-        plan_key = "basic_monthly"
-    plan = settings.SUBSCRIPTION_PLANS[plan_key]
-    if not business_id:
-        return templates.TemplateResponse(request, "subscribe_cancel.html", {})
-
-    # The transaction currency is authoritative; it must be one we support and
-    # must match the currency requested at checkout when present in meta.
-    currency = (data.get("currency") or settings.FLW_CURRENCY).upper()
-    currency_info = settings.SUBSCRIPTION_CURRENCIES.get(currency)
-    meta_currency = ((data.get("meta") or {}).get("currency") or "").upper()
-    if currency_info is None or (meta_currency and meta_currency != currency):
-        return templates.TemplateResponse(request, "subscribe_cancel.html", {})
-
-    paid = float(data.get("amount") or 0)
-    expected = round(plan["price"] * currency_info["rate"], 2)
-    if paid < expected:
-        return templates.TemplateResponse(request, "subscribe_cancel.html", {})
-
-    conn = get_connection()
-    try:
-        # Idempotency: never activate twice for the same Flutterwave transaction
-        existing = conn.execute(
-            "SELECT id FROM subscriptions WHERE stripe_subscription_id = ?", (tx_ref,)
-        ).fetchone()
-        if existing:
-            return templates.TemplateResponse(request, "subscribe_success.html", {})
-        # Every paid plan includes the storefront; product caps differ by tier.
-        conn.execute(
-            "UPDATE businesses SET subscription_status = 'active', storefront_enabled = 1 WHERE id = ?",
-            (business_id,),
-        )
-        conn.execute(
-            "INSERT INTO subscriptions (business_id, stripe_subscription_id, status, plan, amount, currency) "
-            "VALUES (?, ?, 'active', ?, ?, ?)",
-            (business_id, tx_ref, plan_key, paid, currency),
-        )
-        conn.commit()
-    finally:
-        conn.close()
     return templates.TemplateResponse(request, "subscribe_success.html", {})
 
 
 @router.get("/pay/verify")
-def pay_verify(request: Request, tx_ref: str = "", transaction_id: str = ""):
-    """Flutterwave redirect handler — then show the relevant success page."""
+def pay_verify(request: Request, session_id: str = ""):
+    """Redirect handler — then show the relevant success page."""
     try:
-        result = verify_booking_payment(tx_ref=tx_ref, transaction_id=transaction_id)
+        result = verify_booking_payment(session_id=session_id)
     except HTTPException:
         return RedirectResponse(url="/", status_code=303)
 

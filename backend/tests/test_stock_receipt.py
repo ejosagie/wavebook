@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from app import database
 from app.main import _send_due_receipts
 from app.routers import payments as payments_router
-from app.services import flutterwave
+from app.services import stripepay
 from conftest import auth
 
 
@@ -91,9 +91,9 @@ def test_storefront_checkout_decrements_stock(client, make_business, monkeypatch
 
     def fake_link(**kwargs):
         calls.update(kwargs)
-        return "https://checkout.flutterwave.test/pay"
+        return "https://checkout.stripe.test/pay"
 
-    monkeypatch.setattr(flutterwave, "create_payment_link", fake_link)
+    monkeypatch.setattr(stripepay, "create_checkout_session", fake_link)
     biz = make_business("stockdec", plan="premium_monthly")
     conn = database.get_connection()
     try:
@@ -129,9 +129,9 @@ def test_storefront_checkout_decrements_stock(client, make_business, monkeypatch
 
 def test_storefront_checkout_rejects_overstock(client, make_business, monkeypatch):
     monkeypatch.setattr(
-        flutterwave,
-        "create_payment_link",
-        lambda **kwargs: "https://checkout.flutterwave.test/pay",
+        stripepay,
+        "create_checkout_session",
+        lambda **kwargs: "https://checkout.stripe.test/pay",
     )
     biz = make_business("stockover", plan="premium_monthly")
     conn = database.get_connection()

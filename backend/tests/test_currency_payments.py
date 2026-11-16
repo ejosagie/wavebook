@@ -1,8 +1,8 @@
 """Regression tests: booking deposits and storefront orders must use the
-business's configured currency, not the global Flutterwave default (GBP)."""
+business's configured currency, not the global Stripe default (GBP)."""
 
 from app import database
-from app.services import flutterwave
+from app.services import stripepay
 
 
 def _capture_payment_link(monkeypatch):
@@ -10,9 +10,9 @@ def _capture_payment_link(monkeypatch):
 
     def fake_create(**kwargs):
         calls.append(kwargs)
-        return "https://checkout.flutterwave.test/pay/abc"
+        return "https://checkout.stripe.test/pay/abc"
 
-    monkeypatch.setattr(flutterwave, "create_payment_link", fake_create)
+    monkeypatch.setattr(stripepay, "create_checkout_session", fake_create)
     return calls
 
 
@@ -114,10 +114,9 @@ def test_store_checkout_defaults_to_gbp_when_business_has_no_currency(client, ma
     assert calls[0]["currency"] == "GBP"
 
 
-def test_flutterwave_descriptions_never_contain_hash(client, make_business, make_booking, monkeypatch):
-    """Regression: a '#' in the payment description triggers Cloudflare's WAF
-    on api.flutterwave.com, returning 403 and breaking checkout. Descriptions
-    must stay free of '#'."""
+def test_checkout_descriptions_never_contain_hash(client, make_business, make_booking, monkeypatch):
+    """Regression: a '#' in the payment description can break payment providers.
+    Descriptions must stay free of '#'."""
     calls = _capture_payment_link(monkeypatch)
     biz = make_business("hashbk")
     booking_id = make_booking(biz["id"], service_price=50.0)

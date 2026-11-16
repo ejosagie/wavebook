@@ -2,7 +2,7 @@ from app import database
 from app.config import settings
 from app.routers import payments as payments_router
 from app.routers import web
-from app.services import flutterwave
+from app.services import stripepay
 from conftest import auth
 
 
@@ -191,10 +191,10 @@ def test_admin_payment_mode_switches_all_businesses(client, make_business, monke
     make_business("paymode1", plan="premium_monthly")
     make_business("paymode2", plan="premium_monthly")
 
-    # Default: automatic (Flutterwave) for all
+    # Default: automatic (Stripe) for all
     res = client.get("/admin")
     assert res.status_code == 200
-    assert "Automatic (Flutterwave)" in res.text
+    assert "Automatic (Stripe)" in res.text
 
     # Switch to manual for all businesses
     res = client.post("/admin/payment-mode", data={"mode": "manual"}, follow_redirects=False)
@@ -351,20 +351,20 @@ def test_automatic_booking_owner_notified_only_after_payment(
     assert sms_calls == []
     assert not [m for m in sent if m["to"] == "owner@autonotify.wavebook.com"]
 
-    # After the Flutterwave payment succeeds, the owner is notified
+    # After the Stripe payment succeeds, the owner is notified
     _set_contact_phone(biz["id"])
     monkeypatch.setattr(
-        flutterwave,
-        "verify_transaction",
-        lambda transaction_id: {
-            "status": "successful",
-            "tx_ref": f"WB-BK-{booking_id}-abcd",
-            "amount": 25.0,
-            "id": "tx-deposit",
-            "currency": "GBP",
+        stripepay,
+        "retrieve_checkout_session",
+        lambda session_id: {
+            "id": session_id,
+            "payment_status": "paid",
+            "amount_total": 2500,
+            "currency": "gbp",
+            "metadata": {"tx_ref": f"WB-BK-{booking_id}-abcd"},
         },
     )
-    res = client.get(f"/api/payments/verify?tx_ref=WB-BK-{booking_id}-abcd&transaction_id=tx-deposit")
+    res = client.get(f"/api/payments/verify?session_id=cs-deposit")
     assert res.status_code == 200, res.text
 
     assert _new_booking_notification_count(biz["id"]) == 1

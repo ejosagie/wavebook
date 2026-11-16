@@ -27,12 +27,6 @@ class Settings:
     # Platform admin access (set in .env / server environment)
     ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "")
     ADMIN_ACCESS_TOKEN: str = os.getenv("ADMIN_ACCESS_TOKEN", "")  # ?access=... routes to the admin login page
-    # Flutterwave (card payments for bookings and subscriptions)
-    FLW_PUBLIC_KEY: str = os.getenv("FLW_PUBLIC_KEY", "")
-    FLW_SECRET_KEY: str = os.getenv("FLW_SECRET_KEY", "")
-    FLW_ENCRYPTION_KEY: str = os.getenv("FLW_ENCRYPTION_KEY", "")
-    FLW_CURRENCY: str = os.getenv("FLW_CURRENCY", "GBP")
-    FLW_COUNTRY: str = os.getenv("FLW_COUNTRY", "GB")
     # Email relay: the VPS POSTs emails to this PHP endpoint on the NeuroWaves hosting,
     # which sends them with mail(). Leave NOTIFY_TOKEN empty to log emails instead.
     NOTIFY_URL: str = os.getenv("NOTIFY_URL", "https://neurowavesdatasystems.ng/notification/notification.php")

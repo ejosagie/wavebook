@@ -8,7 +8,7 @@ from ..config import settings
 from ..database import get_connection, row_to_dict, rows_to_dicts
 from ..deps import business_tier_features, get_current_business, require_owner
 from ..schemas import OrderUpdate, ProductCreate, ProductUpdate, StorefrontCheckout
-from ..services import flutterwave, gcs
+from ..services import gcs, stripepay
 from ..services.emailer import send_order_delivered_email, send_order_shipped_email
 from ..services.uploads import image_content_type
 
@@ -297,7 +297,7 @@ def public_storefront(slug: str):
 
 @router.post("/api/storefront/checkout")
 def storefront_checkout(data: StorefrontCheckout):
-    """Create an order and a Flutterwave payment link for storefront products."""
+    """Create an order and a Stripe Checkout Session for storefront products."""
     conn = get_connection()
     try:
         business = conn.execute("SELECT * FROM businesses WHERE slug = ?", (data.slug,)).fetchone()
@@ -387,13 +387,14 @@ def storefront_checkout(data: StorefrontCheckout):
         conn.commit()
 
         tx_ref = f"WB-ORD-{order_id}-{secrets.token_hex(4)}"
-        payment_link = flutterwave.create_payment_link(
+        payment_link = stripepay.create_checkout_session(
             tx_ref=tx_ref,
             amount=round(total, 2),
             currency=business["currency"],
-            redirect_url=f"{settings.API_PUBLIC_URL}/pay/verify",
+            success_url=f"{settings.API_PUBLIC_URL}/pay/verify?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{settings.API_PUBLIC_URL}/t/{business['slug']}/store",
             customer_email=data.customer_email.strip(),
-            meta={
+            metadata={
                 "order_id": str(order_id),
                 "business_id": str(business["id"]),
                 "type": "storefront",

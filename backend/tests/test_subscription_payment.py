@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from app import database
-from app.services import flutterwave
+from app.services import stripepay
 from conftest import auth
 
 
@@ -22,16 +22,16 @@ def _capture_payment_link(monkeypatch):
 
     def fake_create(**kwargs):
         calls.append(kwargs)
-        return "https://checkout.flutterwave.test/pay/abc"
+        return "https://checkout.stripe.test/pay/abc"
 
-    monkeypatch.setattr(flutterwave, "create_payment_link", fake_create)
+    monkeypatch.setattr(stripepay, "create_checkout_session", fake_create)
     return calls
 
 
 def _verify_as(
     monkeypatch,
     *,
-    status="successful",
+    status="paid",
     amount=19.99,
     plan="premium_monthly",
     tx_ref=None,
@@ -42,17 +42,16 @@ def _verify_as(
     if meta_currency is not None:
         meta["currency"] = meta_currency
 
-    def fake_verify(transaction_id):
+    def fake_retrieve(session_id):
         return {
-            "id": transaction_id,
-            "status": status,
-            "tx_ref": tx_ref,
-            "amount": amount,
-            "currency": currency,
-            "meta": meta,
+            "id": session_id,
+            "payment_status": status,
+            "amount_total": int(round(amount * 100)),
+            "currency": currency.lower(),
+            "metadata": {"tx_ref": tx_ref, **meta},
         }
 
-    monkeypatch.setattr(flutterwave, "verify_transaction", fake_verify)
+    monkeypatch.setattr(stripepay, "retrieve_checkout_session", fake_retrieve)
 
 
 def _subscription_rows(business_id):
@@ -87,20 +86,19 @@ def test_checkout_creates_payment_link_for_chosen_plan(client, make_business, mo
         headers=auth(biz["owner_token"]),
     )
     assert res.status_code == 200, res.text
-    assert res.json()["payment_link"] == "https://checkout.flutterwave.test/pay/abc"
+    assert res.json()["payment_link"] == "https://checkout.stripe.test/pay/abc"
     call = calls[-1]
     assert call["amount"] == 56.99
     assert call["currency"] == "GBP"
-    assert call["country"] == "GB"
     assert call["customer_email"] == biz["owner_email"]
     assert call["tx_ref"].startswith(f"WB-SUB-{biz['id']}-premium_quarterly-")
-    assert call["meta"] == {
+    assert call["metadata"] == {
         "business_id": str(biz["id"]),
         "type": "subscription",
         "plan": "premium_quarterly",
         "currency": "GBP",
     }
-    assert call["redirect_url"].endswith("/subscribe/verify")
+    assert call["success_url"].endswith("/subscribe/verify?session_id={CHECKOUT_SESSION_ID}")
 
 
 def test_checkout_converts_price_for_usd(client, make_business, monkeypatch):
@@ -115,8 +113,7 @@ def test_checkout_converts_price_for_usd(client, make_business, monkeypatch):
     call = calls[-1]
     assert call["amount"] == round(56.99 * 1.35, 2)  # 76.94
     assert call["currency"] == "USD"
-    assert call["country"] == "US"
-    assert call["meta"]["currency"] == "USD"
+    assert call["metadata"]["currency"] == "USD"
 
 
 def test_checkout_converts_price_for_eur(client, make_business, monkeypatch):
@@ -131,8 +128,7 @@ def test_checkout_converts_price_for_eur(client, make_business, monkeypatch):
     call = calls[-1]
     assert call["amount"] == round(56.99 * 1.19, 2)  # 67.82
     assert call["currency"] == "EUR"
-    assert call["country"] == "FR"
-    assert call["meta"]["currency"] == "EUR"
+    assert call["metadata"]["currency"] == "EUR"
 
 
 def test_checkout_rejects_unsupported_currency(client, make_business, monkeypatch):
@@ -162,7 +158,7 @@ def test_successful_payment_activates_subscription(client, make_business, monkey
     biz = make_business("payco3", status="trial")
     tx_ref = f"WB-SUB-{biz['id']}-premium_monthly-abcd1234"
     _verify_as(monkeypatch, tx_ref=tx_ref)
-    res = client.get(f"/subscribe/verify?tx_ref={tx_ref}&transaction_id=tx-ok-1")
+    res = client.get("/subscribe/verify?session_id=cs_ok_1")
     assert res.status_code == 200
     rows = _subscription_rows(biz["id"])
     assert len(rows) == 1
@@ -180,7 +176,7 @@ def test_successful_usd_payment_activates_and_records_currency(client, make_busi
     biz = make_business("payc10", status="trial")
     tx_ref = f"WB-SUB-{biz['id']}-premium_monthly-usd0001"
     _verify_as(monkeypatch, tx_ref=tx_ref, amount=round(19.99 * 1.35, 2), currency="USD", meta_currency="USD")
-    res = client.get(f"/subscribe/verify?tx_ref={tx_ref}&transaction_id=tx-usd-1")
+    res = client.get("/subscribe/verify?session_id=cs_usd_1")
     assert res.status_code == 200
     rows = _subscription_rows(biz["id"])
     assert len(rows) == 1
@@ -193,7 +189,7 @@ def test_verify_rejects_currency_mismatch(client, make_business, monkeypatch):
     _running_trial(biz)
     tx_ref = f"WB-SUB-{biz['id']}-premium_monthly-mismatch"
     _verify_as(monkeypatch, tx_ref=tx_ref, currency="GBP", meta_currency="USD")
-    client.get(f"/subscribe/verify?tx_ref={tx_ref}&transaction_id=tx-mismatch")
+    client.get("/subscribe/verify?session_id=cs_mismatch")
     assert _subscription_rows(biz["id"]) == []
 
 
@@ -202,7 +198,7 @@ def test_verify_rejects_unsupported_currency(client, make_business, monkeypatch)
     _running_trial(biz)
     tx_ref = f"WB-SUB-{biz['id']}-premium_monthly-jpy0001"
     _verify_as(monkeypatch, tx_ref=tx_ref, amount=50000, currency="JPY")
-    client.get(f"/subscribe/verify?tx_ref={tx_ref}&transaction_id=tx-jpy")
+    client.get("/subscribe/verify?session_id=cs_jpy")
     assert _subscription_rows(biz["id"]) == []
 
 
@@ -211,7 +207,7 @@ def test_usd_underpayment_does_not_activate(client, make_business, monkeypatch):
     _running_trial(biz)
     tx_ref = f"WB-SUB-{biz['id']}-premium_monthly-shortusd"
     _verify_as(monkeypatch, tx_ref=tx_ref, amount=10.00, currency="USD", meta_currency="USD")
-    client.get(f"/subscribe/verify?tx_ref={tx_ref}&transaction_id=tx-short-usd")
+    client.get("/subscribe/verify?session_id=cs_short_usd")
     assert _subscription_rows(biz["id"]) == []
 
 
@@ -219,8 +215,8 @@ def test_repeat_redirect_does_not_activate_twice(client, make_business, monkeypa
     biz = make_business("payco4", status="trial")
     tx_ref = f"WB-SUB-{biz['id']}-premium_monthly-feed0001"
     _verify_as(monkeypatch, tx_ref=tx_ref)
-    client.get(f"/subscribe/verify?tx_ref={tx_ref}&transaction_id=tx-dup")
-    res = client.get(f"/subscribe/verify?tx_ref={tx_ref}&transaction_id=tx-dup")
+    client.get("/subscribe/verify?session_id=cs_dup")
+    res = client.get("/subscribe/verify?session_id=cs_dup")
     assert res.status_code == 200
     assert len(_subscription_rows(biz["id"])) == 1
 
@@ -230,7 +226,7 @@ def test_underpayment_does_not_activate(client, make_business, monkeypatch):
     _running_trial(biz)
     tx_ref = f"WB-SUB-{biz['id']}-premium_monthly-beef0002"
     _verify_as(monkeypatch, tx_ref=tx_ref, amount=5.00)
-    client.get(f"/subscribe/verify?tx_ref={tx_ref}&transaction_id=tx-short")
+    client.get("/subscribe/verify?session_id=cs_short")
     assert _subscription_rows(biz["id"]) == []
     sub = client.get("/api/subscription", headers=auth(biz["owner_token"])).json()
     assert sub["status"] == "trial"
@@ -240,8 +236,8 @@ def test_failed_payment_does_not_activate(client, make_business, monkeypatch):
     biz = make_business("payco6", status="trial")
     _running_trial(biz)
     tx_ref = f"WB-SUB-{biz['id']}-premium_monthly-dead0003"
-    _verify_as(monkeypatch, status="failed", tx_ref=tx_ref)
-    client.get(f"/subscribe/verify?tx_ref={tx_ref}&transaction_id=tx-failed")
+    _verify_as(monkeypatch, status="unpaid", tx_ref=tx_ref)
+    client.get("/subscribe/verify?session_id=cs_failed")
     assert _subscription_rows(biz["id"]) == []
     sub = client.get("/api/subscription", headers=auth(biz["owner_token"])).json()
     assert sub["status"] == "trial"

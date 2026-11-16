@@ -1,24 +1,28 @@
 import json
+import logging
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..config import settings
 from ..database import get_connection, row_to_dict
 from ..deps import get_current_business, require_owner
 from ..routers.notifications import add_notification
 from ..schemas import PaymentIntentCreate
-from ..services import flutterwave
+from ..services import stripepay
 from ..services.emailer import send_order_paid_emails, send_owner_new_booking_email
 from ..services.invoice import create_invoice, send_invoice_email
 from ..services.notifier import send_business_sms
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
+webhook_router = APIRouter(tags=["webhooks"])
+
+logger = logging.getLogger("wavebook")
 
 
 @router.post("/init")
 def init_payment(data: PaymentIntentCreate):
-    """Create a Flutterwave payment link for a booking deposit.
+    """Create a Stripe Checkout Session for a booking deposit.
 
     Public endpoint — called from the tenant booking page after a booking is
     created, so the customer can pay the deposit by card.
@@ -44,13 +48,14 @@ def init_payment(data: PaymentIntentCreate):
             raise HTTPException(status_code=400, detail="No payment is required for this booking")
 
         tx_ref = f"WB-BK-{booking['id']}-{secrets.token_hex(4)}"
-        payment_link = flutterwave.create_payment_link(
+        payment_link = stripepay.create_checkout_session(
             tx_ref=tx_ref,
             amount=amount,
             currency=business["currency"],
-            redirect_url=f"{settings.API_PUBLIC_URL}/pay/verify",
+            success_url=f"{settings.API_PUBLIC_URL}/pay/verify?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{settings.API_PUBLIC_URL}/t/{business['slug']}/booking/{booking['id']}/paid",
             customer_email=booking["customer_email"] or "",
-            meta={
+            metadata={
                 "booking_id": str(booking["id"]),
                 "business_id": str(business["id"]),
                 "type": "booking_deposit",
@@ -74,17 +79,19 @@ def init_payment(data: PaymentIntentCreate):
 
 
 @router.get("/verify")
-def verify_payment(tx_ref: str, transaction_id: str):
-    """Verify a Flutterwave payment and apply it (booking deposit, storefront order or SMS top-up).
+def verify_payment(tx_ref: str = "", session_id: str = ""):
+    """Verify a Stripe Checkout Session and apply it (booking deposit, storefront order or SMS top-up).
 
-    Flutterwave redirects the customer here after paying on the hosted page.
+    Stripe redirects the customer to the success URL with ?session_id=...;
+    the payment is applied here and again via the webhook (idempotently).
     """
-    data = flutterwave.verify_transaction(transaction_id)
-
-    if data.get("status") != "successful":
+    if not session_id:
+        raise HTTPException(status_code=400, detail="Missing session_id")
+    session = stripepay.retrieve_checkout_session(session_id)
+    data = stripepay.session_to_data(session)
+    if data["status"] != "successful":
         raise HTTPException(status_code=400, detail="Payment was not successful")
-    if data.get("tx_ref") != tx_ref:
-        raise HTTPException(status_code=400, detail="Transaction reference mismatch")
+    tx_ref = data["tx_ref"]
 
     if tx_ref.startswith("WB-BK-"):
         return _verify_booking(tx_ref, data)
@@ -93,6 +100,44 @@ def verify_payment(tx_ref: str, transaction_id: str):
     if tx_ref.startswith("WB-SMS-"):
         return _verify_sms_topup(tx_ref, data)
     raise HTTPException(status_code=400, detail="Invalid payment reference")
+
+
+def apply_checkout_session(session: dict) -> dict:
+    """Apply a paid Stripe Checkout Session to the matching booking/order/SMS top-up.
+
+    Shared by the webhook handler and the success-URL redirect so a payment is
+    never applied twice (each helper is idempotent).
+    """
+    data = stripepay.session_to_data(session)
+    if data["status"] != "successful":
+        raise HTTPException(status_code=400, detail="Payment was not successful")
+    tx_ref = data["tx_ref"]
+    if tx_ref.startswith("WB-BK-"):
+        return _verify_booking(tx_ref, data)
+    if tx_ref.startswith("WB-ORD-"):
+        return _verify_order(tx_ref, data)
+    if tx_ref.startswith("WB-SMS-"):
+        return _verify_sms_topup(tx_ref, data)
+    if tx_ref.startswith("WB-SUB-"):
+        from .subscription import activate_subscription
+
+        return activate_subscription(tx_ref, data)
+    raise HTTPException(status_code=400, detail="Invalid payment reference")
+
+
+@webhook_router.post("/api/webhooks/stripe")
+async def stripe_webhook(request: Request):
+    """Stripe webhook: confirm checkout sessions asynchronously."""
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+    event = stripepay.construct_webhook_event(payload, sig_header)
+    if event.get("type") == "checkout.session.completed":
+        session = event.get("data", {}).get("object") or {}
+        try:
+            apply_checkout_session(session)
+        except HTTPException as exc:
+            logger.warning("Stripe webhook apply failed: %s", exc.detail)
+    return {"received": True}
 
 
 def _verify_booking(tx_ref: str, data: dict) -> dict:
@@ -131,7 +176,7 @@ def _verify_booking(tx_ref: str, data: dict) -> dict:
                 booking_id,
                 data.get("id", ""),
                 paid,
-                data.get("currency") or settings.FLW_CURRENCY.upper(),
+                data.get("currency") or settings.STRIPE_CURRENCY.upper(),
             ),
         )
         add_notification(
@@ -197,7 +242,7 @@ def _verify_order(tx_ref: str, data: dict) -> dict:
                 order["business_id"],
                 data.get("id", ""),
                 paid,
-                data.get("currency") or settings.FLW_CURRENCY.upper(),
+                data.get("currency") or settings.STRIPE_CURRENCY.upper(),
             ),
         )
         items = json.loads(order["items"] or "[]")
@@ -254,7 +299,7 @@ def _verify_sms_topup(tx_ref: str, data: dict) -> dict:
                 business_id,
                 data.get("id", ""),
                 paid,
-                data.get("currency") or settings.FLW_CURRENCY.upper(),
+                data.get("currency") or settings.STRIPE_CURRENCY.upper(),
             ),
         )
         add_notification(
@@ -275,15 +320,16 @@ def sms_topup(
     business: dict = Depends(get_current_business),
     user: dict = Depends(require_owner),
 ):
-    """Create a Flutterwave payment link to buy another 50 SMS credits for £5."""
+    """Create a Stripe Checkout Session to buy another 50 SMS credits for £5."""
     tx_ref = f"WB-SMS-{business['id']}-{secrets.token_hex(4)}"
-    payment_link = flutterwave.create_payment_link(
+    payment_link = stripepay.create_checkout_session(
         tx_ref=tx_ref,
         amount=settings.SMS_TOPUP_PRICE_GBP,
-        currency=settings.FLW_CURRENCY,
-        redirect_url=f"{settings.API_PUBLIC_URL}/pay/verify",
+        currency=settings.STRIPE_CURRENCY,
+        success_url=f"{settings.API_PUBLIC_URL}/pay/verify?session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{settings.API_PUBLIC_URL}/subscribe/cancel",
         customer_email=user["email"],
-        meta={
+        metadata={
             "business_id": str(business["id"]),
             "type": "sms_topup",
         },

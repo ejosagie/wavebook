@@ -1,23 +1,23 @@
 """Tests for the deposit auto-invoice flow."""
 
 from app import database
-from app.services import flutterwave
 from app.services import invoice as invoice_service
+from app.services import stripepay
 
 
 def _pay_deposit(client, monkeypatch, booking_id, amount=20.0, currency="GBP"):
     monkeypatch.setattr(
-        flutterwave,
-        "verify_transaction",
-        lambda transaction_id: {
-            "status": "successful",
-            "tx_ref": f"WB-BK-{booking_id}-abcd",
-            "amount": amount,
-            "id": "tx-deposit",
-            "currency": currency,
+        stripepay,
+        "retrieve_checkout_session",
+        lambda session_id: {
+            "id": session_id,
+            "payment_status": "paid",
+            "amount_total": int(round(amount * 100)),
+            "currency": currency.lower(),
+            "metadata": {"tx_ref": f"WB-BK-{booking_id}-abcd"},
         },
     )
-    return client.get(f"/api/payments/verify?tx_ref=WB-BK-{booking_id}-abcd&transaction_id=tx-deposit")
+    return client.get(f"/api/payments/verify?session_id=cs-deposit")
 
 
 def _invoice_rows(booking_id):

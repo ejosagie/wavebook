@@ -31,7 +31,7 @@ ssh wavebook "cd /opt/wavebook/backend && \
 ssh wavebook "systemctl is-active wavebook.service && curl -s http://127.0.0.1:8000/api/health"
 ```
 
-Expected health response: `{"status":"ok","app":"WaveBook","version":"0.2.2"}`.
+Expected health response: `{"status":"ok","app":"WaveBook","version":"0.3.0"}`.
 
 ## Important rules
 

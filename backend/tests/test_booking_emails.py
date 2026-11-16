@@ -1,5 +1,5 @@
 from app.routers import bookings as bookings_router
-from app.services import emailer, flutterwave
+from app.services import emailer, stripepay
 from conftest import auth
 
 
@@ -45,17 +45,17 @@ def test_deposit_payment_emails_customer_confirmation(make_business, make_bookin
     biz = make_business("payco", contact_email="pay@wavebook.com", deposit=20.0)
     booking_id = make_booking(biz["id"], customer_email="jane@wavebook.com", status="pending", service_price=50.0)
     monkeypatch.setattr(
-        flutterwave,
-        "verify_transaction",
-        lambda transaction_id: {
-            "status": "successful",
-            "tx_ref": f"WB-BK-{booking_id}-abcd",
-            "amount": 20.0,
-            "id": "tx-deposit",
-            "currency": "GBP",
+        stripepay,
+        "retrieve_checkout_session",
+        lambda session_id: {
+            "id": session_id,
+            "payment_status": "paid",
+            "amount_total": 2000,
+            "currency": "gbp",
+            "metadata": {"tx_ref": f"WB-BK-{booking_id}-abcd"},
         },
     )
-    res = client.get(f"/api/payments/verify?tx_ref=WB-BK-{booking_id}-abcd&transaction_id=tx-deposit")
+    res = client.get(f"/api/payments/verify?session_id=cs-deposit")
     assert res.status_code == 200, res.text
     # After payment the customer gets the invoice receipt, but not the confirmation
     customer = [m for m in sent if m["to"] == "jane@wavebook.com"]
@@ -95,17 +95,17 @@ def test_paid_order_emails_customer_and_owner_once(client, make_business, monkey
     finally:
         conn.close()
     monkeypatch.setattr(
-        flutterwave,
-        "verify_transaction",
-        lambda transaction_id: {
-            "status": "successful",
-            "tx_ref": f"WB-ORD-{order_id}-abcd",
-            "amount": 25.0,
-            "id": "tx-order",
-            "currency": "GBP",
+        stripepay,
+        "retrieve_checkout_session",
+        lambda session_id: {
+            "id": session_id,
+            "payment_status": "paid",
+            "amount_total": 2500,
+            "currency": "gbp",
+            "metadata": {"tx_ref": f"WB-ORD-{order_id}-abcd"},
         },
     )
-    url = f"/api/payments/verify?tx_ref=WB-ORD-{order_id}-abcd&transaction_id=tx-order"
+    url = f"/api/payments/verify?session_id=cs-order"
     res = client.get(url)
     assert res.status_code == 200, res.text
     recipients = [m["to"] for m in sent]

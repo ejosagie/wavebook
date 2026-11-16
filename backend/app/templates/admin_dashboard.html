@@ -116,12 +116,12 @@
       <div class="card" style="max-width: 640px; padding: 20px;">
         <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 12px;">
           Choose how customers pay deposits across <strong>all businesses</strong>.
-          <strong>Automatic</strong> — customers pay by card (Flutterwave) on the booking page.
+          <strong>Automatic</strong> — customers pay by card (Stripe) on the booking page.
           <strong>Manual</strong> — bookings complete immediately and customers pay by bank transfer using the business's bank details.
         </p>
         <p style="margin-bottom: 12px;">
           Current mode:
-          {% if payment_mode == 'automatic' %}<span class="badge badge-active">Automatic (Flutterwave)</span>
+          {% if payment_mode == 'automatic' %}<span class="badge badge-active">Automatic (Stripe)</span>
           {% elif payment_mode == 'manual' %}<span class="badge badge-cancelled">Manual (bank transfer)</span>
           {% else %}<span class="badge">Mixed — {{ online_count }} automatic / {{ manual_count }} manual</span>{% endif %}
         </p>

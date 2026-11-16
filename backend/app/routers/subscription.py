@@ -9,7 +9,7 @@ from ..database import get_connection, get_trial_days, row_to_dict
 from ..deps import bearer_scheme, business_tier_features, get_business_plan, get_current_business
 from ..schemas import SubscriptionCheckoutRequest
 from ..security import decode_access_token
-from ..services import flutterwave
+from ..services import stripepay
 
 router = APIRouter(prefix="/api/subscription", tags=["subscription"])
 
@@ -45,7 +45,7 @@ def create_checkout(
     payload: SubscriptionCheckoutRequest | None = Body(default=None),
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ):
-    """Create a Flutterwave payment link for a subscription plan.
+    """Create a Stripe Checkout Session for a subscription plan.
 
     App callers authenticate with their Bearer token; website visitors
     (no web session exists) identify their account by email instead.
@@ -99,14 +99,14 @@ def create_checkout(
     tier = settings.TIER_LABELS.get(plan["tier"], "WaveBook")
     interval_label = settings.INTERVAL_LABELS.get(plan["interval"], plan["interval"].title())
     tx_ref = f"WB-SUB-{business['id']}-{plan_key}-{secrets.token_hex(4)}"
-    payment_link = flutterwave.create_payment_link(
+    payment_link = stripepay.create_checkout_session(
         tx_ref=tx_ref,
         amount=amount,
         currency=currency,
-        country=currency_info["country"],
-        redirect_url=f"{settings.API_PUBLIC_URL}/subscribe/verify",
+        success_url=f"{settings.API_PUBLIC_URL}/subscribe/verify?session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{settings.API_PUBLIC_URL}/subscribe/cancel",
         customer_email=user["email"],
-        meta={
+        metadata={
             "business_id": str(business["id"]),
             "type": "subscription",
             "plan": plan_key,
@@ -116,3 +116,64 @@ def create_checkout(
         description=f"{interval_label} subscription for {business['name']}",
     )
     return {"payment_link": payment_link}
+
+
+def activate_subscription(tx_ref: str, data: dict) -> dict:
+    """Activate a subscription after a successful payment (Stripe or Flutterwave).
+
+    Idempotent: a second call for the same transaction returns early. Shared by
+    the webhook handler and the /subscribe/verify redirect page.
+    """
+    business_id = 0
+    plan_key = (data.get("meta") or {}).get("plan") or "basic_monthly"
+    if tx_ref.startswith("WB-SUB-"):
+        parts = tx_ref.split("-")
+        try:
+            business_id = int(parts[2])
+        except (IndexError, ValueError):
+            business_id = 0
+        # Older refs lack the plan segment; meta is authoritative when present
+        if plan_key not in settings.SUBSCRIPTION_PLANS and len(parts) > 3:
+            plan_key = parts[3]
+    plan_key = settings.LEGACY_PLAN_KEYS.get(plan_key, plan_key)
+    if plan_key not in settings.SUBSCRIPTION_PLANS:
+        plan_key = "basic_monthly"
+    plan = settings.SUBSCRIPTION_PLANS[plan_key]
+    if not business_id:
+        raise HTTPException(status_code=400, detail="Invalid payment reference")
+
+    # The transaction currency is authoritative; it must be one we support and
+    # must match the currency requested at checkout when present in meta.
+    currency = (data.get("currency") or settings.STRIPE_CURRENCY).upper()
+    currency_info = settings.SUBSCRIPTION_CURRENCIES.get(currency)
+    meta_currency = ((data.get("meta") or {}).get("currency") or "").upper()
+    if currency_info is None or (meta_currency and meta_currency != currency):
+        raise HTTPException(status_code=400, detail="Payment currency mismatch")
+
+    paid = float(data.get("amount") or 0)
+    expected = round(plan["price"] * currency_info["rate"], 2)
+    if paid < expected:
+        raise HTTPException(status_code=400, detail="Payment amount does not match")
+
+    conn = get_connection()
+    try:
+        # Idempotency: never activate twice for the same transaction
+        existing = conn.execute(
+            "SELECT id FROM subscriptions WHERE stripe_subscription_id = ?", (tx_ref,)
+        ).fetchone()
+        if existing:
+            return {"status": "active", "business_id": business_id}
+        # Every paid plan includes the storefront; product caps differ by tier.
+        conn.execute(
+            "UPDATE businesses SET subscription_status = 'active', storefront_enabled = 1 WHERE id = ?",
+            (business_id,),
+        )
+        conn.execute(
+            "INSERT INTO subscriptions (business_id, stripe_subscription_id, status, plan, amount, currency) "
+            "VALUES (?, ?, 'active', ?, ?, ?)",
+            (business_id, tx_ref, plan_key, paid, currency),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"status": "active", "business_id": business_id}
