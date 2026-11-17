@@ -156,20 +156,48 @@ def open_portal(
     conn = get_connection()
     try:
         row = conn.execute(
-            "SELECT stripe_customer_id FROM subscriptions "
-            "WHERE business_id = ? AND status = 'active' AND stripe_customer_id != '' "
-            "ORDER BY id DESC LIMIT 1",
+            "SELECT id, stripe_subscription_id, stripe_customer_id FROM subscriptions "
+            "WHERE business_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1",
             (business["id"],),
         ).fetchone()
     finally:
         conn.close()
-    if not row:
+    customer_id = _portal_customer_id(row)
+    if not customer_id:
         raise HTTPException(status_code=400, detail="No active subscription to manage")
     url = stripepay.create_portal_session(
-        row["stripe_customer_id"],
+        customer_id,
         return_url=f"{settings.API_PUBLIC_URL}/subscribe",
     )
     return {"portal_url": url}
+
+
+def _portal_customer_id(row: dict | None) -> str:
+    """Return the Stripe customer id for an active subscription row.
+
+    Older subscriptions activated before customer ids were stored have a
+    stripe_subscription_id but no stripe_customer_id; resolve it from Stripe
+    and persist it so the portal keeps working for them.
+    """
+    if not row:
+        return ""
+    if row["stripe_customer_id"]:
+        return row["stripe_customer_id"]
+    if not row["stripe_subscription_id"].startswith("sub_"):
+        return ""
+    customer_id = stripepay.get_subscription_customer(row["stripe_subscription_id"])
+    if not customer_id:
+        return ""
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE subscriptions SET stripe_customer_id = ? WHERE id = ?",
+            (customer_id, row["id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return customer_id
 
 
 @router.post("/cancel")

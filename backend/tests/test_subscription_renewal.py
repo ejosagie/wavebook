@@ -190,9 +190,31 @@ def test_portal_opens_for_active_subscription(client, make_business, monkeypatch
 def test_portal_rejects_subscription_without_customer(client, make_business, monkeypatch):
     biz = make_business("renew10", status="active")
     _activate(biz, monkeypatch)
+    monkeypatch.setattr(stripepay, "get_subscription_customer", lambda sub_id: "")
     res = client.post("/api/subscription/portal", json={"email": biz["owner_email"]})
     assert res.status_code == 400
     assert "No active subscription" in res.text
+
+
+def test_portal_resolves_customer_from_stripe(client, make_business, monkeypatch):
+    """Subscriptions activated before customer ids were stored are resolved from Stripe."""
+    biz = make_business("renew15", status="active")
+    _activate(biz, monkeypatch)
+    monkeypatch.setattr(stripepay, "get_subscription_customer", lambda sub_id: "cus_backfilled")
+    monkeypatch.setattr(
+        stripepay, "create_portal_session", lambda customer_id, return_url: "https://billing.stripe.test/p/session"
+    )
+    res = client.post("/api/subscription/portal", json={"email": biz["owner_email"]})
+    assert res.status_code == 200, res.text
+    assert res.json()["portal_url"] == "https://billing.stripe.test/p/session"
+    conn = database.get_connection()
+    try:
+        row = conn.execute(
+            "SELECT stripe_customer_id FROM subscriptions WHERE business_id = ?", (biz["id"],)
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row["stripe_customer_id"] == "cus_backfilled"
 
 
 def test_portal_rejects_unknown_email(client, make_business, monkeypatch):
@@ -237,6 +259,7 @@ def test_portal_subscription_manage_redirects_to_stripe(client, make_business, m
 def test_portal_subscription_manage_without_customer(client, make_business, monkeypatch):
     biz = make_business("renew13", status="active")
     _activate(biz, monkeypatch)
+    monkeypatch.setattr(stripepay, "get_subscription_customer", lambda sub_id: "")
     _portal_login(client, biz)
     res = client.post("/portal/subscription", follow_redirects=False)
     assert res.status_code == 303

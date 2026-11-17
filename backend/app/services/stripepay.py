@@ -157,6 +157,17 @@ def cancel_subscription(sub_id: str) -> dict:
         raise HTTPException(status_code=400, detail="Subscription cancellation failed")
 
 
+def get_subscription_customer(sub_id: str) -> str:
+    """Return the Stripe customer id for a subscription, or '' if unknown."""
+    _configure()
+    try:
+        sub = stripe.Subscription.retrieve(sub_id)
+    except stripe.error.StripeError as exc:
+        logger.error("Stripe subscription retrieve error: %s", exc)
+        return ""
+    return sub.get("customer") or ""
+
+
 def create_portal_session(customer_id: str, return_url: str) -> str:
     """Create a Stripe Customer Portal session and return its URL.
 

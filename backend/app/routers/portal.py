@@ -22,6 +22,7 @@ from ..routers.availability import update_availability
 from ..routers.business import update_business
 from ..routers.auth import change_password
 from ..routers.staff import invite_staff, remove_staff, update_staff
+from ..routers.subscription import _portal_customer_id
 from ..routers.products import (
     _add_product_image,
     _attach_images,
@@ -250,18 +251,18 @@ def portal_subscription_manage(request: Request):
     conn = get_connection()
     try:
         row = conn.execute(
-            "SELECT stripe_customer_id FROM subscriptions "
-            "WHERE business_id = ? AND status = 'active' AND stripe_customer_id != '' "
-            "ORDER BY id DESC LIMIT 1",
+            "SELECT id, stripe_subscription_id, stripe_customer_id FROM subscriptions "
+            "WHERE business_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1",
             (business["id"],),
         ).fetchone()
     finally:
         conn.close()
-    if not row:
+    customer_id = _portal_customer_id(row)
+    if not customer_id:
         return _redirect("/portal?tab=account", error="No active subscription to manage")
     try:
         url = stripepay.create_portal_session(
-            row["stripe_customer_id"],
+            customer_id,
             return_url=f"{settings.API_PUBLIC_URL}/portal?tab=account",
         )
     except HTTPException as exc:
