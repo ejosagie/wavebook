@@ -342,6 +342,8 @@ def init_db() -> None:
         _ensure_column(conn, "businesses", "theme_style", "theme_style TEXT DEFAULT 'custom'")
         _ensure_column(conn, "businesses", "theme_font", "theme_font TEXT DEFAULT ''")
         _ensure_column(conn, "subscriptions", "currency", "currency TEXT DEFAULT 'GBP'")
+        _ensure_column(conn, "subscriptions", "tx_ref", "tx_ref TEXT DEFAULT ''")
+        _ensure_column(conn, "subscriptions", "current_period_end", "current_period_end TEXT DEFAULT ''")
         _ensure_column(conn, "bookings", "reference", "reference TEXT DEFAULT ''")
         _ensure_column(conn, "bookings", "reminder_sent", "reminder_sent INTEGER NOT NULL DEFAULT 0")
         _ensure_column(conn, "bookings", "assigned_staff_id", "assigned_staff_id INTEGER")

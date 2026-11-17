@@ -24,7 +24,7 @@ def _capture_payment_link(monkeypatch):
         calls.append(kwargs)
         return "https://checkout.stripe.test/pay/abc"
 
-    monkeypatch.setattr(stripepay, "create_checkout_session", fake_create)
+    monkeypatch.setattr(stripepay, "create_subscription_checkout_session", fake_create)
     return calls
 
 
@@ -48,6 +48,7 @@ def _verify_as(
             "payment_status": status,
             "amount_total": int(round(amount * 100)),
             "currency": currency.lower(),
+            "subscription": "sub_test_123",
             "metadata": {"tx_ref": tx_ref, **meta},
         }
 
@@ -60,7 +61,7 @@ def _subscription_rows(business_id):
         return [
             dict(r)
             for r in conn.execute(
-                "SELECT stripe_subscription_id, plan, amount, status, currency FROM subscriptions WHERE business_id = ?",
+                "SELECT stripe_subscription_id, tx_ref, plan, amount, status, currency, current_period_end FROM subscriptions WHERE business_id = ?",
                 (business_id,),
             ).fetchall()
         ]
@@ -92,6 +93,8 @@ def test_checkout_creates_payment_link_for_chosen_plan(client, make_business, mo
     assert call["currency"] == "GBP"
     assert call["customer_email"] == biz["owner_email"]
     assert call["tx_ref"].startswith(f"WB-SUB-{biz['id']}-premium_quarterly-")
+    assert call["interval"] == "month"
+    assert call["interval_count"] == 3
     assert call["metadata"] == {
         "business_id": str(biz["id"]),
         "type": "subscription",
@@ -162,7 +165,8 @@ def test_successful_payment_activates_subscription(client, make_business, monkey
     assert res.status_code == 200
     rows = _subscription_rows(biz["id"])
     assert len(rows) == 1
-    assert rows[0]["stripe_subscription_id"] == tx_ref
+    assert rows[0]["stripe_subscription_id"] == "sub_test_123"
+    assert rows[0]["tx_ref"] == tx_ref
     assert rows[0]["plan"] == "premium_monthly"
     assert rows[0]["amount"] == 19.99
     assert rows[0]["currency"] == "GBP"
@@ -170,6 +174,7 @@ def test_successful_payment_activates_subscription(client, make_business, monkey
     assert sub["status"] == "active"
     assert sub["plan"] == "premium_monthly"
     assert sub["max_staff"] == 5
+    assert sub["auto_renew"] is True
 
 
 def test_successful_usd_payment_activates_and_records_currency(client, make_business, monkeypatch):

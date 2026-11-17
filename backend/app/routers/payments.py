@@ -127,16 +127,29 @@ def apply_checkout_session(session: dict) -> dict:
 
 @webhook_router.post("/api/webhooks/stripe")
 async def stripe_webhook(request: Request):
-    """Stripe webhook: confirm checkout sessions asynchronously."""
+    """Stripe webhook: confirm checkout sessions and subscription renewals asynchronously."""
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature", "")
     event = stripepay.construct_webhook_event(payload, sig_header)
-    if event.get("type") == "checkout.session.completed":
-        session = event.get("data", {}).get("object") or {}
+    event_type = event.get("type", "")
+    obj = event.get("data", {}).get("object") or {}
+    if event_type == "checkout.session.completed":
         try:
-            apply_checkout_session(session)
+            apply_checkout_session(obj)
         except HTTPException as exc:
             logger.warning("Stripe webhook apply failed: %s", exc.detail)
+    elif event_type == "invoice.paid":
+        from .subscription import renew_subscription
+
+        renew_subscription(obj)
+    elif event_type == "invoice.payment_failed":
+        from .subscription import mark_subscription_past_due
+
+        mark_subscription_past_due(obj)
+    elif event_type == "customer.subscription.deleted":
+        from .subscription import cancel_subscription
+
+        cancel_subscription(obj)
     return {"received": True}
 
 

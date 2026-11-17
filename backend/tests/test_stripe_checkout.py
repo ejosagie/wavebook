@@ -183,7 +183,10 @@ def test_webhook_activates_subscription(client, make_business, monkeypatch):
         "type": "checkout.session.completed",
         "data": {
             "object": _session(tx_ref=tx_ref, amount_pence=1999)
-            | {"metadata": {"tx_ref": tx_ref, "plan": "premium_monthly", "currency": "GBP"}}
+            | {
+                "subscription": "sub_test_999",
+                "metadata": {"tx_ref": tx_ref, "plan": "premium_monthly", "currency": "GBP"},
+            }
         },
     }
     monkeypatch.setattr(stripepay, "construct_webhook_event", lambda payload, sig: event)
@@ -192,6 +195,17 @@ def test_webhook_activates_subscription(client, make_business, monkeypatch):
     sub = client.get("/api/subscription", headers=auth(biz["owner_token"])).json()
     assert sub["status"] == "active"
     assert sub["plan"] == "premium_monthly"
+    assert sub["auto_renew"] is True
+    conn = database.get_connection()
+    try:
+        row = conn.execute(
+            "SELECT stripe_subscription_id, tx_ref FROM subscriptions WHERE business_id = ?",
+            (biz["id"],),
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row["stripe_subscription_id"] == "sub_test_999"
+    assert row["tx_ref"] == tx_ref
 
 
 def test_webhook_requires_configuration(client, monkeypatch):

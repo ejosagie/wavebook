@@ -75,6 +75,64 @@ def create_checkout_session(
     return session["url"]
 
 
+def create_subscription_checkout_session(
+    *,
+    tx_ref: str,
+    amount: float,
+    currency: str,
+    success_url: str,
+    cancel_url: str,
+    customer_email: str,
+    metadata: dict,
+    title: str,
+    description: str,
+    interval: str = "month",
+    interval_count: int = 1,
+) -> str:
+    """Create a recurring Stripe Checkout Session and return its URL.
+
+    Unlike create_checkout_session (one-time payment), this uses
+    mode="subscription" so Stripe saves the payment method and charges
+    automatically every interval (default: every month).
+    """
+    _configure()
+    try:
+        session = stripe.checkout.Session.create(
+            mode="subscription",
+            line_items=[
+                {
+                    "quantity": 1,
+                    "price_data": {
+                        "currency": (currency or settings.STRIPE_CURRENCY).lower(),
+                        "unit_amount": int(round(amount * 100)),
+                        "recurring": {"interval": interval, "interval_count": interval_count},
+                        "product_data": {
+                            "name": title,
+                            "description": description,
+                        },
+                    },
+                }
+            ],
+            success_url=success_url,
+            cancel_url=cancel_url,
+            customer_email=customer_email or None,
+            metadata={"tx_ref": tx_ref, **metadata},
+            subscription_data={"metadata": {"tx_ref": tx_ref, **metadata}},
+        )
+    except stripe.error.PermissionError as exc:
+        logger.error("Stripe subscription checkout permission error: %s", exc)
+        raise HTTPException(
+            status_code=400,
+            detail="Stripe key lacks permission to create subscriptions — grant Subscriptions and Checkout Sessions write access",
+        )
+    except stripe.error.StripeError as exc:
+        logger.error("Stripe subscription checkout error: %s", exc)
+        raise HTTPException(status_code=400, detail="Payment initialization failed")
+    if not session.get("url"):
+        raise HTTPException(status_code=400, detail="Payment initialization failed")
+    return session["url"]
+
+
 def retrieve_checkout_session(session_id: str) -> dict:
     """Retrieve a Checkout Session and return its data dict."""
     _configure()
@@ -112,5 +170,6 @@ def session_to_data(session: dict) -> dict:
         "amount": float(session.get("amount_total") or 0) / 100,
         "currency": (session.get("currency") or settings.STRIPE_CURRENCY).upper(),
         "id": session.get("id", ""),
+        "subscription": session.get("subscription") or "",
         "meta": meta,
     }

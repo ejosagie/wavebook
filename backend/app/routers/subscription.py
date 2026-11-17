@@ -27,6 +27,16 @@ def get_subscription(business: dict = Depends(get_current_business)):
     plan_key, plan = get_business_plan(business["id"])
     plan_key = plan_key or ""
     plan = plan or {}
+    conn = get_connection()
+    try:
+        sub_row = conn.execute(
+            "SELECT stripe_subscription_id, current_period_end FROM subscriptions "
+            "WHERE business_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1",
+            (business["id"],),
+        ).fetchone()
+    finally:
+        conn.close()
+    auto_renew = bool(sub_row and sub_row["stripe_subscription_id"].startswith("sub_"))
     return {
         "status": business["subscription_status"],
         "plan": plan_key,
@@ -37,6 +47,8 @@ def get_subscription(business: dict = Depends(get_current_business)):
         "trial_days": get_trial_days(),
         "trial_ends_at": trial_ends,
         "trial_days_left": trial_days_left,
+        "auto_renew": auto_renew,
+        "current_period_end": sub_row["current_period_end"] if sub_row else "",
     }
 
 
@@ -98,8 +110,9 @@ def create_checkout(
 
     tier = settings.TIER_LABELS.get(plan["tier"], "WaveBook")
     interval_label = settings.INTERVAL_LABELS.get(plan["interval"], plan["interval"].title())
+    interval, interval_count = _stripe_interval(plan["interval"])
     tx_ref = f"WB-SUB-{business['id']}-{plan_key}-{secrets.token_hex(4)}"
-    payment_link = stripepay.create_checkout_session(
+    payment_link = stripepay.create_subscription_checkout_session(
         tx_ref=tx_ref,
         amount=amount,
         currency=currency,
@@ -114,8 +127,20 @@ def create_checkout(
         },
         title=f"{tier} — {interval_label}",
         description=f"{interval_label} subscription for {business['name']}",
+        interval=interval,
+        interval_count=interval_count,
     )
     return {"payment_link": payment_link}
+
+
+def _stripe_interval(plan_interval: str) -> tuple[str, int]:
+    """Map WaveBook plan intervals to Stripe recurring price intervals."""
+    return {
+        "monthly": ("month", 1),
+        "quarterly": ("month", 3),
+        "biannual": ("month", 6),
+        "yearly": ("year", 1),
+    }.get(plan_interval, ("month", 1))
 
 
 def activate_subscription(tx_ref: str, data: dict) -> dict:
@@ -157,9 +182,11 @@ def activate_subscription(tx_ref: str, data: dict) -> dict:
 
     conn = get_connection()
     try:
-        # Idempotency: never activate twice for the same transaction
+        # Idempotency: never activate twice for the same transaction.
+        # New rows keep tx_ref; legacy rows stored the tx_ref in stripe_subscription_id.
         existing = conn.execute(
-            "SELECT id FROM subscriptions WHERE stripe_subscription_id = ?", (tx_ref,)
+            "SELECT id FROM subscriptions WHERE tx_ref = ? OR stripe_subscription_id = ?",
+            (tx_ref, tx_ref),
         ).fetchone()
         if existing:
             return {"status": "active", "business_id": business_id}
@@ -168,12 +195,129 @@ def activate_subscription(tx_ref: str, data: dict) -> dict:
             "UPDATE businesses SET subscription_status = 'active', storefront_enabled = 1 WHERE id = ?",
             (business_id,),
         )
+        stripe_sub_id = data.get("subscription") or tx_ref
         conn.execute(
-            "INSERT INTO subscriptions (business_id, stripe_subscription_id, status, plan, amount, currency) "
-            "VALUES (?, ?, 'active', ?, ?, ?)",
-            (business_id, tx_ref, plan_key, paid, currency),
+            "INSERT INTO subscriptions (business_id, stripe_subscription_id, tx_ref, status, plan, amount, currency, current_period_end) "
+            "VALUES (?, ?, ?, 'active', ?, ?, ?, ?)",
+            (business_id, stripe_sub_id, tx_ref, plan_key, paid, currency, data.get("current_period_end") or ""),
         )
         conn.commit()
     finally:
         conn.close()
     return {"status": "active", "business_id": business_id}
+
+
+def _business_for_subscription(sub_id: str, meta: dict) -> int | None:
+    """Resolve the business id for a Stripe subscription (by sub_ id or metadata)."""
+    if not sub_id:
+        return None
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT business_id FROM subscriptions WHERE stripe_subscription_id = ?", (sub_id,)
+        ).fetchone()
+    finally:
+        conn.close()
+    if row:
+        return row["business_id"]
+    try:
+        return int(meta.get("business_id") or 0) or None
+    except (TypeError, ValueError):
+        return None
+
+
+def renew_subscription(invoice: dict) -> dict:
+    """invoice.paid: a renewal succeeded — keep the business active.
+
+    Called by the Stripe webhook for every paid invoice (initial and renewals).
+    """
+    sub_id = invoice.get("subscription") or ""
+    meta = dict(invoice.get("subscription_details") or {}).get("metadata") or {}
+    business_id = _business_for_subscription(sub_id, meta)
+    if business_id is None:
+        return {"status": "ignored"}
+    period_end = _format_period_end(invoice.get("period_end"))
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE businesses SET subscription_status = 'active', storefront_enabled = 1 WHERE id = ?",
+            (business_id,),
+        )
+        if sub_id:
+            conn.execute(
+                "UPDATE subscriptions SET status = 'active', current_period_end = ? "
+                "WHERE business_id = ? AND stripe_subscription_id = ?",
+                (period_end, business_id, sub_id),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"status": "active", "business_id": business_id}
+
+
+def mark_subscription_past_due(invoice: dict) -> dict:
+    """invoice.payment_failed: flag the business past_due and notify the owner."""
+    sub_id = invoice.get("subscription") or ""
+    meta = dict(invoice.get("subscription_details") or {}).get("metadata") or {}
+    business_id = _business_for_subscription(sub_id, meta)
+    if business_id is None:
+        return {"status": "ignored"}
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE businesses SET subscription_status = 'past_due' WHERE id = ?", (business_id,)
+        )
+        conn.execute(
+            "INSERT INTO notifications (business_id, type, title, message) "
+            "VALUES (?, 'subscription', 'Payment failed', 'Your monthly subscription payment failed. Stripe will retry automatically — update your card details to avoid losing access.')",
+            (business_id,),
+        )
+        owner = conn.execute(
+            "SELECT email FROM users WHERE business_id = ? AND role = 'owner' ORDER BY id LIMIT 1",
+            (business_id,),
+        ).fetchone()
+        conn.commit()
+    finally:
+        conn.close()
+    if owner:
+        from ..services import emailer
+
+        emailer.send_email(
+            owner["email"],
+            "WaveBook payment failed — action needed",
+            "Your WaveBook subscription payment could not be collected. Stripe will retry automatically; update your payment method in the WaveBook app to keep your subscription active.",
+        )
+    return {"status": "past_due", "business_id": business_id}
+
+
+def cancel_subscription(subscription: dict) -> dict:
+    """customer.subscription.deleted: the subscription ended — deactivate the business."""
+    sub_id = subscription.get("id") or ""
+    meta = dict(subscription.get("metadata") or {})
+    business_id = _business_for_subscription(sub_id, meta)
+    if business_id is None:
+        return {"status": "ignored"}
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE businesses SET subscription_status = 'cancelled' WHERE id = ?", (business_id,)
+        )
+        conn.execute(
+            "UPDATE subscriptions SET status = 'cancelled' "
+            "WHERE business_id = ? AND stripe_subscription_id = ?",
+            (business_id, sub_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"status": "cancelled", "business_id": business_id}
+
+
+def _format_period_end(ts) -> str:
+    """Format a Stripe unix timestamp as a YYYY-MM-DD date string."""
+    if not ts:
+        return ""
+    try:
+        return datetime.utcfromtimestamp(int(ts)).strftime("%Y-%m-%d")
+    except (TypeError, ValueError, OSError):
+        return ""
