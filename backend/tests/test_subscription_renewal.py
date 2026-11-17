@@ -200,3 +200,55 @@ def test_portal_rejects_unknown_email(client, make_business, monkeypatch):
     _activate(biz, monkeypatch)
     res = client.post("/api/subscription/portal", json={"email": "nobody@wavebook.com"})
     assert res.status_code == 404
+
+
+def _portal_login(client, biz):
+    res = client.post(
+        "/portal/login",
+        data={"email": biz["owner_email"], "password": "ownerpass1"},
+        follow_redirects=False,
+    )
+    assert res.status_code == 303
+    for k, v in res.cookies.items():
+        client.cookies.set(k, v)
+
+
+def test_portal_subscription_manage_redirects_to_stripe(client, make_business, monkeypatch):
+    biz = make_business("renew12", status="active")
+    _activate(biz, monkeypatch)
+    conn = database.get_connection()
+    try:
+        conn.execute(
+            "UPDATE subscriptions SET stripe_customer_id = 'cus_test_2' WHERE business_id = ?",
+            (biz["id"],),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    _portal_login(client, biz)
+    monkeypatch.setattr(
+        stripepay, "create_portal_session", lambda customer_id, return_url: "https://billing.stripe.test/p/session"
+    )
+    res = client.post("/portal/subscription", follow_redirects=False)
+    assert res.status_code == 303
+    assert res.headers["location"] == "https://billing.stripe.test/p/session"
+
+
+def test_portal_subscription_manage_without_customer(client, make_business, monkeypatch):
+    biz = make_business("renew13", status="active")
+    _activate(biz, monkeypatch)
+    _portal_login(client, biz)
+    res = client.post("/portal/subscription", follow_redirects=False)
+    assert res.status_code == 303
+    assert res.headers["location"].startswith("/portal?tab=account")
+    assert "No%20active%20subscription" in res.headers["location"]
+
+
+def test_portal_account_tab_shows_subscription(client, make_business, monkeypatch):
+    biz = make_business("renew14", status="active")
+    _activate(biz, monkeypatch)
+    _portal_login(client, biz)
+    res = client.get("/portal?tab=account")
+    assert res.status_code == 200
+    assert "Manage or Cancel Subscription" in res.text
+    assert "premium_monthly" in res.text

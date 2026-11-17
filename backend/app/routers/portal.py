@@ -42,6 +42,7 @@ from ..schemas import (
     SUPPORTED_CURRENCIES,
 )
 from ..security import create_access_token, decode_access_token, hash_password, verify_password
+from ..services import stripepay
 from ..services.slots import DAY_LABELS, DEFAULT_WORKING_DAYS, get_availability_row
 from .web import CURRENCY_SYMBOLS
 
@@ -239,6 +240,35 @@ def portal_change_password_submit(
     return _redirect("/portal", msg="Password updated")
 
 
+@router.post("/subscription")
+def portal_subscription_manage(request: Request):
+    """Open Stripe's Customer Portal so the owner can manage or cancel their subscription."""
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal", error="No business is linked to this account")
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT stripe_customer_id FROM subscriptions "
+            "WHERE business_id = ? AND status = 'active' AND stripe_customer_id != '' "
+            "ORDER BY id DESC LIMIT 1",
+            (business["id"],),
+        ).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return _redirect("/portal?tab=account", error="No active subscription to manage")
+    try:
+        url = stripepay.create_portal_session(
+            row["stripe_customer_id"],
+            return_url=f"{settings.API_PUBLIC_URL}/portal?tab=account",
+        )
+    except HTTPException as exc:
+        return _redirect("/portal?tab=account", error=exc.detail)
+    return RedirectResponse(url, status_code=303)
+
+
 @router.post("/logout")
 def portal_logout():
     response = _redirect("/portal/login", msg="You have been signed out")
@@ -331,6 +361,11 @@ def portal_dashboard(request: Request):
             "SELECT slot, path, caption FROM gallery WHERE business_id = ? ORDER BY slot",
             (business["id"],),
         ).fetchall()
+        sub_row = conn.execute(
+            "SELECT plan, status, current_period_end FROM subscriptions "
+            "WHERE business_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1",
+            (business["id"],),
+        ).fetchone()
     finally:
         conn.close()
 
@@ -360,6 +395,7 @@ def portal_dashboard(request: Request):
             "booking_total": booking_total,
             "feedback": feedback,
             "gallery": gallery,
+            "subscription": dict(sub_row) if sub_row else None,
             "counts": _counts(business["id"]),
             "day_order": DAY_ORDER,
             "day_labels": DAY_LABELS,

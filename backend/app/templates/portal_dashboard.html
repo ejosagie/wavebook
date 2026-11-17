@@ -851,6 +851,25 @@
             </table>
           </div>
         </div>
+        <div class="card" style="margin-top: 16px;">
+          <h3>Subscription</h3>
+          {% if subscription %}
+          <table>
+            <tr><td>Status</td><td><span class="badge badge-{{ subscription.status }}">{{ subscription.status }}</span></td></tr>
+            <tr><td>Plan</td><td>{{ subscription.plan }}</td></tr>
+            <tr><td>Renews on</td><td>{{ subscription.current_period_end or '—' }}</td></tr>
+          </table>
+          <form method="post" action="/portal/subscription" style="margin-top: 12px;">
+            <button type="submit" class="btn btn-outline">Manage or Cancel Subscription</button>
+          </form>
+          <p style="font-size: 0.85rem; color: var(--muted); margin-top: 8px;">
+            Opens Stripe's secure billing page where you can cancel (takes effect at the end of the current period), update your card, or view invoices.
+          </p>
+          {% else %}
+          <p>No active subscription.</p>
+          <a class="btn btn-sm" href="https://getwavebook.com/subscribe" target="_blank">Subscribe</a>
+          {% endif %}
+        </div>
       </div>
     </div>
   </section>
