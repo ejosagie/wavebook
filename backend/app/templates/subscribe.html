@@ -107,6 +107,21 @@
         <p id="checkout-error" style="display:none; color: var(--danger); margin-top: 12px; font-size: 0.9rem;"></p>
         <p style="font-size: 0.85rem; margin-top: 16px;">Secure card payments.</p>
       </div>
+
+      <div class="card" style="max-width: 560px; margin: 32px auto 0; padding: 24px;">
+        <h3 style="margin-bottom: 8px;">Manage your subscription</h3>
+        <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 16px;">
+          Already subscribed? Enter your account email to cancel, update your card, or view invoices. Stripe emails you a secure link before the page opens.
+        </p>
+        <form id="portal-form">
+          <div class="form-group">
+            <label for="portal-email">Account Email</label>
+            <input type="email" id="portal-email" name="email" required placeholder="you@example.com">
+          </div>
+          <button id="portal-btn" type="submit" class="btn btn-outline">Manage Subscription</button>
+        </form>
+        <p id="portal-error" style="display:none; color: var(--danger); margin-top: 12px; font-size: 0.9rem;"></p>
+      </div>
     </div>
   </section>
 
@@ -172,6 +187,33 @@
           return;
         }
         errorEl.textContent = data.detail || 'Could not start checkout. Please try again.';
+        errorEl.style.display = 'block';
+      } catch (err) {
+        errorEl.textContent = 'Network error. Please try again.';
+        errorEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  // Opens Stripe's Customer Portal so the owner can cancel or update their card.
+    document.getElementById('portal-form').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const errorEl = document.getElementById('portal-error');
+      const btn = document.getElementById('portal-btn');
+      errorEl.style.display = 'none';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/subscription/portal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: document.getElementById('portal-email').value })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (data.portal_url) {
+          window.location.href = data.portal_url;
+          return;
+        }
+        errorEl.textContent = data.detail || 'Could not open subscription management. Please try again.';
         errorEl.style.display = 'block';
       } catch (err) {
         errorEl.textContent = 'Network error. Please try again.';

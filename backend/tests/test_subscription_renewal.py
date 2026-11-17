@@ -125,3 +125,78 @@ def test_unknown_subscription_webhook_is_ignored(client, make_business, monkeypa
     assert res.status_code == 200, res.text
     sub = client.get("/api/subscription", headers=auth(biz["owner_token"])).json()
     assert sub["status"] == "trial"
+
+
+def test_cancel_recurring_subscription(client, make_business, monkeypatch):
+    biz = make_business("renew6", status="active")
+    _activate(biz, monkeypatch)
+    cancelled = {}
+
+    def fake_cancel(sub_id):
+        cancelled["sub_id"] = sub_id
+        return {"id": sub_id, "cancel_at_period_end": True}
+
+    monkeypatch.setattr(stripepay, "cancel_subscription", fake_cancel)
+    res = client.post("/api/subscription/cancel", headers=auth(biz["owner_token"]))
+    assert res.status_code == 200, res.text
+    assert cancelled["sub_id"] == "sub_renew_1"
+    assert res.json()["status"] == "cancelling"
+
+
+def test_cancel_legacy_subscription_rejected(client, make_business, monkeypatch):
+    biz = make_business("renew7", status="active")
+    tx_ref = f"WB-SUB-{biz['id']}-premium_monthly-legacy"
+    conn = database.get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO subscriptions (business_id, stripe_subscription_id, tx_ref, status, plan, amount, currency) "
+            "VALUES (?, ?, ?, 'active', 'premium_monthly', 19.99, 'GBP')",
+            (biz["id"], tx_ref, tx_ref),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    res = client.post("/api/subscription/cancel", headers=auth(biz["owner_token"]))
+    assert res.status_code == 400
+    assert "No recurring subscription" in res.text
+
+
+def test_cancel_without_subscription_rejected(client, make_business, monkeypatch):
+    biz = make_business("renew8", status="trial")
+    res = client.post("/api/subscription/cancel", headers=auth(biz["owner_token"]))
+    assert res.status_code == 400
+
+
+def test_portal_opens_for_active_subscription(client, make_business, monkeypatch):
+    biz = make_business("renew9", status="active")
+    _activate(biz, monkeypatch)
+    conn = database.get_connection()
+    try:
+        conn.execute(
+            "UPDATE subscriptions SET stripe_customer_id = 'cus_test_1' WHERE business_id = ?",
+            (biz["id"],),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    monkeypatch.setattr(
+        stripepay, "create_portal_session", lambda customer_id, return_url: "https://billing.stripe.test/p/session"
+    )
+    res = client.post("/api/subscription/portal", json={"email": biz["owner_email"]})
+    assert res.status_code == 200, res.text
+    assert res.json()["portal_url"] == "https://billing.stripe.test/p/session"
+
+
+def test_portal_rejects_subscription_without_customer(client, make_business, monkeypatch):
+    biz = make_business("renew10", status="active")
+    _activate(biz, monkeypatch)
+    res = client.post("/api/subscription/portal", json={"email": biz["owner_email"]})
+    assert res.status_code == 400
+    assert "No active subscription" in res.text
+
+
+def test_portal_rejects_unknown_email(client, make_business, monkeypatch):
+    biz = make_business("renew11", status="active")
+    _activate(biz, monkeypatch)
+    res = client.post("/api/subscription/portal", json={"email": "nobody@wavebook.com"})
+    assert res.status_code == 404

@@ -52,6 +52,48 @@ def get_subscription(business: dict = Depends(get_current_business)):
     }
 
 
+def _resolve_business(email: str, credentials: HTTPAuthorizationCredentials | None) -> tuple[dict, str]:
+    """Resolve the owner user and their business (Bearer token or account email).
+
+    Returns (business, owner_email).
+    """
+    conn = get_connection()
+    try:
+        if credentials is not None:
+            user_id = decode_access_token(credentials.credentials)
+            user = (
+                row_to_dict(conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone())
+                if user_id
+                else None
+            )
+            if user is None:
+                raise HTTPException(status_code=401, detail="Invalid or expired token")
+            if user.get("role") not in ("owner", "admin"):
+                raise HTTPException(status_code=403, detail="Owner access required")
+        else:
+            email = (email or "").strip().lower()
+            if not email:
+                raise HTTPException(status_code=400, detail="Email is required")
+            user = row_to_dict(
+                conn.execute(
+                    "SELECT * FROM users WHERE email = ? AND role IN ('owner','admin')",
+                    (email,),
+                ).fetchone()
+            )
+            if user is None:
+                raise HTTPException(status_code=404, detail="No account found for that email")
+        if not user.get("business_id"):
+            raise HTTPException(status_code=400, detail="No business linked to this account")
+        business = row_to_dict(
+            conn.execute("SELECT * FROM businesses WHERE id = ?", (user["business_id"],)).fetchone()
+        )
+    finally:
+        conn.close()
+    if business is None:
+        raise HTTPException(status_code=404, detail="Business not found")
+    return business, user["email"]
+
+
 @router.post("/checkout")
 def create_checkout(
     payload: SubscriptionCheckoutRequest | None = Body(default=None),
@@ -73,40 +115,7 @@ def create_checkout(
         raise HTTPException(status_code=400, detail="Unsupported currency")
     amount = round(plan["price"] * currency_info["rate"], 2)
 
-    conn = get_connection()
-    try:
-        if credentials is not None:
-            user_id = decode_access_token(credentials.credentials)
-            user = (
-                row_to_dict(conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone())
-                if user_id
-                else None
-            )
-            if user is None:
-                raise HTTPException(status_code=401, detail="Invalid or expired token")
-            if user.get("role") not in ("owner", "admin"):
-                raise HTTPException(status_code=403, detail="Owner access required")
-        else:
-            email = (payload.email or "").strip().lower() if payload else ""
-            if not email:
-                raise HTTPException(status_code=400, detail="Email is required")
-            user = row_to_dict(
-                conn.execute(
-                    "SELECT * FROM users WHERE email = ? AND role IN ('owner','admin')",
-                    (email,),
-                ).fetchone()
-            )
-            if user is None:
-                raise HTTPException(status_code=404, detail="No account found for that email")
-        if not user.get("business_id"):
-            raise HTTPException(status_code=400, detail="No business linked to this account")
-        business = row_to_dict(
-            conn.execute("SELECT * FROM businesses WHERE id = ?", (user["business_id"],)).fetchone()
-        )
-    finally:
-        conn.close()
-    if business is None:
-        raise HTTPException(status_code=404, detail="Business not found")
+    business, owner_email = _resolve_business(payload.email if payload else None, credentials)
 
     tier = settings.TIER_LABELS.get(plan["tier"], "WaveBook")
     interval_label = settings.INTERVAL_LABELS.get(plan["interval"], plan["interval"].title())
@@ -118,7 +127,7 @@ def create_checkout(
         currency=currency,
         success_url=f"{settings.API_PUBLIC_URL}/subscribe/verify?session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{settings.API_PUBLIC_URL}/subscribe/cancel",
-        customer_email=user["email"],
+        customer_email=owner_email,
         metadata={
             "business_id": str(business["id"]),
             "type": "subscription",
@@ -131,6 +140,58 @@ def create_checkout(
         interval_count=interval_count,
     )
     return {"payment_link": payment_link}
+
+
+@router.post("/portal")
+def open_portal(
+    payload: SubscriptionCheckoutRequest | None = Body(default=None),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+):
+    """Open Stripe's Customer Portal so the owner can cancel or manage their subscription.
+
+    Website visitors identify their account by email; Stripe emails them a
+    magic link before the portal opens, so email alone cannot be abused.
+    """
+    business, _ = _resolve_business(payload.email if payload else None, credentials)
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT stripe_customer_id FROM subscriptions "
+            "WHERE business_id = ? AND status = 'active' AND stripe_customer_id != '' "
+            "ORDER BY id DESC LIMIT 1",
+            (business["id"],),
+        ).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        raise HTTPException(status_code=400, detail="No active subscription to manage")
+    url = stripepay.create_portal_session(
+        row["stripe_customer_id"],
+        return_url=f"{settings.API_PUBLIC_URL}/subscribe",
+    )
+    return {"portal_url": url}
+
+
+@router.post("/cancel")
+def cancel_my_subscription(business: dict = Depends(get_current_business)):
+    """Cancel the business's recurring subscription at the end of the current period.
+
+    The business keeps access until the paid period ends; Stripe then sends
+    customer.subscription.deleted, which the webhook turns into 'cancelled'.
+    """
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT stripe_subscription_id, current_period_end FROM subscriptions "
+            "WHERE business_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1",
+            (business["id"],),
+        ).fetchone()
+    finally:
+        conn.close()
+    if not row or not row["stripe_subscription_id"].startswith("sub_"):
+        raise HTTPException(status_code=400, detail="No recurring subscription to cancel")
+    stripepay.cancel_subscription(row["stripe_subscription_id"])
+    return {"status": "cancelling", "current_period_end": row["current_period_end"]}
 
 
 def _stripe_interval(plan_interval: str) -> tuple[str, int]:
@@ -197,9 +258,9 @@ def activate_subscription(tx_ref: str, data: dict) -> dict:
         )
         stripe_sub_id = data.get("subscription") or tx_ref
         conn.execute(
-            "INSERT INTO subscriptions (business_id, stripe_subscription_id, tx_ref, status, plan, amount, currency, current_period_end) "
-            "VALUES (?, ?, ?, 'active', ?, ?, ?, ?)",
-            (business_id, stripe_sub_id, tx_ref, plan_key, paid, currency, data.get("current_period_end") or ""),
+            "INSERT INTO subscriptions (business_id, stripe_subscription_id, tx_ref, status, plan, amount, currency, current_period_end, stripe_customer_id) "
+            "VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?)",
+            (business_id, stripe_sub_id, tx_ref, plan_key, paid, currency, data.get("current_period_end") or "", data.get("customer") or ""),
         )
         conn.commit()
     finally:

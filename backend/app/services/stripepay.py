@@ -143,6 +143,41 @@ def retrieve_checkout_session(session_id: str) -> dict:
         raise HTTPException(status_code=400, detail="Payment verification failed")
 
 
+def cancel_subscription(sub_id: str) -> dict:
+    """Cancel a Stripe subscription at the end of the current billing period.
+
+    The customer keeps access until the period ends; Stripe then sends
+    customer.subscription.deleted, which the webhook uses to deactivate.
+    """
+    _configure()
+    try:
+        return stripe.Subscription.modify(sub_id, cancel_at_period_end=True)
+    except stripe.error.StripeError as exc:
+        logger.error("Stripe subscription cancel error: %s", exc)
+        raise HTTPException(status_code=400, detail="Subscription cancellation failed")
+
+
+def create_portal_session(customer_id: str, return_url: str) -> str:
+    """Create a Stripe Customer Portal session and return its URL.
+
+    The portal lets the owner manage their subscription (cancel at period end,
+    update the payment method, view invoices) with Stripe's own authentication.
+    The account's portal configuration is passed explicitly so cancellation
+    is offered even when no default configuration is set.
+    """
+    _configure()
+    try:
+        configs = stripe.billing_portal.Configuration.list(limit=1)
+        params = {"customer": customer_id, "return_url": return_url}
+        if configs.data:
+            params["configuration"] = configs.data[0].id
+        session = stripe.billing_portal.Session.create(**params)
+    except stripe.error.StripeError as exc:
+        logger.error("Stripe portal session error: %s", exc)
+        raise HTTPException(status_code=400, detail="Could not open subscription management")
+    return session.get("url") or ""
+
+
 def construct_webhook_event(payload: bytes, sig_header: str) -> dict:
     """Verify the Stripe webhook signature and parse the event."""
     if not settings.STRIPE_WEBHOOK_SECRET:
@@ -171,5 +206,6 @@ def session_to_data(session: dict) -> dict:
         "currency": (session.get("currency") or settings.STRIPE_CURRENCY).upper(),
         "id": session.get("id", ""),
         "subscription": session.get("subscription") or "",
+        "customer": session.get("customer") or "",
         "meta": meta,
     }
