@@ -169,7 +169,7 @@ def test_portal_calendar_blocks_date_range(client, make_business):
     assert "error" in res.headers["location"]
 
 
-def test_portal_calendar_unblocks_single_date(client, make_business):
+def test_portal_calendar_unblocks_date_range(client, make_business):
     biz = make_business("portalunblock")
     _login(client, biz)
     client.post(
@@ -178,8 +178,8 @@ def test_portal_calendar_unblocks_single_date(client, make_business):
         follow_redirects=False,
     )
     res = client.post(
-        "/portal/calendar/blocked-dates/remove",
-        data={"date": "2026-12-22"},
+        "/portal/calendar/blocked-ranges/remove",
+        data={"from_date": "2026-12-22", "to_date": "2026-12-23"},
         follow_redirects=False,
     )
     assert res.status_code == 303
@@ -192,7 +192,22 @@ def test_portal_calendar_unblocks_single_date(client, make_business):
     finally:
         conn.close()
     avail = get_availability_row(row)
-    assert avail["blocked_dates"] == ["2026-12-21", "2026-12-23"]
+    assert avail["blocked_dates"] == ["2026-12-21"]
+
+
+def test_portal_calendar_groups_blocked_dates_into_ranges(client, make_business):
+    biz = make_business("portalranges")
+    _login(client, biz)
+    client.post(
+        "/portal/calendar/block-range",
+        data={"from_date": "2026-12-01", "to_date": "2026-12-31"},
+        follow_redirects=False,
+    )
+    res = client.get("/portal?tab=services")
+    assert res.status_code == 200
+    # A whole month is one chip, not 31 separate entries
+    assert "1 – 31 Dec 2026" in res.text
+    assert 'action="/portal/calendar/blocked-ranges/remove"' in res.text
 
 
 def test_portal_staff_invite(client, make_business, sent):

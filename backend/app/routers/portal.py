@@ -255,6 +255,34 @@ def _analytics(business_id: int, from_dt: str, to_dt: str, source: str = "") -> 
     }
 
 
+def _blocked_ranges(dates: list[str]) -> list[dict]:
+    """Group sorted blocked date strings into consecutive ranges for display.
+
+    e.g. a whole month of blocked dates becomes one "1 – 31 Dec 2026" chip
+    instead of 31 separate entries.
+    """
+    ranges: list[dict] = []
+    for d in sorted(dates):
+        day = date.fromisoformat(d)
+        if ranges and (day - ranges[-1]["end"]).days == 1:
+            ranges[-1]["end"] = day
+        else:
+            ranges.append({"start": day, "end": day})
+    out = []
+    for r in ranges:
+        start, end = r["start"], r["end"]
+        if start == end:
+            label = f"{start.day} {start.strftime('%b')} {start.year}"
+        elif start.year == end.year and start.month == end.month:
+            label = f"{start.day} – {end.day} {end.strftime('%b')} {end.year}"
+        elif start.year == end.year:
+            label = f"{start.day} {start.strftime('%b')} – {end.day} {end.strftime('%b')} {end.year}"
+        else:
+            label = f"{start.day} {start.strftime('%b')} {start.year} – {end.day} {end.strftime('%b')} {end.year}"
+        out.append({"start": start.isoformat(), "end": end.isoformat(), "label": label})
+    return out
+
+
 # ---- Login / logout ----
 
 
@@ -389,6 +417,7 @@ def portal_dashboard(request: Request):
                 "SELECT * FROM availability WHERE business_id = ?", (business["id"],)
             ).fetchone()
         )
+        blocked_ranges = _blocked_ranges(availability["blocked_dates"])
         staff_rows = conn.execute(
             """SELECT s.id, s.active, u.email, u.full_name, u.phone
                FROM staff s JOIN users u ON u.id = s.user_id
@@ -493,6 +522,7 @@ def portal_dashboard(request: Request):
             "user": user,
             "business": business,
             "availability": availability,
+            "blocked_ranges": blocked_ranges,
             "staff": [dict(r) for r in staff_rows],
             "products": products,
             "orders": orders,
@@ -634,16 +664,22 @@ def portal_calendar_block_range(
     return _redirect("/portal?tab=services", msg=f"Blocked {len(existing)} dates")
 
 
-@router.post("/calendar/blocked-dates/remove")
-def portal_calendar_blocked_date_remove(
+@router.post("/calendar/blocked-ranges/remove")
+def portal_calendar_blocked_range_remove(
     request: Request,
-    date: str = Form(...),
+    from_date: str = Form(...),
+    to_date: str = Form(...),
 ):
-    """Unblock a single date."""
+    """Unblock every date in a range (e.g. a whole month at once)."""
     user = _require_portal_user(request)
     business = _load_business(user)
     if business is None:
         return _redirect("/portal/login", error="No business is linked to this account")
+    try:
+        start = date.fromisoformat(from_date)
+        end = date.fromisoformat(to_date)
+    except ValueError:
+        return _redirect("/portal?tab=services", error="Invalid date range")
     conn = get_connection()
     try:
         availability = get_availability_row(
@@ -654,7 +690,10 @@ def portal_calendar_blocked_date_remove(
     finally:
         conn.close()
     existing = set(availability["blocked_dates"])
-    existing.discard(date)
+    day = start
+    while day <= end:
+        existing.discard(day.isoformat())
+        day += timedelta(days=1)
     try:
         update_availability(
             data=AvailabilityUpdate(blocked_dates=sorted(existing)),
@@ -663,7 +702,7 @@ def portal_calendar_blocked_date_remove(
         )
     except HTTPException as exc:
         return _redirect("/portal?tab=services", error=exc.detail)
-    return _redirect("/portal?tab=services", msg="Date unblocked")
+    return _redirect("/portal?tab=services", msg="Dates unblocked")
 
 
 # ---- Staff ----
