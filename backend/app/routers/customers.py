@@ -25,6 +25,22 @@ def list_customers(business: dict = Depends(get_current_business)):
     return rows
 
 
+@router.delete("/{customer_id}")
+def delete_customer(customer_id: int, business: dict = Depends(get_current_business)):
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            "DELETE FROM customers WHERE id = ? AND business_id = ?",
+            (customer_id, business["id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    if cur.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    return {"ok": True}
+
+
 @router.get("/{customer_id}/bookings")
 def customer_bookings(customer_id: int, business: dict = Depends(get_current_business)):
     conn = get_connection()

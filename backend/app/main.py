@@ -9,6 +9,7 @@ from .config import settings
 from .database import get_connection, init_db, row_to_dict
 from .deps import enforce_staff_access
 from .routers import (
+    ads,
     auth,
     availability,
     bookings,
@@ -157,6 +158,7 @@ def on_startup():
 
 
 # API routers
+app.include_router(ads.router)
 app.include_router(auth.router)
 app.include_router(business.router)
 app.include_router(services.router)

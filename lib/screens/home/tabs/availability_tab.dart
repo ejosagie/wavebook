@@ -94,6 +94,50 @@ class _AvailabilityTabState extends State<AvailabilityTab> {
     return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
   }
 
+  Future<void> _pickBlockedDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 730)),
+    );
+    if (picked == null) return;
+    final d = DateFormat('yyyy-MM-dd').format(picked);
+    setState(() {
+      if (!_availability!.blockedDates.contains(d)) {
+        _availability!.blockedDates.add(d);
+        _availability!.blockedDates.sort();
+      }
+    });
+  }
+
+  Future<void> _pickBlockedRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 730)),
+      helpText: 'Block a date range',
+      saveText: 'Block',
+    );
+    if (picked == null) return;
+    setState(() {
+      var day = picked.start;
+      while (!day.isAfter(picked.end)) {
+        final d = DateFormat('yyyy-MM-dd').format(day);
+        if (!_availability!.blockedDates.contains(d)) {
+          _availability!.blockedDates.add(d);
+        }
+        day = day.add(const Duration(days: 1));
+      }
+      _availability!.blockedDates.sort();
+    });
+  }
+
+  void _removeBlockedDate(String d) {
+    setState(() => _availability!.blockedDates.remove(d));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -197,6 +241,51 @@ class _AvailabilityTabState extends State<AvailabilityTab> {
             ),
           ),
         ),
+        const SizedBox(height: 24),
+        const Text('Blocked Dates', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 4),
+        const Text(
+          'Block single days or a whole range (e.g. a week off or a month of holidays).',
+          style: TextStyle(color: WaveBookColors.muted),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _pickBlockedDate,
+                icon: const Icon(Icons.event_busy),
+                label: const Text('Block single date'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _pickBlockedRange,
+                icon: const Icon(Icons.date_range),
+                label: const Text('Block range'),
+              ),
+            ),
+          ],
+        ),
+        if (avail.blockedDates.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: avail.blockedDates.map((d) {
+              return InputChip(
+                label: Text(d),
+                onDeleted: () => _removeBlockedDate(d),
+                deleteIconColor: WaveBookColors.danger,
+              );
+            }).toList(),
+          ),
+        ] else
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Text('No blocked dates. Customers can book any open day.', style: TextStyle(color: WaveBookColors.muted)),
+          ),
         const SizedBox(height: 24),
         ElevatedButton(
           onPressed: _saving ? null : _save,

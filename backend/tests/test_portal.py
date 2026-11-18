@@ -7,6 +7,7 @@ import jwt as pyjwt
 from app import database
 from app.config import settings
 from app.services.slots import get_availability_row
+from conftest import auth
 
 
 def _login(client, biz, password="ownerpass1"):
@@ -232,6 +233,31 @@ def test_portal_calendar_prunes_past_blocked_dates(client, make_business):
     avail = get_availability_row(row)
     assert avail["blocked_dates"]
     assert all(d >= date.today().isoformat() for d in avail["blocked_dates"])
+
+
+def test_customer_delete_api(client, make_business):
+    biz = make_business("custdel")
+    other = make_business("custdel2")
+    conn = database.get_connection()
+    try:
+        cid = conn.execute(
+            "INSERT INTO customers (business_id, name, email, phone) VALUES (?, 'Jane', 'jane@wavebook.com', '07123456789')",
+            (biz["id"],),
+        ).lastrowid
+        conn.commit()
+    finally:
+        conn.close()
+
+    # Another business cannot delete it
+    res = client.delete(f"/api/customers/{cid}", headers=auth(other["owner_token"]))
+    assert res.status_code == 404
+
+    res = client.delete(f"/api/customers/{cid}", headers=auth(biz["owner_token"]))
+    assert res.status_code == 200
+    assert res.json() == {"ok": True}
+
+    res = client.delete(f"/api/customers/{cid}", headers=auth(biz["owner_token"]))
+    assert res.status_code == 404
 
 
 def test_portal_staff_invite(client, make_business, sent):

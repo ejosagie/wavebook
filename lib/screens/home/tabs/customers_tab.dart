@@ -43,6 +43,38 @@ class _CustomersTabState extends State<CustomersTab> {
     }
   }
 
+  Future<void> _delete(Customer c) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete customer?'),
+        content: Text(
+          '${c.name} will be removed from your customer list. Their past bookings are kept.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete', style: TextStyle(color: WaveBookColors.danger)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await _api.delete('/api/customers/${c.id}');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${c.name} deleted')),
+      );
+      _load();
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -146,15 +178,25 @@ class _CustomersTabState extends State<CustomersTab> {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    '${c.bookingCount}',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: WaveBookColors.pink),
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${c.bookingCount}',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: WaveBookColors.pink),
+                      ),
+                      const Text('bookings', style: TextStyle(fontSize: 11, color: WaveBookColors.muted)),
+                    ],
                   ),
-                  const Text('bookings', style: TextStyle(fontSize: 11, color: WaveBookColors.muted)),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: WaveBookColors.danger),
+                    tooltip: 'Delete customer',
+                    onPressed: () => _delete(c),
+                  ),
                 ],
               ),
             ),

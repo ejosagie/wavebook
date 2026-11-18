@@ -10,6 +10,7 @@ import '../../../state/auth_state.dart';
 import '../../../state/theme_state.dart';
 import '../../../theme.dart';
 import '../../storefront/shop_screen.dart';
+import 'ads_analytics_screen.dart';
 import 'customers_tab.dart';
 import 'feedback_tab.dart';
 import 'gallery_tab.dart';
@@ -105,6 +106,13 @@ class _MoreTabState extends State<MoreTab> {
             title: 'Report and Analytics',
             subtitle: 'Bookings, deposits and order income',
             onTap: () => _push(context, const ReportsScreen()),
+          ),
+          _MenuCard(
+            icon: Icons.ads_click,
+            color: WaveBookColors.pink,
+            title: 'Ads & Analytics',
+            subtitle: 'Tracking links and ad visit stats',
+            onTap: () => _push(context, const AdsAnalyticsScreen()),
           ),
           if (_canManageStaff)
             _MenuCard(

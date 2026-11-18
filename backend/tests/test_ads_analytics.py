@@ -198,6 +198,37 @@ def test_portal_analytics_platform_filter(client, make_business, make_service):
     assert "Visits by platform" in res.text
 
 
+def test_ads_api_links_and_analytics(client, make_business):
+    biz = make_business("adco9")
+    token = biz["owner_token"]
+    res = client.get("/api/ads/links", headers=auth(token))
+    assert res.status_code == 200
+    links = res.json()
+    assert links and all("key" in l and "label" in l and "url" in l for l in links)
+    assert any("utm_source=metafeeds" in l["url"] for l in links)
+
+    client.get("/t/adco9/?utm_source=metafeeds")
+    res = client.get("/api/ads/analytics?range=7d", headers=auth(token))
+    assert res.status_code == 200
+    data = res.json()
+    assert data["ad_visits"] == 1
+    assert data["total"] == 1
+    assert data["by_source"][0]["source"] == "metafeeds"
+    assert data["recent"][0]["source"] == "metafeeds"
+    assert data["recent_pages"] == 1
+
+    # Platform filter narrows the results
+    res = client.get("/api/ads/analytics?range=7d&platform=googleads", headers=auth(token))
+    assert res.status_code == 200
+    assert res.json()["ad_visits"] == 0
+
+
+def test_ads_api_requires_auth(client, make_business):
+    biz = make_business("adco10")
+    assert client.get("/api/ads/links").status_code == 401
+    assert client.get("/api/ads/analytics").status_code == 401
+
+
 def test_portal_analytics_recent_visits_paginated(client, make_business):
     biz = make_business("adco8")
     conn = database.get_connection()
