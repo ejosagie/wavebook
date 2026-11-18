@@ -116,6 +116,85 @@ def test_portal_calendar_saves_working_days_and_blocked_dates(client, make_busin
     assert avail["blocked_dates"] == ["2026-12-25", "2026-12-26"]
 
 
+def test_portal_calendar_blocks_date_range(client, make_business):
+    biz = make_business("portalrange")
+    _login(client, biz)
+    res = client.post(
+        "/portal/calendar/block-range",
+        data={"from_date": "2026-12-21", "to_date": "2026-12-27"},
+        follow_redirects=False,
+    )
+    assert res.status_code == 303
+    assert "msg" in res.headers["location"]
+
+    conn = database.get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM availability WHERE business_id = ?", (biz["id"],)
+        ).fetchone()
+    finally:
+        conn.close()
+    avail = get_availability_row(row)
+    assert avail["blocked_dates"] == [
+        "2026-12-21", "2026-12-22", "2026-12-23", "2026-12-24",
+        "2026-12-25", "2026-12-26", "2026-12-27",
+    ]
+
+    # Blocking again merges without duplicates
+    client.post(
+        "/portal/calendar/block-range",
+        data={"from_date": "2026-12-25", "to_date": "2026-12-28"},
+        follow_redirects=False,
+    )
+    conn = database.get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM availability WHERE business_id = ?", (biz["id"],)
+        ).fetchone()
+    finally:
+        conn.close()
+    avail = get_availability_row(row)
+    assert avail["blocked_dates"] == [
+        "2026-12-21", "2026-12-22", "2026-12-23", "2026-12-24",
+        "2026-12-25", "2026-12-26", "2026-12-27", "2026-12-28",
+    ]
+
+    # Invalid range is rejected
+    res = client.post(
+        "/portal/calendar/block-range",
+        data={"from_date": "2026-12-28", "to_date": "2026-12-21"},
+        follow_redirects=False,
+    )
+    assert res.status_code == 303
+    assert "error" in res.headers["location"]
+
+
+def test_portal_calendar_unblocks_single_date(client, make_business):
+    biz = make_business("portalunblock")
+    _login(client, biz)
+    client.post(
+        "/portal/calendar/block-range",
+        data={"from_date": "2026-12-21", "to_date": "2026-12-23"},
+        follow_redirects=False,
+    )
+    res = client.post(
+        "/portal/calendar/blocked-dates/remove",
+        data={"date": "2026-12-22"},
+        follow_redirects=False,
+    )
+    assert res.status_code == 303
+    assert "msg" in res.headers["location"]
+    conn = database.get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM availability WHERE business_id = ?", (biz["id"],)
+        ).fetchone()
+    finally:
+        conn.close()
+    avail = get_availability_row(row)
+    assert avail["blocked_dates"] == ["2026-12-21", "2026-12-23"]
+
+
 def test_portal_staff_invite(client, make_business, sent):
     biz = make_business("portalstaff", plan="premium_monthly")
     _login(client, biz)

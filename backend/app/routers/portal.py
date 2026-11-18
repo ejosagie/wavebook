@@ -6,7 +6,7 @@ reuse the existing API router functions so business logic lives in one place.
 
 from pathlib import Path
 from urllib.parse import quote
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 import json
 import uuid
@@ -587,6 +587,83 @@ def portal_calendar_save(
     except HTTPException as exc:
         return _redirect("/portal?tab=calendar", error=exc.detail)
     return _redirect("/portal?tab=calendar", msg="Calendar settings saved")
+
+
+@router.post("/calendar/block-range")
+def portal_calendar_block_range(
+    request: Request,
+    from_date: str = Form(...),
+    to_date: str = Form(...),
+):
+    """Block every date in a range (e.g. a week or a month) at once."""
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    try:
+        start = date.fromisoformat(from_date)
+        end = date.fromisoformat(to_date)
+    except ValueError:
+        return _redirect("/portal?tab=services", error="Invalid date range")
+    if end < start:
+        return _redirect("/portal?tab=services", error="The 'to' date must be on or after the 'from' date")
+    if (end - start).days > 366:
+        return _redirect("/portal?tab=services", error="Range is too long (max 12 months)")
+    conn = get_connection()
+    try:
+        availability = get_availability_row(
+            conn.execute(
+                "SELECT * FROM availability WHERE business_id = ?", (business["id"],)
+            ).fetchone()
+        )
+    finally:
+        conn.close()
+    existing = set(availability["blocked_dates"])
+    day = start
+    while day <= end:
+        existing.add(day.isoformat())
+        day += timedelta(days=1)
+    try:
+        update_availability(
+            data=AvailabilityUpdate(blocked_dates=sorted(existing)),
+            business=business,
+            user=user,
+        )
+    except HTTPException as exc:
+        return _redirect("/portal?tab=services", error=exc.detail)
+    return _redirect("/portal?tab=services", msg=f"Blocked {len(existing)} dates")
+
+
+@router.post("/calendar/blocked-dates/remove")
+def portal_calendar_blocked_date_remove(
+    request: Request,
+    date: str = Form(...),
+):
+    """Unblock a single date."""
+    user = _require_portal_user(request)
+    business = _load_business(user)
+    if business is None:
+        return _redirect("/portal/login", error="No business is linked to this account")
+    conn = get_connection()
+    try:
+        availability = get_availability_row(
+            conn.execute(
+                "SELECT * FROM availability WHERE business_id = ?", (business["id"],)
+            ).fetchone()
+        )
+    finally:
+        conn.close()
+    existing = set(availability["blocked_dates"])
+    existing.discard(date)
+    try:
+        update_availability(
+            data=AvailabilityUpdate(blocked_dates=sorted(existing)),
+            business=business,
+            user=user,
+        )
+    except HTTPException as exc:
+        return _redirect("/portal?tab=services", error=exc.detail)
+    return _redirect("/portal?tab=services", msg="Date unblocked")
 
 
 # ---- Staff ----
