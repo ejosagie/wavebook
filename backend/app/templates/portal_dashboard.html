@@ -53,10 +53,12 @@
   </style>
 </head>
 <body>
-  <div class="navbar">
+  <div class="navbar has-menu">
     <div class="container">
       <a href="/portal" class="brand"><img src="/static/img/icon.png" alt="WaveBook" class="brand-icon"> <span>{{ business.name }}</span></a>
-      <nav class="nav-links">
+      <input type="checkbox" id="nav-toggle" class="nav-toggle">
+      <label for="nav-toggle" class="nav-toggle-label" aria-label="Open menu">☰</label>
+      <nav class="nav-links" onclick="document.getElementById('nav-toggle').checked=false">
         <a href="{{ website_url }}" target="_blank">View Website</a>
         <form class="inline-form" method="post" action="/portal/logout">
           <button type="submit" class="btn btn-sm btn-outline">Sign Out</button>
