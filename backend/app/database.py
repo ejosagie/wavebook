@@ -361,6 +361,7 @@ def init_db() -> None:
         _ensure_column(conn, "bookings", "intake_answers", "intake_answers TEXT DEFAULT '{}'")
         _ensure_column(conn, "bookings", "receipt_sent", "receipt_sent INTEGER NOT NULL DEFAULT 0")
         _ensure_column(conn, "bookings", "source", "source TEXT DEFAULT ''")
+        _ensure_column(conn, "ad_visits", "service_id", "service_id INTEGER")
         _ensure_column(conn, "bookings", "deposit_paid", "deposit_paid INTEGER NOT NULL DEFAULT 0")
         _ensure_column(conn, "products", "stock", "stock INTEGER")
         _ensure_column(conn, "businesses", "calendar_token", "calendar_token TEXT DEFAULT ''")

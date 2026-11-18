@@ -105,13 +105,15 @@ def _record_visit(page: str) -> None:
         conn.close()
 
 
-def _track_tenant_page(request: Request, business: dict, page: str) -> str:
+def _track_tenant_page(request: Request, business: dict, page: str, service_id: int | None = None) -> str:
     """Record a tenant page view and return the ad source ('' if none).
 
     The source comes from ?utm_source= (the ad links owners copy from the
     portal) or the wb_src cookie, so a visitor keeps their attribution while
     browsing. The caller sets the cookie on the response when utm_source is
-    present so the source follows them to the booking form.
+    present so the source follows them to the booking form. service_id is
+    recorded when a visitor lands on the booking page for a specific service
+    (an attempted booking).
     """
     source = (request.query_params.get("utm_source") or "").strip().lower()
     if not source:
@@ -119,8 +121,8 @@ def _track_tenant_page(request: Request, business: dict, page: str) -> str:
     conn = get_connection()
     try:
         conn.execute(
-            "INSERT INTO ad_visits (business_id, source, page) VALUES (?, ?, ?)",
-            (business["id"], source, page),
+            "INSERT INTO ad_visits (business_id, source, page, service_id) VALUES (?, ?, ?, ?)",
+            (business["id"], source, page, service_id),
         )
         conn.commit()
     finally:
@@ -1312,7 +1314,7 @@ def tenant_booking_page(request: Request, slug: str, service: int | None = None)
         )
     finally:
         conn.close()
-    source = _track_tenant_page(request, business, "booking")
+    source = _track_tenant_page(request, business, "booking", service)
     response = templates.TemplateResponse(
         request,
         "tenant/booking.html",

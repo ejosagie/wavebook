@@ -389,9 +389,15 @@
           </table>
           </div>
 
-          <h3 style="margin-top: 24px;">Date range</h3>
+          <h3 style="margin-top: 24px;">Platform &amp; date range</h3>
           <form method="get" action="/portal" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom: 16px;">
             <input type="hidden" name="tab" value="analytics">
+            <select name="platform" onchange="this.form.submit()" style="padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--ink);">
+              <option value="all" {% if analytics_platform == 'all' %}selected{% endif %}>All platforms</option>
+              {% for key, label in ad_sources.items() %}
+              <option value="{{ key }}" {% if analytics_platform == key %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
             {% for key, label in [('24h','Last 24 hours'), ('7d','Last 7 days'), ('14d','Last 14 days'), ('30d','Last 30 days')] %}
             <button type="submit" name="range" value="{{ key }}" class="{% if analytics_range == key %}btn btn-sm{% else %}btn btn-sm btn-outline{% endif %}">{{ label }}</button>
             {% endfor %}
@@ -408,6 +414,7 @@
           </div>
 
           <div class="portal-grid" style="margin-top: 20px;">
+            {% if analytics_platform == 'all' %}
             <div class="card">
               <h3>Visits by platform</h3>
               {% if analytics.by_source %}
@@ -425,6 +432,7 @@
               <p style="color: var(--muted);">No ad visits in this period yet.</p>
               {% endif %}
             </div>
+            {% endif %}
             <div class="card">
               <h3>Visits by page</h3>
               {% if analytics.by_page %}
@@ -436,6 +444,32 @@
               </table>
               {% else %}
               <p style="color: var(--muted);">No visits in this period yet.</p>
+              {% endif %}
+            </div>
+            <div class="card">
+              <h3>Services attempted to book</h3>
+              {% if analytics.attempted %}
+              <table>
+                <tr><th>Service</th><th>Attempts</th></tr>
+                {% for row in analytics.attempted %}
+                <tr><td>{{ row.service_name }}</td><td>{{ row.c }}</td></tr>
+                {% endfor %}
+              </table>
+              {% else %}
+              <p style="color: var(--muted);">No booking attempts in this period yet.</p>
+              {% endif %}
+            </div>
+            <div class="card">
+              <h3>Bookings by service</h3>
+              {% if analytics.bookings_by_service %}
+              <table>
+                <tr><th>Service</th><th>Bookings</th></tr>
+                {% for row in analytics.bookings_by_service %}
+                <tr><td>{{ row.service_name }}</td><td>{{ row.c }}</td></tr>
+                {% endfor %}
+              </table>
+              {% else %}
+              <p style="color: var(--muted);">No ad-sourced bookings in this period yet.</p>
               {% endif %}
             </div>
           </div>

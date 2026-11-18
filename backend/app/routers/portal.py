@@ -177,40 +177,67 @@ def _analytics_window(range_key: str, from_date: str, to_date: str) -> tuple[str
     return (now - timedelta(days=7)).strftime("%Y-%m-%d 00:00:00"), now.strftime("%Y-%m-%d 23:59:59")
 
 
-def _analytics(business_id: int, from_dt: str, to_dt: str) -> dict:
-    """Aggregate ad visits and ad-sourced bookings for the dashboard."""
+def _analytics(business_id: int, from_dt: str, to_dt: str, source: str = "") -> dict:
+    """Aggregate ad visits and ad-sourced bookings for the dashboard.
+
+    source='' aggregates all platforms; otherwise only that platform is shown.
+    """
     conn = get_connection()
     try:
+        source_where = "AND source = ?" if source else ""
+        source_params = (source,) if source else ()
         total = conn.execute(
-            "SELECT COUNT(*) AS c FROM ad_visits WHERE business_id = ? AND visited_at >= ? AND visited_at <= ?",
-            (business_id, from_dt, to_dt),
+            "SELECT COUNT(*) AS c FROM ad_visits WHERE business_id = ? AND visited_at >= ? AND visited_at <= ? "
+            + source_where,
+            (business_id, from_dt, to_dt, *source_params),
         ).fetchone()["c"]
         ad_visits = conn.execute(
-            "SELECT COUNT(*) AS c FROM ad_visits WHERE business_id = ? AND source != '' AND visited_at >= ? AND visited_at <= ?",
-            (business_id, from_dt, to_dt),
+            "SELECT COUNT(*) AS c FROM ad_visits WHERE business_id = ? AND source != '' "
+            "AND visited_at >= ? AND visited_at <= ? " + source_where,
+            (business_id, from_dt, to_dt, *source_params),
         ).fetchone()["c"]
         ad_bookings = conn.execute(
-            "SELECT COUNT(*) AS c FROM bookings WHERE business_id = ? AND source != '' AND created_at >= ? AND created_at <= ?",
-            (business_id, from_dt, to_dt),
+            "SELECT COUNT(*) AS c FROM bookings WHERE business_id = ? AND source != '' "
+            "AND created_at >= ? AND created_at <= ? " + source_where,
+            (business_id, from_dt, to_dt, *source_params),
         ).fetchone()["c"]
         by_source = rows_to_dicts(
             conn.execute(
                 "SELECT source, COUNT(*) AS c FROM ad_visits WHERE business_id = ? AND source != '' "
-                "AND visited_at >= ? AND visited_at <= ? GROUP BY source ORDER BY c DESC",
-                (business_id, from_dt, to_dt),
+                "AND visited_at >= ? AND visited_at <= ? " + source_where + " GROUP BY source ORDER BY c DESC",
+                (business_id, from_dt, to_dt, *source_params),
             ).fetchall()
         )
         by_page = rows_to_dicts(
             conn.execute(
                 "SELECT page, COUNT(*) AS c FROM ad_visits WHERE business_id = ? "
-                "AND visited_at >= ? AND visited_at <= ? GROUP BY page ORDER BY c DESC",
-                (business_id, from_dt, to_dt),
+                "AND visited_at >= ? AND visited_at <= ? " + source_where + " GROUP BY page ORDER BY c DESC",
+                (business_id, from_dt, to_dt, *source_params),
+            ).fetchall()
+        )
+        attempted = rows_to_dicts(
+            conn.execute(
+                "SELECT v.service_id, COALESCE(s.name, 'Unknown service') AS service_name, COUNT(*) AS c "
+                "FROM ad_visits v LEFT JOIN services s ON s.id = v.service_id "
+                "WHERE v.business_id = ? AND v.page = 'booking' AND v.service_id IS NOT NULL "
+                "AND v.visited_at >= ? AND v.visited_at <= ? " + source_where + " "
+                "GROUP BY v.service_id ORDER BY c DESC",
+                (business_id, from_dt, to_dt, *source_params),
+            ).fetchall()
+        )
+        bookings_by_service = rows_to_dicts(
+            conn.execute(
+                "SELECT service_name, COUNT(*) AS c FROM bookings WHERE business_id = ? AND source != '' "
+                "AND created_at >= ? AND created_at <= ? " + source_where + " "
+                "GROUP BY service_name ORDER BY c DESC",
+                (business_id, from_dt, to_dt, *source_params),
             ).fetchall()
         )
         recent = rows_to_dicts(
             conn.execute(
-                "SELECT source, page, visited_at FROM ad_visits WHERE business_id = ? ORDER BY id DESC LIMIT 20",
-                (business_id,),
+                "SELECT source, page, visited_at FROM ad_visits WHERE business_id = ? " + source_where
+                + " ORDER BY id DESC LIMIT 20",
+                (business_id, *source_params),
             ).fetchall()
         )
     finally:
@@ -222,6 +249,8 @@ def _analytics(business_id: int, from_dt: str, to_dt: str) -> dict:
         "conversion": round(ad_bookings / ad_visits * 100, 1) if ad_visits else 0.0,
         "by_source": by_source,
         "by_page": by_page,
+        "attempted": attempted,
+        "bookings_by_service": bookings_by_service,
         "recent": recent,
     }
 
@@ -446,7 +475,8 @@ def portal_dashboard(request: Request):
     from_dt, to_dt = _analytics_window(
         arange, request.query_params.get("from") or "", request.query_params.get("to") or ""
     )
-    analytics = _analytics(business["id"], from_dt, to_dt)
+    platform = (request.query_params.get("platform") or "all").strip().lower()
+    analytics = _analytics(business["id"], from_dt, to_dt, "" if platform == "all" else platform)
     ad_links = [
         {
             "key": key,
@@ -481,6 +511,7 @@ def portal_dashboard(request: Request):
             "analytics_range": arange,
             "analytics_from": from_dt[:10],
             "analytics_to": to_dt[:10],
+            "analytics_platform": platform,
             "ad_links": ad_links,
             "ad_sources": settings.AD_SOURCES,
             "counts": _counts(business["id"]),
