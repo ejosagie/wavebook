@@ -7,8 +7,8 @@
   <link rel="stylesheet" href="/static/css/style.css">
   <link rel="icon" type="image/png" href="/static/img/icon.png">
   <style>
-    .portal-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
-    .portal-tabs button { border: 1px solid var(--border); background: var(--surface); color: var(--ink); padding: 10px 18px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 0.92rem; }
+    .portal-tabs { display: flex; gap: 8px; flex-wrap: nowrap; overflow-x: auto; margin-bottom: 28px; border-bottom: 1px solid var(--border); padding-bottom: 12px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+    .portal-tabs button { border: 1px solid var(--border); background: var(--surface); color: var(--ink); padding: 10px 18px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 0.92rem; flex-shrink: 0; }
     .portal-tabs button.active { background: var(--gradient); color: #fff; border-color: transparent; }
     .preset-option { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px; cursor: pointer; border: 2px solid var(--border); border-radius: 12px; background: var(--surface); font-weight: 700; font-size: 0.85rem; color: var(--ink); transition: border-color 0.15s, box-shadow 0.15s; }
     .preset-option:hover { border-color: var(--pink-light); }
@@ -74,8 +74,7 @@
 
       <div class="portal-tabs">
         <button data-tab="overview" class="{% if active_tab == 'overview' %}active{% endif %}">Overview</button>
-        <button data-tab="calendar" class="{% if active_tab == 'calendar' %}active{% endif %}">Calendar</button>
-        <button data-tab="services" class="{% if active_tab == 'services' %}active{% endif %}">Services</button>
+        <button data-tab="services" class="{% if active_tab in ['services', 'calendar'] %}active{% endif %}">Services</button>
         <button data-tab="bookings" class="{% if active_tab == 'bookings' %}active{% endif %}">Bookings</button>
         <button data-tab="staff" class="{% if active_tab == 'staff' %}active{% endif %}">Staff</button>
         <button data-tab="analytics" class="{% if active_tab == 'analytics' %}active{% endif %}">Ads &amp; Analytics</button>
@@ -114,39 +113,8 @@
         </div>
       </div>
 
-      <!-- Calendar -->
-      <div class="portal-panel {% if active_tab == 'calendar' %}active{% endif %}" id="panel-calendar">
-        <div class="card">
-          <h3>Working hours</h3>
-          <p style="margin-bottom: 16px;">Set which days you accept bookings and the hours for each day.</p>
-          <form method="post" action="/portal/calendar">
-            {% for day in day_order %}
-            {% set cfg = availability.working_days.get(day, {'enabled': True, 'start': '09:00', 'end': '17:00'}) %}
-            <div class="day-row">
-              <label><input type="checkbox" name="{{ day }}_enabled" {% if cfg.enabled %}checked{% endif %}> {{ day_labels[day] }}</label>
-              <input type="time" name="{{ day }}_start" value="{{ cfg.start }}">
-              <input type="time" name="{{ day }}_end" value="{{ cfg.end }}">
-            </div>
-            {% endfor %}
-            <div class="form-group" style="margin-top: 16px;">
-              <label>Booking slot interval</label>
-              <select name="slot_interval">
-                {% for opt in [15, 30, 45, 60, 90, 120] %}
-                <option value="{{ opt }}" {% if availability.slot_interval == opt %}selected{% endif %}>{{ opt }} minutes</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Blocked dates (one per line, YYYY-MM-DD)</label>
-              <textarea name="blocked_dates" rows="4" placeholder="2026-12-25&#10;2026-12-26">{{ availability.blocked_dates|join('\n') }}</textarea>
-            </div>
-            <button type="submit" class="btn">Save Calendar</button>
-          </form>
-        </div>
-      </div>
-
       <!-- Services -->
-      <div class="portal-panel {% if active_tab == 'services' %}active{% endif %}" id="panel-services">
+      <div class="portal-panel {% if active_tab in ['services', 'calendar'] %}active{% endif %}" id="panel-services">
         <div class="card">
           <h3>Your services</h3>
           <p style="margin-bottom: 16px;">These appear on your booking page at <a href="{{ website_url }}/booking" target="_blank">{{ website_url }}/booking</a>.</p>
@@ -232,6 +200,38 @@
             </div>
             <button type="submit" class="btn" style="margin-top: 12px;">Add Service</button>
           </form>
+
+          <details style="margin-top: 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface);">
+            <summary style="cursor: pointer; padding: 14px 16px; font-weight: 800; font-size: 1.05rem; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <span>Calendar</span>
+              <span style="color: var(--muted); font-size: 0.85rem; font-weight: 600;">Working hours, slot interval &amp; blocked dates</span>
+            </summary>
+            <div style="padding: 0 16px 16px;">
+              <form method="post" action="/portal/calendar">
+                {% for day in day_order %}
+                {% set cfg = availability.working_days.get(day, {'enabled': True, 'start': '09:00', 'end': '17:00'}) %}
+                <div class="day-row">
+                  <label><input type="checkbox" name="{{ day }}_enabled" {% if cfg.enabled %}checked{% endif %}> {{ day_labels[day] }}</label>
+                  <input type="time" name="{{ day }}_start" value="{{ cfg.start }}">
+                  <input type="time" name="{{ day }}_end" value="{{ cfg.end }}">
+                </div>
+                {% endfor %}
+                <div class="form-group" style="margin-top: 16px;">
+                  <label>Booking slot interval</label>
+                  <select name="slot_interval">
+                    {% for opt in [15, 30, 45, 60, 90, 120] %}
+                    <option value="{{ opt }}" {% if availability.slot_interval == opt %}selected{% endif %}>{{ opt }} minutes</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Blocked dates (one per line, YYYY-MM-DD)</label>
+                  <textarea name="blocked_dates" rows="4" placeholder="2026-12-25&#10;2026-12-26">{{ availability.blocked_dates|join('\n') }}</textarea>
+                </div>
+                <button type="submit" class="btn">Save Calendar</button>
+              </form>
+            </div>
+          </details>
 
           <h3 style="margin-top: 24px;">Customer feedback</h3>
           <p style="margin-bottom: 16px;">Reviews customers leave on your site. Hidden reviews don't appear publicly.</p>
@@ -1008,6 +1008,8 @@
       function show(tab) {
         buttons.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tab); });
         panels.forEach(function (p) { p.classList.toggle('active', p.id === 'panel-' + tab); });
+        var active = document.querySelector('.portal-tabs button.active');
+        if (active && active.scrollIntoView) active.scrollIntoView({ inline: 'nearest', block: 'nearest' });
       }
       buttons.forEach(function (b) {
         b.addEventListener('click', function () { show(b.dataset.tab); });
