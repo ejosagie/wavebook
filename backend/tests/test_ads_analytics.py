@@ -196,3 +196,26 @@ def test_portal_analytics_platform_filter(client, make_business, make_service):
     assert res.status_code == 200
     assert '<div class="num">2</div><div class="label">Visits</div>' in res.text
     assert "Visits by platform" in res.text
+
+
+def test_portal_analytics_recent_visits_paginated(client, make_business):
+    biz = make_business("adco8")
+    conn = database.get_connection()
+    try:
+        for _ in range(15):
+            conn.execute(
+                "INSERT INTO ad_visits (business_id, source, page) VALUES (?, 'metafeeds', 'home')",
+                (biz["id"],),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    _portal_login(client, biz)
+    res = client.get("/portal?tab=analytics")
+    assert res.status_code == 200
+    assert "Page 1 of 2" in res.text
+    assert "Older →" in res.text
+    res = client.get("/portal?tab=analytics&page=2")
+    assert res.status_code == 200
+    assert "Page 2 of 2" in res.text
+    assert "← Newer" in res.text

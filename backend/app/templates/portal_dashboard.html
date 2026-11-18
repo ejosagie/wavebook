@@ -517,6 +517,17 @@
             {% endfor %}
           </table>
           </div>
+          {% if analytics.recent_pages > 1 %}
+          <div style="display:flex; gap:8px; margin-top: 12px; align-items:center; flex-wrap:wrap;">
+            {% if analytics.recent_page > 1 %}
+            <a class="btn btn-sm btn-outline" href="/portal?tab=analytics&range={{ analytics_range }}&platform={{ analytics_platform }}&from={{ analytics_from }}&to={{ analytics_to }}&page={{ analytics.recent_page - 1 }}">← Newer</a>
+            {% endif %}
+            <span style="color: var(--muted); font-size: 0.9rem;">Page {{ analytics.recent_page }} of {{ analytics.recent_pages }}</span>
+            {% if analytics.recent_page < analytics.recent_pages %}
+            <a class="btn btn-sm btn-outline" href="/portal?tab=analytics&range={{ analytics_range }}&platform={{ analytics_platform }}&from={{ analytics_from }}&to={{ analytics_to }}&page={{ analytics.recent_page + 1 }}">Older →</a>
+            {% endif %}
+          </div>
+          {% endif %}
           {% else %}
           <p style="color: var(--muted);">No visits recorded yet.</p>
           {% endif %}

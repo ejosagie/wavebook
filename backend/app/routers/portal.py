@@ -177,11 +177,13 @@ def _analytics_window(range_key: str, from_date: str, to_date: str) -> tuple[str
     return (now - timedelta(days=7)).strftime("%Y-%m-%d 00:00:00"), now.strftime("%Y-%m-%d 23:59:59")
 
 
-def _analytics(business_id: int, from_dt: str, to_dt: str, source: str = "") -> dict:
+def _analytics(business_id: int, from_dt: str, to_dt: str, source: str = "", page: int = 1) -> dict:
     """Aggregate ad visits and ad-sourced bookings for the dashboard.
 
     source='' aggregates all platforms; otherwise only that platform is shown.
     """
+    page_size = 10
+    page = max(1, page)
     conn = get_connection()
     try:
         source_where = "AND source = ?" if source else ""
@@ -233,11 +235,15 @@ def _analytics(business_id: int, from_dt: str, to_dt: str, source: str = "") -> 
                 (business_id, from_dt, to_dt, *source_params),
             ).fetchall()
         )
+        recent_total = conn.execute(
+            "SELECT COUNT(*) AS c FROM ad_visits WHERE business_id = ? " + source_where,
+            (business_id, *source_params),
+        ).fetchone()["c"]
         recent = rows_to_dicts(
             conn.execute(
                 "SELECT source, page, visited_at FROM ad_visits WHERE business_id = ? " + source_where
-                + " ORDER BY id DESC LIMIT 20",
-                (business_id, *source_params),
+                + " ORDER BY id DESC LIMIT ? OFFSET ?",
+                (business_id, *source_params, page_size, (page - 1) * page_size),
             ).fetchall()
         )
     finally:
@@ -252,6 +258,8 @@ def _analytics(business_id: int, from_dt: str, to_dt: str, source: str = "") -> 
         "attempted": attempted,
         "bookings_by_service": bookings_by_service,
         "recent": recent,
+        "recent_page": page,
+        "recent_pages": max(1, (recent_total + page_size - 1) // page_size),
     }
 
 
@@ -417,7 +425,6 @@ def portal_dashboard(request: Request):
                 "SELECT * FROM availability WHERE business_id = ?", (business["id"],)
             ).fetchone()
         )
-        blocked_ranges = _blocked_ranges(availability["blocked_dates"])
         staff_rows = conn.execute(
             """SELECT s.id, s.active, u.email, u.full_name, u.phone
                FROM staff s JOIN users u ON u.id = s.user_id
@@ -494,6 +501,21 @@ def portal_dashboard(request: Request):
     finally:
         conn.close()
 
+    # Past blocked dates are pointless (you can't book a past date) — drop them.
+    today = date.today().isoformat()
+    pruned = [d for d in availability["blocked_dates"] if d >= today]
+    if len(pruned) != len(availability["blocked_dates"]):
+        availability["blocked_dates"] = pruned
+        try:
+            update_availability(
+                data=AvailabilityUpdate(blocked_dates=pruned),
+                business=business,
+                user=user,
+            )
+        except HTTPException:
+            pass
+    blocked_ranges = _blocked_ranges(availability["blocked_dates"])
+
     gallery_by_slot = {r["slot"]: dict(r) for r in gallery_rows}
     gallery = [
         gallery_by_slot.get(i) or {"slot": i, "path": "", "caption": ""}
@@ -505,7 +527,11 @@ def portal_dashboard(request: Request):
         arange, request.query_params.get("from") or "", request.query_params.get("to") or ""
     )
     platform = (request.query_params.get("platform") or "all").strip().lower()
-    analytics = _analytics(business["id"], from_dt, to_dt, "" if platform == "all" else platform)
+    try:
+        analytics_page = max(1, int(request.query_params.get("page") or 1))
+    except ValueError:
+        analytics_page = 1
+    analytics = _analytics(business["id"], from_dt, to_dt, "" if platform == "all" else platform, page=analytics_page)
     ad_links = [
         {
             "key": key,

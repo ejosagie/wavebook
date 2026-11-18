@@ -1,6 +1,6 @@
 """Tests for the browser owner portal (/portal)."""
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import jwt as pyjwt
 
@@ -208,6 +208,30 @@ def test_portal_calendar_groups_blocked_dates_into_ranges(client, make_business)
     # A whole month is one chip, not 31 separate entries
     assert "1 – 31 Dec 2026" in res.text
     assert 'action="/portal/calendar/blocked-ranges/remove"' in res.text
+
+
+def test_portal_calendar_prunes_past_blocked_dates(client, make_business):
+    biz = make_business("portalprune")
+    _login(client, biz)
+    past = (date.today() - timedelta(days=10)).isoformat()
+    future = (date.today() + timedelta(days=10)).isoformat()
+    client.post(
+        "/portal/calendar/block-range",
+        data={"from_date": past, "to_date": future},
+        follow_redirects=False,
+    )
+    res = client.get("/portal?tab=services")
+    assert res.status_code == 200
+    conn = database.get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM availability WHERE business_id = ?", (biz["id"],)
+        ).fetchone()
+    finally:
+        conn.close()
+    avail = get_availability_row(row)
+    assert avail["blocked_dates"]
+    assert all(d >= date.today().isoformat() for d in avail["blocked_dates"])
 
 
 def test_portal_staff_invite(client, make_business, sent):
