@@ -76,7 +76,7 @@
         <button data-tab="services" class="{% if active_tab == 'services' %}active{% endif %}">Services</button>
         <button data-tab="bookings" class="{% if active_tab == 'bookings' %}active{% endif %}">Bookings</button>
         <button data-tab="staff" class="{% if active_tab == 'staff' %}active{% endif %}">Staff</button>
-        <button data-tab="feedback" class="{% if active_tab == 'feedback' %}active{% endif %}">Feedback</button>
+        <button data-tab="analytics" class="{% if active_tab == 'analytics' %}active{% endif %}">Ads &amp; Analytics</button>
         <button data-tab="payments" class="{% if active_tab == 'payments' %}active{% endif %}">Payments</button>
         <button data-tab="shop" class="{% if active_tab == 'shop' %}active{% endif %}">Shop</button>
         <button data-tab="customize" class="{% if active_tab == 'customize' %}active{% endif %}">Customize</button>
@@ -230,6 +230,34 @@
             </div>
             <button type="submit" class="btn" style="margin-top: 12px;">Add Service</button>
           </form>
+
+          <h3 style="margin-top: 24px;">Customer feedback</h3>
+          <p style="margin-bottom: 16px;">Reviews customers leave on your site. Hidden reviews don't appear publicly.</p>
+          {% if feedback %}
+          <div class="table-scroll">
+          <table>
+            <tr><th>Customer</th><th>Rating</th><th>Comment</th><th>Shown on site</th><th>Actions</th></tr>
+            {% for f in feedback %}
+            <tr>
+              <td><strong>{{ f.customer_name or 'Anonymous' }}</strong><br><span style="color: var(--muted); font-size:0.85rem;">{{ f.created_at[:10] }}</span></td>
+              <td style="color: var(--accent); font-size:1.1rem; letter-spacing:2px;">{% for _ in range(f.rating) %}★{% endfor %}<span style="color: var(--border);">{% for _ in range(5 - f.rating) %}★{% endfor %}</span></td>
+              <td style="max-width:320px;">{{ f.comment or '—' }}</td>
+              <td>{{ 'Yes' if f.approved else 'No' }}</td>
+              <td>
+                <form class="inline-form" method="post" action="/portal/feedback/{{ f.id }}/toggle">
+                  <button type="submit" class="btn btn-sm btn-outline">{{ 'Hide' if f.approved else 'Show' }}</button>
+                </form>
+                <form class="inline-form" method="post" action="/portal/feedback/{{ f.id }}/delete" onsubmit="return confirm('Delete this review?');">
+                  <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </table>
+          </div>
+          {% else %}
+          <p style="color: var(--muted);">No reviews yet. Customers can leave feedback after their visit.</p>
+          {% endif %}
         </div>
       </div>
 
@@ -341,35 +369,93 @@
         </div>
       </div>
 
-      <!-- Feedback -->
-      <div class="portal-panel {% if active_tab == 'feedback' %}active{% endif %}" id="panel-feedback">
+      <!-- Ads & Analytics -->
+      <div class="portal-panel {% if active_tab == 'analytics' %}active{% endif %}" id="panel-analytics">
         <div class="card">
-          <h3>Customer feedback</h3>
-          <p style="margin-bottom: 16px;">Reviews customers leave on your site. Hidden reviews don't appear publicly.</p>
-          {% if feedback %}
+          <h3>Ads &amp; Analytics</h3>
+          <p style="margin-bottom: 16px;">Copy a tracking link for each platform you advertise on and paste it into your ad campaign's URL field. Visits and bookings from those links are shown below.</p>
+
+          <h3 style="margin-top: 8px;">Your ad links</h3>
           <div class="table-scroll">
           <table>
-            <tr><th>Customer</th><th>Rating</th><th>Comment</th><th>Shown on site</th><th>Actions</th></tr>
-            {% for f in feedback %}
+            <tr><th>Platform</th><th>Tracking link</th><th></th></tr>
+            {% for link in ad_links %}
             <tr>
-              <td><strong>{{ f.customer_name or 'Anonymous' }}</strong><br><span style="color: var(--muted); font-size:0.85rem;">{{ f.created_at[:10] }}</span></td>
-              <td style="color: var(--accent); font-size:1.1rem; letter-spacing:2px;">{% for _ in range(f.rating) %}★{% endfor %}<span style="color: var(--border);">{% for _ in range(5 - f.rating) %}★{% endfor %}</span></td>
-              <td style="max-width:320px;">{{ f.comment or '—' }}</td>
-              <td>{{ 'Yes' if f.approved else 'No' }}</td>
-              <td>
-                <form class="inline-form" method="post" action="/portal/feedback/{{ f.id }}/toggle">
-                  <button type="submit" class="btn btn-sm btn-outline">{{ 'Hide' if f.approved else 'Show' }}</button>
-                </form>
-                <form class="inline-form" method="post" action="/portal/feedback/{{ f.id }}/delete" onsubmit="return confirm('Delete this review?');">
-                  <button type="submit" class="btn btn-sm btn-danger">Delete</button>
-                </form>
-              </td>
+              <td><strong>{{ link.label }}</strong></td>
+              <td><code style="word-break: break-all;">{{ link.url }}</code></td>
+              <td><button class="btn btn-sm btn-outline" type="button" onclick="navigator.clipboard.writeText('{{ link.url }}'); this.textContent='Copied'; setTimeout(function(){ this.textContent='Copy'; }.bind(this), 1500);">Copy</button></td>
+            </tr>
+            {% endfor %}
+          </table>
+          </div>
+
+          <h3 style="margin-top: 24px;">Date range</h3>
+          <form method="get" action="/portal" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom: 16px;">
+            <input type="hidden" name="tab" value="analytics">
+            {% for key, label in [('24h','Last 24 hours'), ('7d','Last 7 days'), ('14d','Last 14 days'), ('30d','Last 30 days')] %}
+            <button type="submit" name="range" value="{{ key }}" class="{% if analytics_range == key %}btn btn-sm{% else %}btn btn-sm btn-outline{% endif %}">{{ label }}</button>
+            {% endfor %}
+            <input type="date" name="from" value="{{ analytics_from }}">
+            <input type="date" name="to" value="{{ analytics_to }}">
+            <button type="submit" name="range" value="custom" class="btn btn-sm btn-outline">Apply</button>
+          </form>
+
+          <div class="admin-stats">
+            <div class="stat-card"><div class="num">{{ analytics.total }}</div><div class="label">Visits</div></div>
+            <div class="stat-card"><div class="num">{{ analytics.ad_visits }}</div><div class="label">Ad visits</div></div>
+            <div class="stat-card"><div class="num">{{ analytics.ad_bookings }}</div><div class="label">Bookings from ads</div></div>
+            <div class="stat-card"><div class="num">{{ analytics.conversion }}%</div><div class="label">Conversion</div></div>
+          </div>
+
+          <div class="portal-grid" style="margin-top: 20px;">
+            <div class="card">
+              <h3>Visits by platform</h3>
+              {% if analytics.by_source %}
+              <table>
+                <tr><th>Platform</th><th>Visits</th><th style="width:40%;">Share</th></tr>
+                {% for row in analytics.by_source %}
+                <tr>
+                  <td>{{ ad_sources.get(row.source, row.source) }}</td>
+                  <td>{{ row.c }}</td>
+                  <td><div style="background: var(--gradient); height: 14px; border-radius: 7px; width: {{ (row.c / analytics.ad_visits * 100) if analytics.ad_visits else 0 }}%;"></div></td>
+                </tr>
+                {% endfor %}
+              </table>
+              {% else %}
+              <p style="color: var(--muted);">No ad visits in this period yet.</p>
+              {% endif %}
+            </div>
+            <div class="card">
+              <h3>Visits by page</h3>
+              {% if analytics.by_page %}
+              <table>
+                <tr><th>Page</th><th>Visits</th></tr>
+                {% for row in analytics.by_page %}
+                <tr><td>{{ row.page }}</td><td>{{ row.c }}</td></tr>
+                {% endfor %}
+              </table>
+              {% else %}
+              <p style="color: var(--muted);">No visits in this period yet.</p>
+              {% endif %}
+            </div>
+          </div>
+
+          <h3 style="margin-top: 24px;">Recent visits</h3>
+          {% if analytics.recent %}
+          <div class="table-scroll">
+          <table>
+            <tr><th>When</th><th>Platform</th><th>Page</th></tr>
+            {% for v in analytics.recent %}
+            <tr>
+              <td>{{ v.visited_at }}</td>
+              <td>{{ ad_sources.get(v.source, v.source) or 'Direct' }}</td>
+              <td>{{ v.page }}</td>
             </tr>
             {% endfor %}
           </table>
           </div>
           {% else %}
-          <p style="color: var(--muted);">No reviews yet. Customers can leave feedback after their visit.</p>
+          <p style="color: var(--muted);">No visits recorded yet.</p>
           {% endif %}
         </div>
       </div>

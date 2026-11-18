@@ -254,6 +254,14 @@ CREATE TABLE IF NOT EXISTS page_visits (
     visited_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS ad_visits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    business_id INTEGER NOT NULL,
+    source TEXT DEFAULT '',
+    page TEXT NOT NULL,
+    visited_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS chats (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     business_id INTEGER NOT NULL,
@@ -279,6 +287,7 @@ CREATE INDEX IF NOT EXISTS idx_feedback_business ON feedback(business_id, approv
 CREATE INDEX IF NOT EXISTS idx_notifications_business ON notifications(business_id, read);
 CREATE INDEX IF NOT EXISTS idx_bookings_business_date ON bookings(business_id, date);
 CREATE INDEX IF NOT EXISTS idx_page_visits_page ON page_visits(page);
+CREATE INDEX IF NOT EXISTS idx_ad_visits_business ON ad_visits(business_id, visited_at);
 CREATE INDEX IF NOT EXISTS idx_payments_booking ON payments(booking_id);
 CREATE INDEX IF NOT EXISTS idx_services_business ON services(business_id);
 CREATE INDEX IF NOT EXISTS idx_users_business ON users(business_id);
@@ -351,6 +360,7 @@ def init_db() -> None:
         _ensure_column(conn, "services", "questions", "questions TEXT DEFAULT '[]'")
         _ensure_column(conn, "bookings", "intake_answers", "intake_answers TEXT DEFAULT '{}'")
         _ensure_column(conn, "bookings", "receipt_sent", "receipt_sent INTEGER NOT NULL DEFAULT 0")
+        _ensure_column(conn, "bookings", "source", "source TEXT DEFAULT ''")
         _ensure_column(conn, "bookings", "deposit_paid", "deposit_paid INTEGER NOT NULL DEFAULT 0")
         _ensure_column(conn, "products", "stock", "stock INTEGER")
         _ensure_column(conn, "businesses", "calendar_token", "calendar_token TEXT DEFAULT ''")

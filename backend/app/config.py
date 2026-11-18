@@ -98,6 +98,17 @@ class Settings:
     SMS_TOPUP_CREDITS: int = 50  # SMS added per £5 top-up
     # Storefront order statuses: pending -> paid -> confirmed -> shipped -> delivered (or cancelled)
     ORDER_STATUSES: tuple = ("pending", "paid", "confirmed", "shipped", "delivered", "cancelled")
+    # Ad platforms owners can track; the key becomes the ?utm_source= parameter
+    # on their booking-site links (e.g. ?utm_source=metafeeds).
+    AD_SOURCES: dict = {
+        "metafeeds": "Meta (Instagram & Facebook)",
+        "tiktokfeeds": "TikTok",
+        "googleads": "Google Ads",
+        "snapchat": "Snapchat",
+        "pinterest": "Pinterest",
+        "email": "Email",
+        "other": "Other",
+    }
 
 
 settings = Settings()

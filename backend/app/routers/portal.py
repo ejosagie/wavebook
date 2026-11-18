@@ -6,6 +6,7 @@ reuse the existing API router functions so business logic lives in one place.
 
 from pathlib import Path
 from urllib.parse import quote
+from datetime import datetime, timedelta
 
 import json
 import uuid
@@ -158,6 +159,71 @@ def _counts(business_id: int) -> dict:
     finally:
         conn.close()
     return {"services": services, "products": products, "staff": staff, "bookings": bookings}
+
+
+def _analytics_window(range_key: str, from_date: str, to_date: str) -> tuple[str, str]:
+    """Return (from, to) datetime strings for the analytics date range."""
+    now = datetime.utcnow()
+    if range_key == "24h":
+        return (now - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S"), now.strftime("%Y-%m-%d %H:%M:%S")
+    if range_key == "14d":
+        return (now - timedelta(days=14)).strftime("%Y-%m-%d 00:00:00"), now.strftime("%Y-%m-%d 23:59:59")
+    if range_key == "30d":
+        return (now - timedelta(days=30)).strftime("%Y-%m-%d 00:00:00"), now.strftime("%Y-%m-%d 23:59:59")
+    if range_key == "custom":
+        f = from_date or (now - timedelta(days=7)).strftime("%Y-%m-%d")
+        t = to_date or now.strftime("%Y-%m-%d")
+        return f + " 00:00:00", t + " 23:59:59"
+    return (now - timedelta(days=7)).strftime("%Y-%m-%d 00:00:00"), now.strftime("%Y-%m-%d 23:59:59")
+
+
+def _analytics(business_id: int, from_dt: str, to_dt: str) -> dict:
+    """Aggregate ad visits and ad-sourced bookings for the dashboard."""
+    conn = get_connection()
+    try:
+        total = conn.execute(
+            "SELECT COUNT(*) AS c FROM ad_visits WHERE business_id = ? AND visited_at >= ? AND visited_at <= ?",
+            (business_id, from_dt, to_dt),
+        ).fetchone()["c"]
+        ad_visits = conn.execute(
+            "SELECT COUNT(*) AS c FROM ad_visits WHERE business_id = ? AND source != '' AND visited_at >= ? AND visited_at <= ?",
+            (business_id, from_dt, to_dt),
+        ).fetchone()["c"]
+        ad_bookings = conn.execute(
+            "SELECT COUNT(*) AS c FROM bookings WHERE business_id = ? AND source != '' AND created_at >= ? AND created_at <= ?",
+            (business_id, from_dt, to_dt),
+        ).fetchone()["c"]
+        by_source = rows_to_dicts(
+            conn.execute(
+                "SELECT source, COUNT(*) AS c FROM ad_visits WHERE business_id = ? AND source != '' "
+                "AND visited_at >= ? AND visited_at <= ? GROUP BY source ORDER BY c DESC",
+                (business_id, from_dt, to_dt),
+            ).fetchall()
+        )
+        by_page = rows_to_dicts(
+            conn.execute(
+                "SELECT page, COUNT(*) AS c FROM ad_visits WHERE business_id = ? "
+                "AND visited_at >= ? AND visited_at <= ? GROUP BY page ORDER BY c DESC",
+                (business_id, from_dt, to_dt),
+            ).fetchall()
+        )
+        recent = rows_to_dicts(
+            conn.execute(
+                "SELECT source, page, visited_at FROM ad_visits WHERE business_id = ? ORDER BY id DESC LIMIT 20",
+                (business_id,),
+            ).fetchall()
+        )
+    finally:
+        conn.close()
+    return {
+        "total": total,
+        "ad_visits": ad_visits,
+        "ad_bookings": ad_bookings,
+        "conversion": round(ad_bookings / ad_visits * 100, 1) if ad_visits else 0.0,
+        "by_source": by_source,
+        "by_page": by_page,
+        "recent": recent,
+    }
 
 
 # ---- Login / logout ----
@@ -376,6 +442,20 @@ def portal_dashboard(request: Request):
         for i in range(8)
     ]
 
+    arange = request.query_params.get("range", "7d")
+    from_dt, to_dt = _analytics_window(
+        arange, request.query_params.get("from") or "", request.query_params.get("to") or ""
+    )
+    analytics = _analytics(business["id"], from_dt, to_dt)
+    ad_links = [
+        {
+            "key": key,
+            "label": label,
+            "url": f"https://{business['slug']}.{settings.PUBLIC_BASE_DOMAIN}/?utm_source={key}",
+        }
+        for key, label in settings.AD_SOURCES.items()
+    ]
+
     return templates.TemplateResponse(
         request,
         "portal_dashboard.html",
@@ -397,6 +477,12 @@ def portal_dashboard(request: Request):
             "feedback": feedback,
             "gallery": gallery,
             "subscription": dict(sub_row) if sub_row else None,
+            "analytics": analytics,
+            "analytics_range": arange,
+            "analytics_from": from_dt[:10],
+            "analytics_to": to_dt[:10],
+            "ad_links": ad_links,
+            "ad_sources": settings.AD_SOURCES,
             "counts": _counts(business["id"]),
             "day_order": DAY_ORDER,
             "day_labels": DAY_LABELS,

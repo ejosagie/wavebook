@@ -105,6 +105,29 @@ def _record_visit(page: str) -> None:
         conn.close()
 
 
+def _track_tenant_page(request: Request, business: dict, page: str) -> str:
+    """Record a tenant page view and return the ad source ('' if none).
+
+    The source comes from ?utm_source= (the ad links owners copy from the
+    portal) or the wb_src cookie, so a visitor keeps their attribution while
+    browsing. The caller sets the cookie on the response when utm_source is
+    present so the source follows them to the booking form.
+    """
+    source = (request.query_params.get("utm_source") or "").strip().lower()
+    if not source:
+        source = request.cookies.get("wb_src", "")
+    conn = get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO ad_visits (business_id, source, page) VALUES (?, ?, ?)",
+            (business["id"], source, page),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return source
+
+
 CURRENCY_SYMBOLS = {
     "GBP": "£",
     "USD": "$",
@@ -1190,7 +1213,8 @@ def tenant_home(request: Request, slug: str):
         )
     finally:
         conn.close()
-    return templates.TemplateResponse(
+    source = _track_tenant_page(request, business, "home")
+    response = templates.TemplateResponse(
         request,
         "tenant/index.html",
         {
@@ -1205,6 +1229,9 @@ def tenant_home(request: Request, slug: str):
             "format_duration": _format_duration,
         },
     )
+    if request.query_params.get("utm_source"):
+        response.set_cookie("wb_src", source, max_age=60 * 60 * 24 * 30, samesite="lax")
+    return response
 
 
 @router.get("/t/{slug}/services", response_class=HTMLResponse)
@@ -1221,7 +1248,8 @@ def tenant_services(request: Request, slug: str):
         )
     finally:
         conn.close()
-    return templates.TemplateResponse(
+    source = _track_tenant_page(request, business, "services")
+    response = templates.TemplateResponse(
         request,
         "tenant/services.html",
         {
@@ -1232,6 +1260,9 @@ def tenant_services(request: Request, slug: str):
             "format_duration": _format_duration,
         },
     )
+    if request.query_params.get("utm_source"):
+        response.set_cookie("wb_src", source, max_age=60 * 60 * 24 * 30, samesite="lax")
+    return response
 
 
 @router.get("/t/{slug}/calendar.ics", response_class=PlainTextResponse)
@@ -1281,7 +1312,8 @@ def tenant_booking_page(request: Request, slug: str, service: int | None = None)
         )
     finally:
         conn.close()
-    return templates.TemplateResponse(
+    source = _track_tenant_page(request, business, "booking")
+    response = templates.TemplateResponse(
         request,
         "tenant/booking.html",
         {
@@ -1295,6 +1327,9 @@ def tenant_booking_page(request: Request, slug: str, service: int | None = None)
             "format_duration": _format_duration,
         },
     )
+    if request.query_params.get("utm_source"):
+        response.set_cookie("wb_src", source, max_age=60 * 60 * 24 * 30, samesite="lax")
+    return response
 
 
 @router.get("/t/{slug}/api/slots")
@@ -1479,13 +1514,14 @@ async def tenant_booking_submit(
         cur = conn.execute(
             """INSERT INTO bookings
                (business_id, customer_name, customer_email, customer_phone, service_id,
-                service_name, service_price, service_duration_minutes, date, time, notes, reference, intake_answers)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                service_name, service_price, service_duration_minutes, date, time, notes, reference, intake_answers, source)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 business["id"], name.strip(), email.strip(), phone, services[0]["id"],
                 summary_name, total_price, total_duration,
                 date, time, notes.strip(), generate_reference(),
                 json.dumps(await _collect_intake_answers(services, request)),
+                request.cookies.get("wb_src", ""),
             ),
         )
         booking_id = cur.lastrowid
@@ -1893,7 +1929,8 @@ def tenant_store(request: Request, slug: str):
         )
     finally:
         conn.close()
-    return templates.TemplateResponse(
+    source = _track_tenant_page(request, business, "store")
+    response = templates.TemplateResponse(
         request,
         "tenant/store.html",
         {
@@ -1903,6 +1940,9 @@ def tenant_store(request: Request, slug: str):
             "format_price": _format_price,
         },
     )
+    if request.query_params.get("utm_source"):
+        response.set_cookie("wb_src", source, max_age=60 * 60 * 24 * 30, samesite="lax")
+    return response
 
 
 @router.get("/t/{slug}/store/order/{order_id}/success", response_class=HTMLResponse)
