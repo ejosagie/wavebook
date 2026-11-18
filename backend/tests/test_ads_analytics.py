@@ -117,6 +117,8 @@ def test_portal_analytics_tab_shows_links_and_stats(client, make_business):
     assert res.status_code == 200
     assert "Ads &amp; Analytics" in res.text
     assert "utm_source=metafeeds" in res.text
+    assert "https://adco4.wab.ad/?utm_source=metafeeds" in res.text
+    assert "https://adco4.wab.ad/?utm_source=tiktokfeeds" in res.text
     assert "Meta (Instagram &amp; Facebook)" in res.text
     assert '<div class="num">3</div><div class="label">Visits</div>' in res.text
     assert '<div class="num">2</div><div class="label">Ad visits</div>' in res.text

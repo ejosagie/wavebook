@@ -36,7 +36,7 @@
       <div class="info-card" style="border-color: var(--success); text-align:center;">
         <div style="font-size:3rem;">✅</div>
         <h3 style="color: var(--success);">Payment Received — Awaiting Confirmation</h3>
-        <p>Your booking reference is: <strong style="color: var(--pink-dark);">{{ booking.id }}</strong></p>
+        <p>Your booking reference is: <strong style="color: var(--pink-dark);">{{ booking.reference or booking.id }}</strong></p>
         <p style="margin-top: 8px;">
           {{ booking.service_name }} on {{ booking.date }} at {{ booking.time }}.
           The business will confirm your booking shortly — you will receive a text message once it is confirmed.
@@ -45,7 +45,7 @@
       {% else %}
       <div class="info-card" style="border-color: var(--success);">
         <h3 style="color: var(--success);">Booking Received!</h3>
-        <p>Your booking reference is: <strong style="color: var(--pink-dark);">{{ booking.id }}</strong></p>
+        <p>Your booking reference is: <strong style="color: var(--pink-dark);">{{ booking.reference or booking.id }}</strong></p>
         <p style="margin-top: 8px;">Complete your payment below to confirm your booking — the business will be notified once your payment is confirmed.</p>
       </div>
 

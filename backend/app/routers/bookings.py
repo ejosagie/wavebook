@@ -24,8 +24,8 @@ router = APIRouter(prefix="/api/bookings", tags=["bookings"])
 
 
 def generate_reference() -> str:
-    """A short, human-friendly booking reference (avoids ambiguous characters)."""
-    return "".join(secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(6))
+    """A human-friendly booking reference (avoids ambiguous characters)."""
+    return "WB-" + "".join(secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(6))
 
 
 @router.get("")

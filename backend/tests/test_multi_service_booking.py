@@ -75,6 +75,27 @@ def test_booking_with_multiple_services_stores_totals_and_items(client, make_bus
     assert items[1]["service_price"] == 40.0
 
 
+def test_booking_success_shows_generated_reference_not_id(client, make_business, monkeypatch):
+    _open_slot(monkeypatch)
+    biz = make_business("refco", plan="premium_monthly", deposit=25.0)
+    ids = _make_services(client, biz["owner_token"], count=1)
+
+    res = _book(client, "refco", ids)
+    assert res.status_code == 200, res.text
+    assert "Your booking reference is:" in res.text
+
+    conn = database.get_connection()
+    try:
+        booking = conn.execute("SELECT * FROM bookings WHERE business_id = ?", (biz["id"],)).fetchone()
+    finally:
+        conn.close()
+
+    assert booking["reference"].startswith("WB-")
+    assert booking["reference"] in res.text
+    # The numeric database id must not be shown as the reference
+    assert f">Your booking reference is: <strong style=\"color: var(--pink-dark);\">{booking['id']}</strong>" not in res.text
+
+
 def test_booking_deposit_capped_at_total_price(client, make_business, monkeypatch, tmp_path):
     _open_slot(monkeypatch)
     biz = make_business("depco", plan="premium_monthly", deposit=100.0)
