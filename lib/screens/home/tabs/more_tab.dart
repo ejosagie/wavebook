@@ -103,7 +103,7 @@ class _MoreTabState extends State<MoreTab> {
           _MenuCard(
             icon: Icons.bar_chart,
             color: WaveBookColors.rose,
-            title: 'Report and Analytics',
+            title: 'Reports',
             subtitle: 'Bookings, deposits and order income',
             onTap: () => _push(context, const ReportsScreen()),
           ),

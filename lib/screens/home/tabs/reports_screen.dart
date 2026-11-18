@@ -49,7 +49,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Report and Analytics')),
+      appBar: AppBar(title: const Text('Reports')),
       body: Column(
         children: [
           Padding(
